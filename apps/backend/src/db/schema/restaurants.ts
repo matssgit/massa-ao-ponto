@@ -1,6 +1,7 @@
 import { pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
 import { relations } from "drizzle-orm";
+import { reservations } from "./reservations.js";
 import { tables } from "./tables.js";
 
 export const restaurants = pgTable("restaurants", {
@@ -21,4 +22,5 @@ export const restaurants = pgTable("restaurants", {
 
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   tables: many(tables),
+  reservations: many(reservations),
 }));

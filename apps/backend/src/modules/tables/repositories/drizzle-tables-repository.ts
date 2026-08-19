@@ -3,10 +3,10 @@ import {
   Table,
   TablesRepository,
 } from "./tables-repository.js";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
-import { eq } from "drizzle-orm";
-import { tables } from "../../../db/schema/tables.js";
+import { tables } from "../../../db/index.js";
 
 export class DrizzleTablesRepository implements TablesRepository {
   async create(data: CreateTableInput): Promise<Table> {
@@ -19,5 +19,30 @@ export class DrizzleTablesRepository implements TablesRepository {
       .select()
       .from(tables)
       .where(eq(tables.restaurantId, restaurantId));
+  }
+
+  async findByRestaurantAndNumber(
+    restaurantId: string,
+    number: string,
+  ): Promise<Table | null> {
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(
+        and(eq(tables.restaurantId, restaurantId), eq(tables.number, number)),
+      );
+
+    return table || null;
+  }
+
+  constructor(private readonly client: any = db) {}
+
+  async findByIdForUpdate(id: string): Promise<Table | null> {
+    const result = await this.client
+      .select()
+      .from(tables)
+      .where(eq(tables.id, id))
+      .for("update");
+    return result[0] || null;
   }
 }

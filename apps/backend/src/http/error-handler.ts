@@ -1,10 +1,20 @@
-import { FastifyInstance } from "fastify";
+import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
+
+import { CapacityExceededError } from "../modules/reservations/errors/capacity-exceeded-error.js";
+import { InvalidTimeRangeError } from "../modules/reservations/errors/invalid-time-range-error.js";
+import { ReservationConflictError } from "../modules/reservations/errors/reservation-conflict-error.js";
 import { RestaurantNotFoundError } from "../modules/restaurants/errors/restaurant-not-found-error.js";
+import { TableInactiveError } from "../modules/reservations/errors/table-inactive-error.js";
+import { TableNotFoundError } from "../modules/reservations/errors/table-not-found-error.js";
+import { TableNumberAlreadyExistsError } from "../modules/tables/errors/table-number-already-exists-error.js";
+import { TableRestaurantMismatchError } from "../modules/reservations/errors/table-restaurant-mismatch-error.js";
 import { ZodError } from "zod";
 
-type FastifyErrorHandler = FastifyInstance["errorHandler"];
-
-export const errorHandler: FastifyErrorHandler = (error, request, reply) => {
+export const errorHandler = (
+  error: FastifyError,
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
   if (error instanceof ZodError) {
     return reply.status(400).send({
       message: "Validation error.",
@@ -12,8 +22,27 @@ export const errorHandler: FastifyErrorHandler = (error, request, reply) => {
     });
   }
 
-  if (error instanceof RestaurantNotFoundError) {
+  if (
+    error instanceof RestaurantNotFoundError ||
+    error instanceof TableNotFoundError
+  ) {
     return reply.status(404).send({ message: error.message });
+  }
+
+  if (
+    error instanceof TableRestaurantMismatchError ||
+    error instanceof InvalidTimeRangeError
+  ) {
+    return reply.status(400).send({ message: error.message });
+  }
+
+  if (
+    error instanceof TableNumberAlreadyExistsError ||
+    error instanceof ReservationConflictError ||
+    error instanceof TableInactiveError ||
+    error instanceof CapacityExceededError
+  ) {
+    return reply.status(409).send({ message: error.message });
   }
 
   console.error(error);

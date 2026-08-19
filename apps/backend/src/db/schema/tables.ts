@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
+import { reservations } from "./reservations.js";
 import { restaurants } from "./restaurants.js";
 
 export const tables = pgTable(
@@ -35,9 +36,10 @@ export const tables = pgTable(
   }),
 );
 
-export const tablesRelations = relations(tables, ({ one }) => ({
+export const tablesRelations = relations(tables, ({ one, many }) => ({
   restaurant: one(restaurants, {
     fields: [tables.restaurantId],
     references: [restaurants.id],
   }),
+  reservations: many(reservations),
 }));

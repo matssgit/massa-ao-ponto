@@ -28,4 +28,18 @@ export class InMemoryTablesRepository implements TablesRepository {
   async findByRestaurantId(restaurantId: string): Promise<Table[]> {
     return this.items.filter((item) => item.restaurantId === restaurantId);
   }
+
+  async findByRestaurantAndNumber(
+    restaurantId: string,
+    number: string,
+  ): Promise<Table | null> {
+    const table = this.items.find(
+      (item) => item.restaurantId === restaurantId && item.number === number,
+    );
+    return table || null;
+  }
+
+  async findByIdForUpdate(id: string): Promise<Table | null> {
+    return this.items.find((item) => item.id === id) || null;
+  }
 }
