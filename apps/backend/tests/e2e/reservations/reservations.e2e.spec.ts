@@ -382,4 +382,162 @@ describe("Reservations (E2E)", () => {
     });
     expect(response.statusCode).toBe(201);
   });
+
+  it("should be able to update reservation status to CONFIRMED (200)", async () => {
+    const { restaurant, table } = await setupBase();
+
+    const createRes = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "João", phone: "11988888888" },
+        people: 2,
+        startsAt: "2026-08-20T19:00:00.000Z",
+        endsAt: "2026-08-20T21:00:00.000Z",
+      },
+    });
+
+    const reservation = createRes.json();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/reservations/${reservation.id}/status`,
+      payload: {
+        status: "CONFIRMED",
+        observation: "Confirmado por telefone",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().status).toBe("CONFIRMED");
+
+    const history = await db
+      .select()
+      .from(reservationHistory)
+      .where(eq(reservationHistory.reservationId, reservation.id));
+    expect(history).toHaveLength(2);
+    expect(history[1]).toMatchObject({
+      action: "STATUS_CHANGED",
+      previousStatus: "SCHEDULED",
+      newStatus: "CONFIRMED",
+      observation: "Confirmado por telefone",
+    });
+  });
+
+  it("should return 409 when applying an invalid status transition", async () => {
+    const { restaurant, table } = await setupBase();
+    const createRes = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "João", phone: "11988888888" }, // <- Telefone corrigido aqui!
+        people: 2,
+        startsAt: "2026-08-20T19:00:00Z",
+        endsAt: "2026-08-20T21:00:00Z",
+      },
+    });
+
+    const reservation = createRes.json();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/reservations/${reservation.id}/status`,
+      payload: { status: "FINISHED" },
+    });
+
+    expect(response.statusCode).toBe(409);
+  });
+
+  it("should return 404 for non-existent reservation status update", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/reservations/${randomUUID()}/status`,
+      payload: { status: "CONFIRMED" },
+    });
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("should return 400 for invalid UUID in params", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/reservations/invalid-id/status`,
+      payload: { status: "CONFIRMED" },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("should return 400 for invalid body payload", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/reservations/${randomUUID()}/status`,
+      payload: { status: "INVALID_STATUS" },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("should be able to list reservations with filters and sorting (200)", async () => {
+    const { restaurant, table } = await setupBase();
+
+    await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "João", phone: "11988888888" },
+        people: 2,
+        startsAt: "2026-08-20T19:00:00.000Z",
+        endsAt: "2026-08-20T21:00:00.000Z",
+      },
+    });
+
+    const res2 = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "Maria", phone: "11977777777" },
+        people: 2,
+        startsAt: "2026-08-20T17:00:00.000Z",
+        endsAt: "2026-08-20T19:00:00.000Z",
+      },
+    });
+
+    const secondReservationId = res2.json().id;
+    await app.inject({
+      method: "PATCH",
+      url: `/reservations/${secondReservationId}/status`,
+      payload: { status: "CONFIRMED" },
+    });
+
+    const listAllResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/reservations`,
+    });
+
+    expect(listAllResponse.statusCode).toBe(200);
+    const listAll = listAllResponse.json();
+    expect(listAll).toHaveLength(2);
+    expect(listAll[0].startsAt).toContain("17:00:00");
+
+    const listFilteredResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/reservations?status=CONFIRMED`,
+    });
+
+    expect(listFilteredResponse.statusCode).toBe(200);
+    const listFiltered = listFilteredResponse.json();
+    expect(listFiltered).toHaveLength(1);
+    expect(listFiltered[0].status).toBe("CONFIRMED");
+  });
+
+  it("should return 400 for inverted date range filter (startsAt > endsAt)", async () => {
+    const { restaurant } = await setupBase();
+    const response = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/reservations?startsAt=2026-08-20T21:00:00.000Z&endsAt=2026-08-20T19:00:00.000Z`,
+    });
+    expect(response.statusCode).toBe(400);
+  });
 });

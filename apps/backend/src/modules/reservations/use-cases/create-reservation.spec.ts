@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { CapacityExceededError } from "../errors/capacity-exceeded-error.js";
 import { CreateReservationUseCase } from "./create-reservation.use-case.js";
-import { InMemoryCustomersRepository } from "../repositories/in-memory-customers.repository.js";
+import { InMemoryCustomersRepository } from "../repositories/in-memory-customers-repository.js";
 import { InMemoryReservationHistoryRepository } from "../repositories/in-memory-reservation-history-repository.js";
 import { InMemoryReservationTransactionManager } from "../repositories/in-memory-reservation-transaction-manager.js";
 import { InMemoryReservationsRepository } from "../repositories/in-memory-reservations-repository.js";

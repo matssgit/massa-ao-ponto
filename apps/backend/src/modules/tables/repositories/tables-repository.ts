@@ -24,4 +24,8 @@ export interface TablesRepository {
     number: string,
   ): Promise<Table | null>;
   findByIdForUpdate(id: string): Promise<Table | null>;
+  findManyActiveByRestaurantId(
+    restaurantId: string,
+    minCapacity?: number,
+  ): Promise<Table[]>;
 }

@@ -1,8 +1,12 @@
 import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 
 import { CapacityExceededError } from "../modules/reservations/errors/capacity-exceeded-error.js";
+import { InvalidReservationStatusTransitionError } from "../modules/reservations/errors/invalid-reservation-status-transition-error.js";
 import { InvalidTimeRangeError } from "../modules/reservations/errors/invalid-time-range-error.js";
+import { InvalidTimeRangeFilterError } from "../modules/reservations/errors/invalid-time-range-filter-error.js"; // <- import topo
+import { ReservationCancellationWindowExpiredError } from "../modules/reservations/errors/reservation-cancellation-window-expired-error.js"; // <- import no topo
 import { ReservationConflictError } from "../modules/reservations/errors/reservation-conflict-error.js";
+import { ReservationNotFoundError } from "../modules/reservations/errors/reservation-not-found-error.js";
 import { RestaurantNotFoundError } from "../modules/restaurants/errors/restaurant-not-found-error.js";
 import { TableInactiveError } from "../modules/reservations/errors/table-inactive-error.js";
 import { TableNotFoundError } from "../modules/reservations/errors/table-not-found-error.js";
@@ -24,14 +28,16 @@ export const errorHandler = (
 
   if (
     error instanceof RestaurantNotFoundError ||
-    error instanceof TableNotFoundError
+    error instanceof TableNotFoundError ||
+    error instanceof ReservationNotFoundError
   ) {
     return reply.status(404).send({ message: error.message });
   }
 
   if (
     error instanceof TableRestaurantMismatchError ||
-    error instanceof InvalidTimeRangeError
+    error instanceof InvalidTimeRangeError ||
+    error instanceof InvalidTimeRangeFilterError
   ) {
     return reply.status(400).send({ message: error.message });
   }
@@ -40,7 +46,9 @@ export const errorHandler = (
     error instanceof TableNumberAlreadyExistsError ||
     error instanceof ReservationConflictError ||
     error instanceof TableInactiveError ||
-    error instanceof CapacityExceededError
+    error instanceof CapacityExceededError ||
+    error instanceof InvalidReservationStatusTransitionError ||
+    error instanceof ReservationCancellationWindowExpiredError
   ) {
     return reply.status(409).send({ message: error.message });
   }

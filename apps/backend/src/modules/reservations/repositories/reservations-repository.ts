@@ -28,4 +28,21 @@ export interface ReservationsRepository {
     startsAt: Date,
     endsAt: Date,
   ): Promise<Reservation | null>;
+  findById(id: string): Promise<Reservation | null>;
+  updateStatus(id: string, status: Reservation["status"]): Promise<Reservation>;
+  findManyByRestaurantId(
+    filters: FindManyReservationsFilters,
+  ): Promise<Reservation[]>;
+  findConflictingTableIds(
+    restaurantId: string,
+    startsAt: Date,
+    endsAt: Date,
+  ): Promise<string[]>;
+}
+
+export interface FindManyReservationsFilters {
+  restaurantId: string;
+  status?: "SCHEDULED" | "CONFIRMED" | "CANCELLED" | "FINISHED" | "NO_SHOW";
+  startsAt?: Date;
+  endsAt?: Date;
 }

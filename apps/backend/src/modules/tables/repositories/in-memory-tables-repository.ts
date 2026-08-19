@@ -42,4 +42,16 @@ export class InMemoryTablesRepository implements TablesRepository {
   async findByIdForUpdate(id: string): Promise<Table | null> {
     return this.items.find((item) => item.id === id) || null;
   }
+
+  async findManyActiveByRestaurantId(
+    restaurantId: string,
+    minCapacity?: number,
+  ): Promise<Table[]> {
+    return this.items.filter((table) => {
+      if (table.restaurantId !== restaurantId) return false;
+      if (!table.active) return false;
+      if (minCapacity && table.capacity < minCapacity) return false;
+      return true;
+    });
+  }
 }

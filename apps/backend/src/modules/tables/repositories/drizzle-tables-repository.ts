@@ -3,7 +3,7 @@ import {
   Table,
   TablesRepository,
 } from "./tables-repository.js";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { tables } from "../../../db/index.js";
@@ -44,5 +44,24 @@ export class DrizzleTablesRepository implements TablesRepository {
       .where(eq(tables.id, id))
       .for("update");
     return result[0] || null;
+  }
+
+  async findManyActiveByRestaurantId(
+    restaurantId: string,
+    minCapacity?: number,
+  ): Promise<Table[]> {
+    const conditions = [
+      eq(tables.restaurantId, restaurantId),
+      eq(tables.active, true),
+    ];
+
+    if (minCapacity) {
+      conditions.push(gte(tables.capacity, minCapacity));
+    }
+
+    return await this.client
+      .select()
+      .from(tables)
+      .where(and(...conditions));
   }
 }
