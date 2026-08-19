@@ -1,40 +1,41 @@
 # 🍕 Massa ao Ponto
 
-> Sistema completo de gestão e operação para uma pizzaria,
-> desenvolvido como projeto de portfólio com foco em arquitetura,
-> backend e integração de sistemas.
+> Sistema de gestão e operação para uma pizzaria, desenvolvido como projeto de portfólio com foco em arquitetura, backend, regras de negócio e integração de sistemas.
 
 🚧 **Status: Em desenvolvimento**
 
-O Massa ao Ponto está sendo desenvolvido progressivamente.
-Algumas funcionalidades ainda não estão disponíveis.
+O Massa ao Ponto está sendo desenvolvido de forma incremental, utilizando feature slices para evoluir o sistema com regras de negócio bem definidas, testes automatizados e integração real com PostgreSQL.
+
+---
 
 ## 🚀 Status do projeto
 
-| Módulo                   | Status                |
-| ------------------------ | --------------------- |
-| Infraestrutura           | ✅ Concluído          |
-| Restaurantes             | ✅ Concluído          |
-| Mesas                    | 🚧 Em desenvolvimento |
-| Reservas                 | ⏳ Planejado          |
-| Disponibilidade          | ⏳ Planejado          |
-| Delivery                 | ⏳ Planejado          |
-| Pagamentos               | ⏳ Planejado          |
-| Automações               | ⏳ Planejado          |
-| Dashboard administrativo | ⏳ Planejado          |
+| Módulo                   | Status                   |
+| ------------------------ | ------------------------ |
+| Infraestrutura           | ✅ Concluído             |
+| Restaurantes             | ✅ Concluído             |
+| Mesas                    | ✅ Criação e listagem    |
+| Reservas                 | ✅ Milestone 1 concluído |
+| Disponibilidade          | ✅ Concluído             |
+| Delivery                 | ⏳ Planejado             |
+| Pagamentos               | ⏳ Planejado             |
+| Automações               | ⏳ Planejado             |
+| Dashboard administrativo | ⏳ Planejado             |
 
-## 🎯 Objetivo
+### Milestone 1 — Reservas
 
-Este projeto está sendo desenvolvido como um estudo prático
-de engenharia de software, explorando:
+A primeira grande etapa do sistema está concluída, cobrindo o ciclo principal de reservas:
 
-- arquitetura modular;
-- APIs REST;
-- PostgreSQL;
-- testes automatizados;
-- integração entre serviços;
-- regras de negócio;
-- processamento de pedidos;
-- reservas e controle de disponibilidade;
-- pagamentos;
-- automações.
+- criação de reservas;
+- validação de capacidade;
+- validação de mesa e restaurante;
+- prevenção de conflitos de horário;
+- controle de concorrência;
+- atualização de status;
+- cancelamento;
+- listagem com filtros;
+- consulta individual;
+- consulta de disponibilidade;
+- histórico de alterações.
+
+**120 testes automatizados passando em 19 arquivos de teste.**
