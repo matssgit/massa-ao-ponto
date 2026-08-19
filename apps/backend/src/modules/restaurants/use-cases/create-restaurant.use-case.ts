@@ -14,7 +14,6 @@ export class CreateRestaurantUseCase {
   constructor(private restaurantsRepository: RestaurantsRepository) {}
 
   async execute(request: CreateRestaurantUseCaseRequest): Promise<Restaurant> {
-    // Aqui não tem Request, Reply, Zod ou HTTP Status. Apenas dados primitivos e lógica.
     const restaurant = await this.restaurantsRepository.create({
       name: request.name,
       address: request.address,

@@ -4,7 +4,7 @@ import { CreateRestaurantUseCase } from "./create-restaurant.use-case.js";
 import { InMemoryRestaurantsRepository } from "../repositories/in-memory-restaurants-repository.js";
 
 let restaurantsRepository: InMemoryRestaurantsRepository;
-let sut: CreateRestaurantUseCase; // sut = system under test
+let sut: CreateRestaurantUseCase;
 
 describe("Create Restaurant Use Case", () => {
   beforeEach(() => {
@@ -32,7 +32,6 @@ describe("Create Restaurant Use Case", () => {
       timezone: "America/Sao_Paulo",
     });
 
-    // Validando o efeito colateral (persistência) no array em memória
     const persistedRestaurant = await restaurantsRepository.findById(
       restaurant.id,
     );
