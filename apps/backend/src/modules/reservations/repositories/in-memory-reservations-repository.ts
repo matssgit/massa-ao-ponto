@@ -96,4 +96,16 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
       )
       .map((res) => res.tableId);
   }
+
+  async findByCustomerId(customerId: string): Promise<Reservation[]> {
+    return this.items
+      .filter((item) => item.customerId === customerId)
+      .sort((a, b) => {
+        const timeComparison = a.startsAt.getTime() - b.startsAt.getTime();
+        if (timeComparison !== 0) {
+          return timeComparison;
+        }
+        return a.id.localeCompare(b.id);
+      });
+  }
 }

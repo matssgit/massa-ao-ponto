@@ -38,6 +38,7 @@ export interface ReservationsRepository {
     startsAt: Date,
     endsAt: Date,
   ): Promise<string[]>;
+  findByCustomerId(customerId: string): Promise<Reservation[]>;
 }
 
 export interface FindManyReservationsFilters {

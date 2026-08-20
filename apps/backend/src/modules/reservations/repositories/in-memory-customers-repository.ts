@@ -23,4 +23,8 @@ export class InMemoryCustomersRepository implements CustomersRepository {
     this.items.push(customer);
     return customer;
   }
+
+  async findById(id: string): Promise<Customer | null> {
+    return this.items.find((item) => item.id === id) || null;
+  }
 }

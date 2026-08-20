@@ -105,4 +105,12 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
 
     return result.map((row: { tableId: string }) => row.tableId);
   }
+
+  async findByCustomerId(customerId: string): Promise<Reservation[]> {
+    return await this.client
+      .select()
+      .from(reservations)
+      .where(eq(reservations.customerId, customerId))
+      .orderBy(asc(reservations.startsAt), asc(reservations.id));
+  }
 }

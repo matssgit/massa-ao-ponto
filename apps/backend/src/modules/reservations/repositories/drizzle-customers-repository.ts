@@ -23,4 +23,13 @@ export class DrizzleCustomersRepository implements CustomersRepository {
     const result = await this.client.insert(customers).values(data).returning();
     return result[0];
   }
+
+  async findById(id: string): Promise<Customer | null> {
+    const result = await this.client
+      .select()
+      .from(customers)
+      .where(eq(customers.id, id));
+
+    return result[0] || null;
+  }
 }
