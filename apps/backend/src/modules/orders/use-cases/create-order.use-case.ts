@@ -1,0 +1,145 @@
+import { CreateOrderItemData } from "../repositories/order-items-repository.js";
+import { CustomerNotFoundError } from "../../customers/errors/customer-not-found-error.js";
+import { CustomersRepository } from "../../reservations/repositories/customers-repository.js";
+import { DuplicateProductInOrderError } from "../errors/duplicate-product-in-order-error.js";
+import { InvalidDeliveryFeeError } from "../errors/invalid-delivery-fee-error.js";
+import { InvalidItemQuantityError } from "../errors/invalid-item-quantity-error.js";
+import { MissingDeliveryAddressError } from "../errors/missing-delivery-address-error.js";
+import { OrderTransactionManager } from "../repositories/order-transaction-manager.js";
+import { ProductInactiveError } from "../errors/product-inactive-error.js";
+import { ProductNotFoundError } from "../errors/product-not-found-error.js";
+import { ProductRestaurantMismatchError } from "../errors/product-restaurant-mismatch-error.js";
+import { ProductsRepository } from "../../products/repositories/products-repository.js";
+import { RestaurantNotFoundError } from "../../restaurants/errors/restaurant-not-found-error.js";
+import { RestaurantsRepository } from "../../restaurants/repositories/restaurants-repository.js";
+
+interface CreateOrderRequestItem {
+  productId: string;
+  quantity: number;
+}
+
+export interface CreateOrderRequest {
+  restaurantId: string;
+  customerId: string;
+  type: "DELIVERY" | "PICKUP";
+  items: CreateOrderRequestItem[];
+  deliveryFee: number;
+  deliveryAddress?: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  observation?: string;
+}
+
+export class CreateOrderUseCase {
+  constructor(
+    private readonly restaurantsRepository: RestaurantsRepository,
+    private readonly customersRepository: CustomersRepository,
+    private readonly productsRepository: ProductsRepository,
+    private readonly transactionManager: OrderTransactionManager,
+  ) {}
+
+  async execute(request: CreateOrderRequest) {
+    const restaurant = await this.restaurantsRepository.findById(
+      request.restaurantId,
+    );
+    if (!restaurant) throw new RestaurantNotFoundError();
+
+    const customer = await this.customersRepository.findById(
+      request.customerId,
+    );
+    if (!customer) throw new CustomerNotFoundError();
+
+    const productIds = request.items.map((i) => i.productId);
+    const uniqueProductIds = new Set(productIds);
+    if (uniqueProductIds.size !== productIds.length) {
+      throw new DuplicateProductInOrderError();
+    }
+
+    const products = await Promise.all(
+      productIds.map((id) => this.productsRepository.findById(id)),
+    );
+
+    let subtotal = 0;
+    const itemsToCreate: Omit<CreateOrderItemData, "orderId">[] = [];
+
+    for (let i = 0; i < request.items.length; i++) {
+      const itemRequest = request.items[i];
+      const product = products[i];
+
+      if (!product) throw new ProductNotFoundError();
+      if (!product.active) throw new ProductInactiveError();
+      if (product.restaurantId !== request.restaurantId)
+        throw new ProductRestaurantMismatchError();
+      if (itemRequest.quantity <= 0) throw new InvalidItemQuantityError();
+
+      const itemSubtotal = product.price * itemRequest.quantity;
+      subtotal += itemSubtotal;
+
+      itemsToCreate.push({
+        productId: product.id,
+        productName: product.name,
+        unitPrice: product.price,
+        quantity: itemRequest.quantity,
+        subtotal: itemSubtotal,
+      });
+    }
+
+    if (request.type === "PICKUP") {
+      if (request.deliveryFee !== 0) throw new InvalidDeliveryFeeError();
+    } else {
+      if (request.deliveryFee < 0) throw new InvalidDeliveryFeeError();
+      if (!request.deliveryAddress) throw new MissingDeliveryAddressError();
+    }
+
+    const total = subtotal + request.deliveryFee;
+
+    return await this.transactionManager.transaction(
+      async ({
+        ordersRepository,
+        orderItemsRepository,
+        orderHistoryRepository,
+      }) => {
+        const order = await ordersRepository.create({
+          restaurantId: request.restaurantId,
+          customerId: request.customerId,
+          type: request.type,
+          status: "PENDING",
+          paymentStatus: "PENDING",
+          subtotal,
+          deliveryFee: request.deliveryFee,
+          total,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          deliveryStreet: request.deliveryAddress?.street ?? null,
+          deliveryNumber: request.deliveryAddress?.number ?? null,
+          deliveryComplement: request.deliveryAddress?.complement ?? null,
+          deliveryNeighborhood: request.deliveryAddress?.neighborhood ?? null,
+          deliveryCity: request.deliveryAddress?.city ?? null,
+          deliveryState: request.deliveryAddress?.state ?? null,
+          deliveryZipCode: request.deliveryAddress?.zipCode ?? null,
+          observation: request.observation ?? null,
+        });
+
+        await orderItemsRepository.createMany(
+          itemsToCreate.map((item) => ({ ...item, orderId: order.id })),
+        );
+
+        await orderHistoryRepository.create({
+          orderId: order.id,
+          action: "CREATED",
+          previousStatus: null,
+          newStatus: "PENDING",
+          observation: "Pedido criado",
+        });
+
+        return order;
+      },
+    );
+  }
+}

@@ -6,6 +6,11 @@ import {
   restaurants,
   tables,
 } from "../../../src/db/schema/index.js";
+import {
+  orderHistory,
+  orderItems,
+  orders,
+} from "../../../src/db/schema/index.js";
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
@@ -21,6 +26,9 @@ describe("Get Reservation (E2E)", () => {
   });
 
   beforeEach(async () => {
+    await db.delete(orderHistory);
+    await db.delete(orderItems);
+    await db.delete(orders);
     await db.delete(reservationHistory);
     await db.delete(reservations);
     await db.delete(customers);
