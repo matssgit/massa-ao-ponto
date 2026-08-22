@@ -1,36 +1,38 @@
+import { DeliveriesRepository } from "./deliveries-repository.js";
+import { DeliveryHistoryRepository } from "./delivery-history-repository.js";
+import { DeliveryTransactionManager } from "./delivery-transaction-manager.js";
+import { DrizzleDeliveriesRepository } from "./drizzle-deliveries-repository.js";
+import { DrizzleDeliveryHistoryRepository } from "./drizzle-delivery-history-repository.js";
 import { DrizzleOrderHistoryRepository } from "./drizzle-order-history-repository.js";
-import { DrizzleOrderItemsRepository } from "./drizzle-order-items-repository.js";
 import { DrizzleOrdersRepository } from "./drizzle-orders-repository.js";
-import { DrizzleTablesRepository } from "../../tables/repositories/drizzle-tables-repository.js";
 import { OrderHistoryRepository } from "./order-history-repository.js";
-import { OrderItemsRepository } from "./order-items-repository.js";
-import { OrderTransactionManager } from "./order-transaction-manager.js";
 import { OrdersRepository } from "./orders-repository.js";
-import { TablesRepository } from "../../tables/repositories/tables-repository.js";
 import { db } from "../../../db/index.js";
 
-export class DrizzleOrderTransactionManager implements OrderTransactionManager {
+export class DrizzleDeliveryTransactionManager implements DeliveryTransactionManager {
   constructor(private readonly client: any = db) {}
 
   async transaction<T>(
     callback: (repositories: {
+      deliveriesRepository: DeliveriesRepository;
+      deliveryHistoryRepository: DeliveryHistoryRepository;
       ordersRepository: OrdersRepository;
-      orderItemsRepository: OrderItemsRepository;
       orderHistoryRepository: OrderHistoryRepository;
-      tablesRepository: TablesRepository;
     }) => Promise<T>,
   ): Promise<T> {
     return await this.client.transaction(async (tx: any) => {
+      const deliveriesRepository = new DrizzleDeliveriesRepository(tx);
+      const deliveryHistoryRepository = new DrizzleDeliveryHistoryRepository(
+        tx,
+      );
       const ordersRepository = new DrizzleOrdersRepository(tx);
-      const orderItemsRepository = new DrizzleOrderItemsRepository(tx);
       const orderHistoryRepository = new DrizzleOrderHistoryRepository(tx);
-      const tablesRepository = new DrizzleTablesRepository(tx);
 
       return await callback({
+        deliveriesRepository,
+        deliveryHistoryRepository,
         ordersRepository,
-        orderItemsRepository,
         orderHistoryRepository,
-        tablesRepository,
       });
     });
   }

@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  deliveries,
+  deliveryHistory,
   orderHistory,
   orderItems,
   orders,
@@ -21,6 +23,8 @@ describe("Tables (E2E)", () => {
   });
 
   beforeEach(async () => {
+    await db.delete(deliveryHistory);
+    await db.delete(deliveries);
     await db.delete(orderHistory);
     await db.delete(orderItems);
     await db.delete(orders);

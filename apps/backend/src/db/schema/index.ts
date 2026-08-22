@@ -10,3 +10,6 @@ export * from "./order-status.js";
 export * from "./orders.js";
 export * from "./order-items.js";
 export * from "./order-history.js";
+export * from "./delivery-status.js";
+export * from "./deliveries.js";
+export * from "./delivery-history.js";

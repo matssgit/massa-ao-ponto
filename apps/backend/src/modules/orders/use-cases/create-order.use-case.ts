@@ -4,6 +4,7 @@ import { CustomersRepository } from "../../reservations/repositories/customers-r
 import { DuplicateProductInOrderError } from "../errors/duplicate-product-in-order-error.js";
 import { InvalidDeliveryFeeError } from "../errors/invalid-delivery-fee-error.js";
 import { InvalidItemQuantityError } from "../errors/invalid-item-quantity-error.js";
+import { InvalidOrderTypeError } from "../errors/invalid-order-type-error.js";
 import { MissingDeliveryAddressError } from "../errors/missing-delivery-address-error.js";
 import { OrderTransactionManager } from "../repositories/order-transaction-manager.js";
 import { ProductInactiveError } from "../errors/product-inactive-error.js";
@@ -12,6 +13,10 @@ import { ProductRestaurantMismatchError } from "../errors/product-restaurant-mis
 import { ProductsRepository } from "../../products/repositories/products-repository.js";
 import { RestaurantNotFoundError } from "../../restaurants/errors/restaurant-not-found-error.js";
 import { RestaurantsRepository } from "../../restaurants/repositories/restaurants-repository.js";
+import { TableInactiveError } from "../../reservations/errors/table-inactive-error.js";
+import { TableNotFoundError } from "../../reservations/errors/table-not-found-error.js";
+import { TableOccupiedError } from "../errors/table-occupied-error.js";
+import { TableRestaurantMismatchError } from "../../reservations/errors/table-restaurant-mismatch-error.js";
 
 interface CreateOrderRequestItem {
   productId: string;
@@ -21,7 +26,8 @@ interface CreateOrderRequestItem {
 export interface CreateOrderRequest {
   restaurantId: string;
   customerId: string;
-  type: "DELIVERY" | "PICKUP";
+  type: "DELIVERY" | "PICKUP" | "DINE_IN";
+  tableId?: string;
   items: CreateOrderRequestItem[];
   deliveryFee: number;
   deliveryAddress?: {
@@ -45,6 +51,16 @@ export class CreateOrderUseCase {
   ) {}
 
   async execute(request: CreateOrderRequest) {
+    // 1. Validações estruturais do Tipo de Pedido e Mesa
+    if (request.type === "DINE_IN" && !request.tableId) {
+      throw new InvalidOrderTypeError("Pedidos DINE_IN exigem uma mesa.");
+    }
+    if (request.type !== "DINE_IN" && request.tableId) {
+      throw new InvalidOrderTypeError(
+        "Apenas pedidos DINE_IN podem ser vinculados a uma mesa.",
+      );
+    }
+
     const restaurant = await this.restaurantsRepository.findById(
       request.restaurantId,
     );
@@ -90,7 +106,8 @@ export class CreateOrderUseCase {
       });
     }
 
-    if (request.type === "PICKUP") {
+    // Regras de taxa de entrega agora incluem DINE_IN
+    if (request.type === "PICKUP" || request.type === "DINE_IN") {
       if (request.deliveryFee !== 0) throw new InvalidDeliveryFeeError();
     } else {
       if (request.deliveryFee < 0) throw new InvalidDeliveryFeeError();
@@ -99,15 +116,37 @@ export class CreateOrderUseCase {
 
     const total = subtotal + request.deliveryFee;
 
+    // 2. Transação atômica (Proteção de Concorrência e Gravação)
     return await this.transactionManager.transaction(
       async ({
         ordersRepository,
         orderItemsRepository,
         orderHistoryRepository,
+        tablesRepository, // <-- Injetado pelo Transaction Manager
       }) => {
+        // Se for Dine-In, a mesa é bloqueada pelo Postgres (SELECT FOR UPDATE)
+        // Isso impede que dois caixas abram pedidos simultaneamente na mesma mesa
+        if (request.type === "DINE_IN" && request.tableId) {
+          const table = await tablesRepository.findByIdForUpdate(
+            request.tableId,
+          );
+
+          if (!table) throw new TableNotFoundError();
+          if (table.restaurantId !== request.restaurantId)
+            throw new TableRestaurantMismatchError();
+          if (!table.active) throw new TableInactiveError();
+
+          const activeOrder =
+            await ordersRepository.findActiveDineInOrderByTableId(table.id);
+          if (activeOrder) {
+            throw new TableOccupiedError();
+          }
+        }
+
         const order = await ordersRepository.create({
           restaurantId: request.restaurantId,
           customerId: request.customerId,
+          tableId: request.tableId ?? null, // <-- Associa a mesa
           type: request.type,
           status: "PENDING",
           paymentStatus: "PENDING",
@@ -135,7 +174,10 @@ export class CreateOrderUseCase {
           action: "CREATED",
           previousStatus: null,
           newStatus: "PENDING",
-          observation: "Pedido criado",
+          observation:
+            request.type === "DINE_IN"
+              ? "Pedido DINE_IN (Mesa) criado"
+              : "Pedido criado",
         });
 
         return order;

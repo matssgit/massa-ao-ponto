@@ -1,12 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  deliveries,
+  deliveryHistory,
+  productCategories,
+  restaurants,
+} from "../../../src/db/schema/index.js";
+import {
   orderHistory,
   orderItems,
   orders,
-} from "../../../src/db/schema/index.js";
-import {
-  productCategories,
-  restaurants,
 } from "../../../src/db/schema/index.js";
 
 import { app } from "../../../src/server.js";
@@ -23,6 +25,8 @@ describe("Product Categories (E2E)", () => {
   });
 
   beforeEach(async () => {
+    await db.delete(deliveryHistory);
+    await db.delete(deliveries);
     await db.delete(orderHistory);
     await db.delete(orderItems);
     await db.delete(orders);

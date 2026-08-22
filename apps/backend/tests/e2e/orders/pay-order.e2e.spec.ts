@@ -16,7 +16,7 @@ import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
-describe("Cancel Order (E2E)", () => {
+describe("Pay Order (E2E)", () => {
   beforeAll(async () => await app.ready());
   afterAll(async () => await app.close());
 
@@ -32,7 +32,7 @@ describe("Cancel Order (E2E)", () => {
     await db.delete(restaurants);
   });
 
-  async function createOrder(status: string) {
+  async function createOrder(status: string, paymentStatus: string) {
     const [restaurant] = await db
       .insert(restaurants)
       .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
@@ -48,7 +48,7 @@ describe("Cancel Order (E2E)", () => {
         customerId: customer.id,
         type: "DELIVERY",
         status: status as any,
-        paymentStatus: "PENDING",
+        paymentStatus: paymentStatus as any,
         subtotal: 10,
         deliveryFee: 0,
         total: 10,
@@ -59,63 +59,56 @@ describe("Cancel Order (E2E)", () => {
     return order;
   }
 
-  describe("PATCH /orders/:orderId/cancel", () => {
-    it("deve cancelar um pedido PENDING com sucesso (200)", async () => {
-      const order = await createOrder("PENDING");
+  describe("PATCH /orders/:orderId/payment", () => {
+    it("deve confirmar o pagamento de um pedido e retornar 200", async () => {
+      const order = await createOrder("PENDING", "PENDING");
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/cancel`,
+        url: `/orders/${order.id}/payment`,
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().status).toBe("CANCELLED");
+      expect(response.json().paymentStatus).toBe("PAID");
 
       const dbOrder = await db
         .select()
         .from(orders)
         .where(eq(orders.id, order.id));
-      expect(dbOrder[0].status).toBe("CANCELLED");
+      expect(dbOrder[0].paymentStatus).toBe("PAID");
 
       const history = await db
         .select()
         .from(orderHistory)
         .where(eq(orderHistory.orderId, order.id));
       expect(history).toHaveLength(1);
-      expect(history[0].action).toBe("CANCELLED");
+      expect(history[0].action).toBe("PAYMENT_CONFIRMED");
       expect(history[0].previousStatus).toBe("PENDING");
-      expect(history[0].newStatus).toBe("CANCELLED");
+      expect(history[0].newStatus).toBe("PENDING");
     });
 
-    it("deve cancelar um pedido CONFIRMED com sucesso (200)", async () => {
-      const order = await createOrder("CONFIRMED");
+    it("deve retornar 409 se o pedido já estiver pago", async () => {
+      const order = await createOrder("PENDING", "PAID");
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/cancel`,
+        url: `/orders/${order.id}/payment`,
       });
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(409);
     });
 
-    it("deve rejeitar cancelamento de pedido em PREPARING ou DELIVERED (409)", async () => {
-      const preparingOrder = await createOrder("PREPARING");
-      const preparingRes = await app.inject({
+    it("deve rejeitar o pagamento de um pedido DELIVERED (409)", async () => {
+      const order = await createOrder("DELIVERED", "PENDING");
+      const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${preparingOrder.id}/cancel`,
+        url: `/orders/${order.id}/payment`,
       });
-      expect(preparingRes.statusCode).toBe(409);
-
-      const deliveredOrder = await createOrder("DELIVERED");
-      const deliveredRes = await app.inject({
-        method: "PATCH",
-        url: `/orders/${deliveredOrder.id}/cancel`,
-      });
-      expect(deliveredRes.statusCode).toBe(409);
+      expect(response.statusCode).toBe(409);
     });
 
     it("deve retornar 404 para pedido inexistente", async () => {
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${randomUUID()}/cancel`,
+        url: `/orders/${randomUUID()}/payment`,
       });
       expect(response.statusCode).toBe(404);
     });
@@ -123,23 +116,20 @@ describe("Cancel Order (E2E)", () => {
     it("deve retornar 400 para UUID inválido", async () => {
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/invalid-uuid/cancel`,
+        url: `/orders/invalid-uuid/payment`,
       });
       expect(response.statusCode).toBe(400);
     });
 
-    it("deve validar que uma segunda tentativa simultânea falharia ao tentar cancelar um pedido já cancelado (409)", async () => {
-      const order = await createOrder("PENDING");
+    it("deve validar proteção de concorrência (dupla chamada na mesma rota resulta em um 409)", async () => {
+      const order = await createOrder("PENDING", "PENDING");
 
-      // Primeira chamada (Concorre e ganha o Lock)
-      await app.inject({ method: "PATCH", url: `/orders/${order.id}/cancel` });
+      await app.inject({ method: "PATCH", url: `/orders/${order.id}/payment` });
 
-      // Segunda chamada (Leria 'CANCELLED' do banco e cairia na validação da regra do Use Case)
       const secondCall = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/cancel`,
+        url: `/orders/${order.id}/payment`,
       });
-
       expect(secondCall.statusCode).toBe(409);
     });
   });

@@ -15,6 +15,7 @@ import {
 import { customers } from "./customers.js";
 import { randomUUID } from "node:crypto";
 import { restaurants } from "./restaurants.js";
+import { tables } from "./tables.js";
 
 export const orders = pgTable(
   "orders",
@@ -28,6 +29,7 @@ export const orders = pgTable(
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
+    tableId: uuid("table_id").references(() => tables.id),
     type: orderTypeEnum("type").notNull(),
     status: orderStatusEnum("status").notNull().default("PENDING"),
     paymentStatus: orderPaymentStatusEnum("payment_status")

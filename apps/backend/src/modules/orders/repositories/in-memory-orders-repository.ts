@@ -40,12 +40,12 @@ export class InMemoryOrdersRepository implements OrdersRepository {
       .sort((a, b) => {
         const dateDiff = b.createdAt.getTime() - a.createdAt.getTime();
         if (dateDiff !== 0) return dateDiff;
-        return b.id.localeCompare(a.id); // Desempate por ID DESC
+        return b.id.localeCompare(a.id);
       });
   }
 
   async findByIdForUpdate(id: string): Promise<Order | null> {
-    return this.findById(id); // Em memória, o lock não é estritamente necessário
+    return this.findById(id);
   }
 
   async updateStatus(id: string, status: string): Promise<void> {
@@ -54,5 +54,22 @@ export class InMemoryOrdersRepository implements OrdersRepository {
       this.items[index].status = status;
       this.items[index].updatedAt = new Date();
     }
+  }
+
+  async updatePaymentStatus(id: string, paymentStatus: string): Promise<void> {
+    const index = this.items.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      this.items[index].paymentStatus = paymentStatus;
+      this.items[index].updatedAt = new Date();
+    }
+  }
+
+  async findActiveDineInOrderByTableId(tableId: string): Promise<Order | null> {
+    const activeStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY"];
+    return (
+      this.items.find(
+        (o) => o.tableId === tableId && activeStatuses.includes(o.status),
+      ) || null
+    );
   }
 }

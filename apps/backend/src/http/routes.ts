@@ -1,3 +1,9 @@
+import {
+  completeDeliveryController,
+  createDeliveryController,
+  startDeliveryController,
+} from "../modules/orders/controllers/delivery-controllers.js";
+
 import { FastifyInstance } from "fastify";
 import { cancelOrderController } from "../modules/orders/controllers/cancel-order.js";
 import { cancelReservationController } from "../modules/reservations/controllers/cancel-reservation.js";
@@ -20,6 +26,7 @@ import { listReservationHistoryController } from "../modules/reservations/contro
 import { listReservationsController } from "../modules/reservations/controllers/list-reservations.js";
 import { listRestaurantsController } from "../modules/restaurants/controllers/list-restaurants.js";
 import { listTablesController } from "../modules/tables/controllers/list-tables.js";
+import { payOrderController } from "../modules/orders/controllers/pay-order.js";
 import { updateOrderStatusController } from "../modules/orders/controllers/update-order-status.js";
 import { updateReservationStatusController } from "../modules/reservations/controllers/update-reservation-status.js";
 
@@ -79,4 +86,8 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.get("/orders/:orderId", getOrderController); // Consulta global individual
   app.patch("/orders/:orderId/status", updateOrderStatusController);
   app.patch("/orders/:orderId/cancel", cancelOrderController);
+  app.patch("/orders/:orderId/payment", payOrderController);
+  app.post("/orders/:orderId/delivery", createDeliveryController);
+  app.patch("/orders/:orderId/delivery/start", startDeliveryController);
+  app.patch("/orders/:orderId/delivery/complete", completeDeliveryController);
 }

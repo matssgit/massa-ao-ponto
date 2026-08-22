@@ -1,8 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  customers,
+  deliveries,
+  deliveryHistory,
+  orderHistory,
+  orderItems,
+  orders,
   productCategories,
   products,
+  reservationHistory,
+  reservations,
   restaurants,
+  tables,
 } from "../../../src/db/schema/index.js";
 
 import { app } from "../../../src/server.js";
@@ -19,8 +28,17 @@ describe("Products (E2E)", () => {
   });
 
   beforeEach(async () => {
+    await db.delete(deliveryHistory);
+    await db.delete(deliveries);
+    await db.delete(orderHistory);
+    await db.delete(orderItems);
+    await db.delete(orders);
+    await db.delete(reservationHistory);
+    await db.delete(reservations);
+    await db.delete(tables);
     await db.delete(products);
     await db.delete(productCategories);
+    await db.delete(customers);
     await db.delete(restaurants);
   });
 

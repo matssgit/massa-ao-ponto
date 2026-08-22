@@ -4,7 +4,7 @@ import {
   Order,
   OrdersRepository,
 } from "./orders-repository.js";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { orders } from "../../../db/schema/index.js";
@@ -59,5 +59,30 @@ export class DrizzleOrdersRepository implements OrdersRepository {
       .update(orders)
       .set({ status: status as any, updatedAt: new Date() })
       .where(eq(orders.id, id));
+  }
+
+  async updatePaymentStatus(id: string, paymentStatus: string): Promise<void> {
+    await this.client
+      .update(orders)
+      .set({ paymentStatus: paymentStatus as any, updatedAt: new Date() })
+      .where(eq(orders.id, id));
+  }
+
+  async findActiveDineInOrderByTableId(tableId: string): Promise<Order | null> {
+    const result = await this.client
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.tableId, tableId),
+          inArray(orders.status, [
+            "PENDING",
+            "CONFIRMED",
+            "PREPARING",
+            "READY",
+          ]),
+        ),
+      );
+    return result[0] || null;
   }
 }

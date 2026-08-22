@@ -7,6 +7,8 @@ import {
   tables,
 } from "../../../src/db/schema/index.js";
 import {
+  deliveries,
+  deliveryHistory,
   orderHistory,
   orderItems,
   orders,
@@ -26,6 +28,8 @@ describe("Get Reservation (E2E)", () => {
   });
 
   beforeEach(async () => {
+    await db.delete(deliveryHistory);
+    await db.delete(deliveries);
     await db.delete(orderHistory);
     await db.delete(orderItems);
     await db.delete(orders);

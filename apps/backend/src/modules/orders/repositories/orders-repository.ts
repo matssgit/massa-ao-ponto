@@ -1,7 +1,8 @@
 export interface CreateOrderData {
   restaurantId: string;
+  tableId?: string | null;
   customerId: string;
-  type: "DELIVERY" | "PICKUP";
+  type: "DELIVERY" | "PICKUP" | "DINE_IN";
   status: string;
   paymentStatus: string;
   subtotal: number;
@@ -23,6 +24,9 @@ export interface Order extends CreateOrderData {
   id: string;
   createdAt: Date;
   updatedAt: Date;
+  customerId: string;
+  tableId?: string | null;
+  type: "DELIVERY" | "PICKUP" | "DINE_IN";
 }
 
 export interface OrdersRepository {
@@ -31,6 +35,8 @@ export interface OrdersRepository {
   findMany(filters: ListOrdersFilters): Promise<Order[]>;
   findByIdForUpdate(id: string): Promise<Order | null>;
   updateStatus(id: string, status: string): Promise<void>;
+  updatePaymentStatus(id: string, paymentStatus: string): Promise<void>;
+  findActiveDineInOrderByTableId(tableId: string): Promise<Order | null>;
 }
 
 export interface ListOrdersFilters {

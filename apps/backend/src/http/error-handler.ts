@@ -2,10 +2,16 @@ import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 
 import { CapacityExceededError } from "../modules/reservations/errors/capacity-exceeded-error.js";
 import { CustomerNotFoundError } from "../modules/customers/errors/customer-not-found-error.js";
+import { DeliveryAlreadyExistsError } from "../modules/orders/errors/delivery-already-exists-error.js";
+import { DeliveryNotFoundError } from "../modules/orders/errors/delivery-not-found-error.js";
 import { DuplicateProductInOrderError } from "../modules/orders/errors/duplicate-product-in-order-error.js";
 import { InvalidDeliveryFeeError } from "../modules/orders/errors/invalid-delivery-fee-error.js";
+import { InvalidDeliveryOrderTypeError } from "../modules/orders/errors/invalid-delivery-order-type-error.js";
+import { InvalidDeliveryStatusTransitionError } from "../modules/orders/errors/invalid-delivery-status-transition-error.js";
 import { InvalidItemQuantityError } from "../modules/orders/errors/invalid-item-quantity-error.js";
+import { InvalidOrderPaymentTransitionError } from "../modules/orders/errors/invalid-order-payment-transition-error.js";
 import { InvalidOrderStatusTransitionError } from "../modules/orders/errors/invalid-order-status-transition-error.js";
+import { InvalidOrderTypeError } from "../modules/orders/errors/invalid-order-type-error.js";
 import { InvalidReservationStatusTransitionError } from "../modules/reservations/errors/invalid-reservation-status-transition-error.js";
 import { InvalidTimeRangeError } from "../modules/reservations/errors/invalid-time-range-error.js";
 import { InvalidTimeRangeFilterError } from "../modules/reservations/errors/invalid-time-range-filter-error.js";
@@ -23,6 +29,7 @@ import { RestaurantNotFoundError } from "../modules/restaurants/errors/restauran
 import { TableInactiveError } from "../modules/reservations/errors/table-inactive-error.js";
 import { TableNotFoundError } from "../modules/reservations/errors/table-not-found-error.js";
 import { TableNumberAlreadyExistsError } from "../modules/tables/errors/table-number-already-exists-error.js";
+import { TableOccupiedError } from "../modules/orders/errors/table-occupied-error.js";
 import { TableRestaurantMismatchError } from "../modules/reservations/errors/table-restaurant-mismatch-error.js";
 import { ZodError } from "zod";
 
@@ -45,7 +52,9 @@ export const errorHandler = (
     error instanceof CustomerNotFoundError ||
     error instanceof ProductCategoryNotFoundError ||
     error instanceof ProductNotFoundError ||
-    error instanceof OrderNotFoundError
+    error instanceof OrderNotFoundError ||
+    error instanceof DeliveryNotFoundError ||
+    error instanceof TableNotFoundError
   ) {
     return reply.status(404).send({ message: error.message });
   }
@@ -56,7 +65,8 @@ export const errorHandler = (
     error instanceof InvalidTimeRangeFilterError ||
     error instanceof InvalidItemQuantityError ||
     error instanceof InvalidDeliveryFeeError ||
-    error instanceof MissingDeliveryAddressError
+    error instanceof MissingDeliveryAddressError ||
+    error instanceof InvalidOrderTypeError
   ) {
     return reply.status(400).send({ message: error.message });
   }
@@ -75,7 +85,14 @@ export const errorHandler = (
     error instanceof DuplicateProductInOrderError ||
     error instanceof ProductInactiveError ||
     error instanceof ProductRestaurantMismatchError ||
-    error instanceof InvalidOrderStatusTransitionError
+    error instanceof InvalidOrderStatusTransitionError ||
+    error instanceof InvalidOrderPaymentTransitionError ||
+    error instanceof DeliveryAlreadyExistsError ||
+    error instanceof InvalidDeliveryOrderTypeError ||
+    error instanceof InvalidDeliveryStatusTransitionError ||
+    error instanceof TableOccupiedError ||
+    error instanceof TableRestaurantMismatchError ||
+    error instanceof TableInactiveError
   ) {
     return reply.status(409).send({ message: error.message });
   }

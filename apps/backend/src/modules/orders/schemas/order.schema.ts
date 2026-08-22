@@ -6,7 +6,8 @@ export const createOrderParamsSchema = z.object({
 
 export const createOrderBodySchema = z.object({
   customerId: z.string().uuid("Formato de ID do cliente inválido."),
-  type: z.enum(["DELIVERY", "PICKUP"]),
+  type: z.enum(["DELIVERY", "PICKUP", "DINE_IN"]),
+  tableId: z.string().uuid("ID da mesa inválido.").optional(),
   items: z
     .array(
       z.object({
@@ -77,5 +78,9 @@ export const updateOrderStatusBodySchema = z.object({
 });
 
 export const cancelOrderParamsSchema = z.object({
+  orderId: z.string().uuid("Formato de ID do pedido inválido."),
+});
+
+export const payOrderParamsSchema = z.object({
   orderId: z.string().uuid("Formato de ID do pedido inválido."),
 });

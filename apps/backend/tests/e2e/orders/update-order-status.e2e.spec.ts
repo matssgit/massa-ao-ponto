@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
+  deliveries,
+  deliveryHistory,
   orderHistory,
   orderItems,
   orders,
@@ -19,6 +21,8 @@ describe("Update Order Status (E2E)", () => {
   afterAll(async () => await app.close());
 
   beforeEach(async () => {
+    await db.delete(deliveryHistory);
+    await db.delete(deliveries);
     await db.delete(orderHistory);
     await db.delete(orderItems);
     await db.delete(orders);
