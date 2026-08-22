@@ -75,3 +75,7 @@ export const updateOrderStatusBodySchema = z.object({
     "CANCELLED",
   ]),
 });
+
+export const cancelOrderParamsSchema = z.object({
+  orderId: z.string().uuid("Formato de ID do pedido inválido."),
+});

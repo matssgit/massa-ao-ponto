@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { cancelOrderController } from "../modules/orders/controllers/cancel-order.js";
 import { cancelReservationController } from "../modules/reservations/controllers/cancel-reservation.js";
 import { createOrderController } from "../modules/orders/controllers/create-order.js";
 import { createProductCategoryController } from "../modules/products/controllers/create-product-category.js";
@@ -77,4 +78,5 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.get("/restaurants/:restaurantId/orders", listOrdersController);
   app.get("/orders/:orderId", getOrderController); // Consulta global individual
   app.patch("/orders/:orderId/status", updateOrderStatusController);
+  app.patch("/orders/:orderId/cancel", cancelOrderController);
 }
