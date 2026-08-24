@@ -2,13 +2,17 @@ import { OrderItemsRepository } from "../repositories/order-items-repository.js"
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
 import { OrdersRepository } from "../repositories/orders-repository.js";
 
+interface GetOrderRequest {
+  orderId: string;
+}
+
 export class GetOrderUseCase {
   constructor(
     private readonly ordersRepository: OrdersRepository,
     private readonly orderItemsRepository: OrderItemsRepository,
   ) {}
 
-  async execute(orderId: string) {
+  async execute({ orderId }: GetOrderRequest) {
     const order = await this.ordersRepository.findById(orderId);
 
     if (!order) {

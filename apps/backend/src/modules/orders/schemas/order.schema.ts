@@ -36,7 +36,7 @@ export const createOrderBodySchema = z.object({
 });
 
 export const getOrderParamsSchema = z.object({
-  orderId: z.string().uuid("Formato de ID do pedido inválido."),
+  orderId: z.string().uuid(),
 });
 
 export const listOrdersParamsSchema = z.object({

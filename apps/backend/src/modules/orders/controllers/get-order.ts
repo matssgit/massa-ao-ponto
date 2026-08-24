@@ -15,7 +15,7 @@ export async function getOrderController(
   const orderItemsRepository = new DrizzleOrderItemsRepository();
   const useCase = new GetOrderUseCase(ordersRepository, orderItemsRepository);
 
-  const result = await useCase.execute(orderId);
+  const result = await useCase.execute({ orderId });
 
   return reply.status(200).send(result);
 }
