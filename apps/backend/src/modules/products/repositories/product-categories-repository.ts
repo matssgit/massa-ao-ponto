@@ -5,6 +5,13 @@ export interface CreateProductCategoryData {
   displayOrder: number;
 }
 
+export interface UpdateProductCategoryData {
+  name?: string;
+  description?: string | null;
+  displayOrder?: number;
+  active?: boolean;
+}
+
 export interface ProductCategory {
   id: string;
   restaurantId: string;
@@ -18,6 +25,7 @@ export interface ProductCategory {
 
 export interface ProductCategoriesRepository {
   create(data: CreateProductCategoryData): Promise<ProductCategory>;
-  findManyByRestaurantId(restaurantId: string): Promise<ProductCategory[]>;
+  findMany(restaurantId: string): Promise<ProductCategory[]>;
   findById(id: string): Promise<ProductCategory | null>;
+  update(id: string, data: UpdateProductCategoryData): Promise<ProductCategory>;
 }

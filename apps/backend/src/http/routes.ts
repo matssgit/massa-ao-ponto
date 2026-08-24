@@ -17,6 +17,7 @@ import { getAvailabilityController } from "../modules/reservations/controllers/g
 import { getCategoryPerformanceController } from "../modules/orders/controllers/get-category-performance.js";
 import { getCustomerController } from "../modules/customers/controllers/get-customer.js";
 import { getOrderController } from "../modules/orders/controllers/get-order.js";
+import { getProductCategoryController } from "../modules/products/controllers/get-product-category.js";
 import { getReservationController } from "../modules/reservations/controllers/get-reservation.js";
 import { getRestaurantController } from "../modules/restaurants/controllers/get-restaurant.js";
 import { getSalesSummaryController } from "../modules/orders/controllers/get-sales-summary.js";
@@ -31,8 +32,10 @@ import { listReservationsController } from "../modules/reservations/controllers/
 import { listRestaurantsController } from "../modules/restaurants/controllers/list-restaurants.js";
 import { listTablesController } from "../modules/tables/controllers/list-tables.js";
 import { payOrderController } from "../modules/orders/controllers/pay-order.js";
+import { toggleProductCategoryStatusController } from "../modules/products/controllers/toggle-product-category-status.js";
 import { toggleProductStatusController } from "../modules/products/controllers/toggle-product-status.js";
 import { updateOrderStatusController } from "../modules/orders/controllers/update-order-status.js";
+import { updateProductCategoryController } from "../modules/products/controllers/update-product-category.js";
 import { updateProductController } from "../modules/products/controllers/update-product.js";
 import { updateReservationStatusController } from "../modules/reservations/controllers/update-reservation-status.js";
 
@@ -64,6 +67,15 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.patch(
     "/restaurants/:restaurantId/products/:productId/toggle-status",
     toggleProductStatusController,
+  );
+  app.get("/product-categories/:categoryId", getProductCategoryController);
+  app.patch(
+    "/restaurants/:restaurantId/product-categories/:categoryId",
+    updateProductCategoryController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId/product-categories/:categoryId/toggle-status",
+    toggleProductCategoryStatusController,
   );
 
   // === CUSTOMERS ===

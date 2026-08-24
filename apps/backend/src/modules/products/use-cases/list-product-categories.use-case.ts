@@ -10,8 +10,6 @@ export class ListProductCategoriesUseCase {
   ) {}
 
   async execute({ restaurantId }: ListProductCategoriesRequest) {
-    return await this.productCategoriesRepository.findManyByRestaurantId(
-      restaurantId,
-    );
+    return await this.productCategoriesRepository.findMany(restaurantId);
   }
 }

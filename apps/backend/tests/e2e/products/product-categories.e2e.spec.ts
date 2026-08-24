@@ -3,6 +3,7 @@ import {
   deliveries,
   deliveryHistory,
   productCategories,
+  products,
   restaurants,
 } from "../../../src/db/schema/index.js";
 import {
@@ -30,6 +31,7 @@ describe("Product Categories (E2E)", () => {
     await db.delete(orderHistory);
     await db.delete(orderItems);
     await db.delete(orders);
+    await db.delete(products);
     await db.delete(productCategories);
     await db.delete(restaurants);
   });
@@ -120,8 +122,8 @@ describe("Product Categories (E2E)", () => {
       expect(response.statusCode).toBe(200);
       const items = response.json();
       expect(items).toHaveLength(2);
-      expect(items[0].name).toBe("Pizzas"); // displayOrder 1
-      expect(items[1].name).toBe("Sobremesas"); // displayOrder 2
+      expect(items[0].name).toBe("Pizzas");
+      expect(items[1].name).toBe("Sobremesas");
     });
 
     it("deve retornar array vazio se não houver categorias", async () => {
