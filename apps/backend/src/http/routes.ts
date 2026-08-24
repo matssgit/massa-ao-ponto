@@ -18,6 +18,7 @@ import { getCustomerController } from "../modules/customers/controllers/get-cust
 import { getOrderController } from "../modules/orders/controllers/get-order.js";
 import { getReservationController } from "../modules/reservations/controllers/get-reservation.js";
 import { getRestaurantController } from "../modules/restaurants/controllers/get-restaurant.js";
+import { getSalesSummaryController } from "../modules/orders/controllers/get-sales-summary.js";
 import { listCustomerReservationsController } from "../modules/customers/controllers/list-customer-reservations.js";
 import { listOrdersController } from "../modules/orders/controllers/list-orders.js";
 import { listProductCategoriesController } from "../modules/products/controllers/list-product-category.js";
@@ -90,4 +91,8 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.post("/orders/:orderId/delivery", createDeliveryController);
   app.patch("/orders/:orderId/delivery/start", startDeliveryController);
   app.patch("/orders/:orderId/delivery/complete", completeDeliveryController);
+  app.get(
+    "/restaurants/:restaurantId/dashboard/sales-summary",
+    getSalesSummaryController,
+  );
 }

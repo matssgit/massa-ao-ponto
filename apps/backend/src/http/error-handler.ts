@@ -12,6 +12,7 @@ import { InvalidItemQuantityError } from "../modules/orders/errors/invalid-item-
 import { InvalidOrderPaymentTransitionError } from "../modules/orders/errors/invalid-order-payment-transition-error.js";
 import { InvalidOrderStatusTransitionError } from "../modules/orders/errors/invalid-order-status-transition-error.js";
 import { InvalidOrderTypeError } from "../modules/orders/errors/invalid-order-type-error.js";
+import { InvalidPeriodFilterError } from "../modules/orders/errors/invalid-period-filter-error.js";
 import { InvalidReservationStatusTransitionError } from "../modules/reservations/errors/invalid-reservation-status-transition-error.js";
 import { InvalidTimeRangeError } from "../modules/reservations/errors/invalid-time-range-error.js";
 import { InvalidTimeRangeFilterError } from "../modules/reservations/errors/invalid-time-range-filter-error.js";
@@ -66,7 +67,8 @@ export const errorHandler = (
     error instanceof InvalidItemQuantityError ||
     error instanceof InvalidDeliveryFeeError ||
     error instanceof MissingDeliveryAddressError ||
-    error instanceof InvalidOrderTypeError
+    error instanceof InvalidOrderTypeError ||
+    error instanceof InvalidPeriodFilterError
   ) {
     return reply.status(400).send({ message: error.message });
   }
