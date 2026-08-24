@@ -7,6 +7,21 @@ export interface CreateProductData {
   displayOrder: number;
 }
 
+export interface UpdateProductData {
+  name?: string;
+  description?: string | null;
+  price?: number;
+  categoryId?: string;
+  displayOrder?: number;
+  active?: boolean;
+}
+
+export interface FindManyProductsFilters {
+  restaurantId: string;
+  categoryId?: string;
+  active?: boolean;
+}
+
 export interface Product {
   id: string;
   restaurantId: string;
@@ -20,14 +35,9 @@ export interface Product {
   updatedAt: Date;
 }
 
-export interface FindManyProductsFilters {
-  restaurantId: string;
-  categoryId?: string;
-  active?: boolean;
-}
-
 export interface ProductsRepository {
   create(data: CreateProductData): Promise<Product>;
-  findById(id: string): Promise<Product | null>;
   findMany(filters: FindManyProductsFilters): Promise<Product[]>;
+  findById(id: string): Promise<Product | null>;
+  update(id: string, data: UpdateProductData): Promise<Product>;
 }

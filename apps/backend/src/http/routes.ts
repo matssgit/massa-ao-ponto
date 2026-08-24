@@ -31,7 +31,9 @@ import { listReservationsController } from "../modules/reservations/controllers/
 import { listRestaurantsController } from "../modules/restaurants/controllers/list-restaurants.js";
 import { listTablesController } from "../modules/tables/controllers/list-tables.js";
 import { payOrderController } from "../modules/orders/controllers/pay-order.js";
+import { toggleProductStatusController } from "../modules/products/controllers/toggle-product-status.js";
 import { updateOrderStatusController } from "../modules/orders/controllers/update-order-status.js";
+import { updateProductController } from "../modules/products/controllers/update-product.js";
 import { updateReservationStatusController } from "../modules/reservations/controllers/update-reservation-status.js";
 
 export async function restaurantsRoutes(app: FastifyInstance) {
@@ -55,6 +57,14 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   );
   app.post("/restaurants/:restaurantId/products", createProductController);
   app.get("/restaurants/:restaurantId/products", listProductsController);
+  app.patch(
+    "/restaurants/:restaurantId/products/:productId",
+    updateProductController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId/products/:productId/toggle-status",
+    toggleProductStatusController,
+  );
 
   // === CUSTOMERS ===
   app.get("/customers/:customerId", getCustomerController);

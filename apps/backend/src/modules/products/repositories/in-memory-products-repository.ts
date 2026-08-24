@@ -3,6 +3,7 @@ import {
   FindManyProductsFilters,
   Product,
   ProductsRepository,
+  UpdateProductData,
 } from "./products-repository.js";
 
 import { randomUUID } from "node:crypto";
@@ -18,34 +19,50 @@ export class InMemoryProductsRepository implements ProductsRepository {
       name: data.name,
       description: data.description ?? null,
       price: data.price,
-      active: true,
       displayOrder: data.displayOrder,
+      active: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-
     this.items.push(product);
     return product;
+  }
+
+  async findMany({
+    restaurantId,
+    categoryId,
+    active,
+  }: FindManyProductsFilters): Promise<Product[]> {
+    return this.items
+      .filter((item) => {
+        if (item.restaurantId !== restaurantId) return false;
+        if (categoryId && item.categoryId !== categoryId) return false;
+        if (active !== undefined && item.active !== active) return false;
+        return true;
+      })
+      .sort((a, b) => a.displayOrder - b.displayOrder);
   }
 
   async findById(id: string): Promise<Product | null> {
     return this.items.find((item) => item.id === id) || null;
   }
 
-  async findMany(filters: FindManyProductsFilters): Promise<Product[]> {
-    return this.items
-      .filter((item) => {
-        if (item.restaurantId !== filters.restaurantId) return false;
-        if (filters.categoryId && item.categoryId !== filters.categoryId)
-          return false;
-        if (filters.active !== undefined && item.active !== filters.active)
-          return false;
-        return true;
-      })
-      .sort((a, b) => {
-        const orderDiff = a.displayOrder - b.displayOrder;
-        if (orderDiff !== 0) return orderDiff;
-        return a.id.localeCompare(b.id);
-      });
+  async update(id: string, data: UpdateProductData): Promise<Product> {
+    const index = this.items.findIndex((item) => item.id === id);
+
+    const updated = { ...this.items[index] };
+    if (data.name !== undefined) updated.name = data.name;
+    if (data.description !== undefined)
+      updated.description = data.description ?? null;
+    if (data.price !== undefined) updated.price = data.price;
+    if (data.categoryId !== undefined) updated.categoryId = data.categoryId;
+    if (data.displayOrder !== undefined)
+      updated.displayOrder = data.displayOrder;
+    if (data.active !== undefined) updated.active = data.active;
+
+    updated.updatedAt = new Date();
+    this.items[index] = updated;
+
+    return updated;
   }
 }
