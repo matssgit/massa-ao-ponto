@@ -4,6 +4,7 @@ import { InMemoryOrderHistoryRepository } from "../repositories/in-memory-order-
 import { InMemoryOrderItemsRepository } from "../repositories/in-memory-order-items-repository.js";
 import { InMemoryOrderTransactionManager } from "../repositories/in-memory-order-transaction-manager.js";
 import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repository.js";
+import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InvalidOrderPaymentTransitionError } from "../errors/invalid-order-payment-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
 import { PayOrderUseCase } from "./pay-order.use-case.js";
@@ -16,6 +17,7 @@ describe("PayOrderUseCase", () => {
   let useCase: PayOrderUseCase;
 
   beforeEach(() => {
+    const tablesRepository = new InMemoryTablesRepository();
     ordersRepository = new InMemoryOrdersRepository();
     const orderItemsRepository = new InMemoryOrderItemsRepository();
     orderHistoryRepository = new InMemoryOrderHistoryRepository();
@@ -23,6 +25,7 @@ describe("PayOrderUseCase", () => {
       ordersRepository,
       orderItemsRepository,
       orderHistoryRepository,
+      tablesRepository,
     );
     useCase = new PayOrderUseCase(transactionManager);
   });

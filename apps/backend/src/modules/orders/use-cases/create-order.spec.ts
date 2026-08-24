@@ -10,6 +10,7 @@ import { InMemoryOrderTransactionManager } from "../repositories/in-memory-order
 import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repository.js";
 import { InMemoryProductsRepository } from "../../products/repositories/in-memory-products-repository.js";
 import { InMemoryRestaurantsRepository } from "../../restaurants/repositories/in-memory-restaurants-repository.js";
+import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InvalidDeliveryFeeError } from "../errors/invalid-delivery-fee-error.js";
 import { InvalidItemQuantityError } from "../errors/invalid-item-quantity-error.js";
 import { MissingDeliveryAddressError } from "../errors/missing-delivery-address-error.js";
@@ -30,6 +31,7 @@ describe("CreateOrderUseCase", () => {
   let useCase: CreateOrderUseCase;
 
   beforeEach(() => {
+    const tablesRepository = new InMemoryTablesRepository();
     restaurantsRepository = new InMemoryRestaurantsRepository();
     customersRepository = new InMemoryCustomersRepository();
     productsRepository = new InMemoryProductsRepository();
@@ -40,6 +42,7 @@ describe("CreateOrderUseCase", () => {
       ordersRepository,
       orderItemsRepository,
       orderHistoryRepository,
+      tablesRepository,
     );
     useCase = new CreateOrderUseCase(
       restaurantsRepository,
@@ -110,9 +113,9 @@ describe("CreateOrderUseCase", () => {
     });
 
     expect(result.id).toBeDefined();
-    expect(result.customerName).toBe("João"); // Snapshot
-    expect(result.subtotal).toBe(3990 * 2 + 1000); // 8980
-    expect(result.total).toBe(8980 + 500); // 9480
+    expect(result.customerName).toBe("João");
+    expect(result.subtotal).toBe(3990 * 2 + 1000);
+    expect(result.total).toBe(8980 + 500);
 
     expect(orderItemsRepository.items).toHaveLength(2);
     expect(orderItemsRepository.items[0].productName).toBe("Pizza Calabresa");
@@ -135,7 +138,6 @@ describe("CreateOrderUseCase", () => {
       deliveryFee: 0,
     });
 
-    // Alterando o preço do produto no catálogo após a criação do pedido
     productsRepository.items[0].price = 4990;
 
     const item = orderItemsRepository.items.find((i) => i.orderId === order.id);

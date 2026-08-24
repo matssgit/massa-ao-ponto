@@ -14,3 +14,15 @@ export const getTopProductsQuerySchema = z.object({
   endsAt: z.coerce.date().optional(),
   limit: z.coerce.number().int().positive().optional(),
 });
+
+export const getCategoryPerformanceQuerySchema = z.object({
+  startsAt: z.coerce.date().optional(),
+  endsAt: z.coerce.date().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+});
+
+export const getTopCustomersQuerySchema = z.object({
+  startsAt: z.coerce.date().optional(),
+  endsAt: z.coerce.date().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+});

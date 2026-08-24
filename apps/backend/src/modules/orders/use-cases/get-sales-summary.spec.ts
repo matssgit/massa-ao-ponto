@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { GetSalesSummaryUseCase } from "./get-sales-summary.use-case.js";
-import { InMemoryOrderItemsRepository } from "../repositories/in-memory-order-items-repository.js"; // Adicione esse import
+import { InMemoryCustomersRepository } from "../../reservations/repositories/in-memory-customers-repository.js";
+import { InMemoryOrderItemsRepository } from "../repositories/in-memory-order-items-repository.js";
 import { InMemoryOrdersAnalyticsRepository } from "../repositories/in-memory-orders-analytics-repository.js";
 import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repository.js";
+import { InMemoryProductCategoriesRepository } from "../../products/repositories/in-memory-product-categories-repository.js";
+import { InMemoryProductsRepository } from "../../products/repositories/in-memory-products-repository.js";
 import { InMemoryRestaurantsRepository } from "../../restaurants/repositories/in-memory-restaurants-repository.js";
 import { InvalidPeriodFilterError } from "../errors/invalid-period-filter-error.js";
 import { RestaurantNotFoundError } from "../../restaurants/errors/restaurant-not-found-error.js";
@@ -12,18 +15,29 @@ import { randomUUID } from "node:crypto";
 describe("GetSalesSummaryUseCase", () => {
   let restaurantsRepository: InMemoryRestaurantsRepository;
   let ordersRepository: InMemoryOrdersRepository;
+  let orderItemsRepository: InMemoryOrderItemsRepository;
+  let productsRepository: InMemoryProductsRepository;
+  let productCategoriesRepository: InMemoryProductCategoriesRepository;
+  let customersRepository: InMemoryCustomersRepository;
   let analyticsRepository: InMemoryOrdersAnalyticsRepository;
   let useCase: GetSalesSummaryUseCase;
-  let orderItemsRepository: InMemoryOrderItemsRepository;
 
   beforeEach(() => {
     restaurantsRepository = new InMemoryRestaurantsRepository();
     ordersRepository = new InMemoryOrdersRepository();
     orderItemsRepository = new InMemoryOrderItemsRepository();
+    productsRepository = new InMemoryProductsRepository();
+    productCategoriesRepository = new InMemoryProductCategoriesRepository();
+    customersRepository = new InMemoryCustomersRepository();
+
     analyticsRepository = new InMemoryOrdersAnalyticsRepository(
       ordersRepository,
       orderItemsRepository,
+      productsRepository,
+      productCategoriesRepository,
+      customersRepository,
     );
+
     useCase = new GetSalesSummaryUseCase(
       restaurantsRepository,
       analyticsRepository,
@@ -68,7 +82,7 @@ describe("GetSalesSummaryUseCase", () => {
     await createOrder("DELIVERED", "PAID", 5000);
     await createOrder("DELIVERED", "PAID", 3000);
     await createOrder("PENDING", "PENDING", 2000);
-    await createOrder("CANCELLED", "PAID", 10000); // Não deve entrar na receita
+    await createOrder("CANCELLED", "PAID", 10000);
 
     const summary = await useCase.execute({ restaurantId: restaurant.id });
 
@@ -77,10 +91,10 @@ describe("GetSalesSummaryUseCase", () => {
     expect(summary.orders.cancelled).toBe(1);
     expect(summary.orders.pending).toBe(1);
 
-    expect(summary.revenue.gross).toBe(10000); // 5000 + 3000 + 2000
-    expect(summary.revenue.paid).toBe(8000); // 5000 + 3000
+    expect(summary.revenue.gross).toBe(10000);
+    expect(summary.revenue.paid).toBe(8000);
 
-    expect(summary.averageTicket).toBe(3333); // 10000 / 3 pedidos válidos
+    expect(summary.averageTicket).toBe(3333);
   });
 
   it("deve retornar 0 para tudo caso o restaurante não tenha pedidos", async () => {

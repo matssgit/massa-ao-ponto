@@ -14,11 +14,13 @@ import { createReservationController } from "../modules/reservations/controllers
 import { createRestaurantController } from "../modules/restaurants/controllers/create-restaurant.js";
 import { createTableController } from "../modules/tables/controllers/create-table.js";
 import { getAvailabilityController } from "../modules/reservations/controllers/get-availability.js";
+import { getCategoryPerformanceController } from "../modules/orders/controllers/get-category-performance.js";
 import { getCustomerController } from "../modules/customers/controllers/get-customer.js";
 import { getOrderController } from "../modules/orders/controllers/get-order.js";
 import { getReservationController } from "../modules/reservations/controllers/get-reservation.js";
 import { getRestaurantController } from "../modules/restaurants/controllers/get-restaurant.js";
 import { getSalesSummaryController } from "../modules/orders/controllers/get-sales-summary.js";
+import { getTopCustomersController } from "../modules/orders/controllers/get-top-customers.js";
 import { getTopProductsController } from "../modules/orders/controllers/get-top-products.js";
 import { listCustomerReservationsController } from "../modules/customers/controllers/list-customer-reservations.js";
 import { listOrdersController } from "../modules/orders/controllers/list-orders.js";
@@ -99,5 +101,13 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.get(
     "/restaurants/:restaurantId/dashboard/top-products",
     getTopProductsController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/dashboard/category-performance",
+    getCategoryPerformanceController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/dashboard/top-customers",
+    getTopCustomersController,
   );
 }
