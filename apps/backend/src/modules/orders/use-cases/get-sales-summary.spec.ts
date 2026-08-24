@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { GetSalesSummaryUseCase } from "./get-sales-summary.use-case.js";
+import { InMemoryOrderItemsRepository } from "../repositories/in-memory-order-items-repository.js"; // Adicione esse import
 import { InMemoryOrdersAnalyticsRepository } from "../repositories/in-memory-orders-analytics-repository.js";
 import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repository.js";
 import { InMemoryRestaurantsRepository } from "../../restaurants/repositories/in-memory-restaurants-repository.js";
@@ -13,12 +14,15 @@ describe("GetSalesSummaryUseCase", () => {
   let ordersRepository: InMemoryOrdersRepository;
   let analyticsRepository: InMemoryOrdersAnalyticsRepository;
   let useCase: GetSalesSummaryUseCase;
+  let orderItemsRepository: InMemoryOrderItemsRepository;
 
   beforeEach(() => {
     restaurantsRepository = new InMemoryRestaurantsRepository();
     ordersRepository = new InMemoryOrdersRepository();
+    orderItemsRepository = new InMemoryOrderItemsRepository();
     analyticsRepository = new InMemoryOrdersAnalyticsRepository(
       ordersRepository,
+      orderItemsRepository,
     );
     useCase = new GetSalesSummaryUseCase(
       restaurantsRepository,
