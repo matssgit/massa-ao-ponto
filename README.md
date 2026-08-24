@@ -10,20 +10,20 @@ O Massa ao Ponto está sendo desenvolvido de forma incremental, utilizando **fea
 
 ## 🚀 Status do projeto
 
-| Módulo | Status |
-| ------------------------ | ------------------------ |
-| Infraestrutura | ✅ Concluído |
-| Restaurantes | ✅ Concluído |
-| Mesas | ✅ Criação e listagem |
-| Clientes | ✅ Consulta e histórico |
-| Reservas | ✅ Milestone 1 concluído |
-| Disponibilidade | ✅ Concluído |
-| Catálogo de Produtos | ✅ Fundação concluída |
-| Orders / Pedidos | ✅ Criação, consulta, listagem e status |
-| Delivery | 🚧 Em desenvolvimento |
-| Pagamentos | ⏳ Planejado |
-| Automações | ⏳ Planejado |
-| Dashboard administrativo | ⏳ Planejado |
+| Módulo                   | Status                                  |
+| ------------------------ | --------------------------------------- |
+| Infraestrutura           | ✅ Concluído                            |
+| Restaurantes             | ✅ Concluído                            |
+| Mesas                    | ✅ Criação e listagem                   |
+| Clientes                 | ✅ Consulta e histórico                 |
+| Reservas                 | ✅ Milestone 1 concluído                |
+| Disponibilidade          | ✅ Concluído                            |
+| Catálogo de Produtos     | ✅ Fundação concluída                   |
+| Orders / Pedidos         | ✅ Criação, consulta, status e ciclo operacional |
+| Delivery                 | ✅ Criação, início e conclusão          |
+| Pagamentos               | ✅ Pagamento simulado                   |
+| Automações               | ⏳ Planejado                            |
+| Dashboard administrativo | ✅ Sales Summary, Top Products e Top Customers |
 
 ---
 
@@ -135,6 +135,8 @@ O backend é responsável pelos cálculos financeiros, não confiando nos valore
 
 Foram implementadas consultas individuais e listagem de pedidos, incluindo isolamento por restaurante e consultas estruturadas para evitar problemas de N+1.
 
+A consulta detalhada `GET /orders/:orderId` retorna o pedido e seus itens preservando os snapshots históricos de nome e preço, sem buscar novamente o catálogo atual.
+
 ### Máquina de estados
 
 Endpoint:
@@ -171,6 +173,30 @@ OUT_FOR_DELIVERY ────→ CANCELLED
 
 A State Machine fica exclusivamente no Use Case, enquanto o Zod valida somente a estrutura do payload.
 
+### Cancelamento
+
+Pedidos possuem um fluxo específico de cancelamento através de `PATCH /orders/:orderId/cancel`. O cancelamento é permitido apenas enquanto a operação da cozinha ainda não foi iniciada.
+
+### Pagamento
+
+O pagamento é tratado como um estado financeiro independente do estado operacional através de `PATCH /orders/:orderId/payment`. Pagar um pedido não altera automaticamente seu status operacional.
+
+### Delivery
+
+Pedidos `DELIVERY` possuem um fluxo logístico próprio para criação, início e conclusão da entrega, com histórico append-only e operações transacionais.
+
+Endpoints:
+
+```text
+POST  /orders/:orderId/delivery
+PATCH /orders/:orderId/delivery/start
+PATCH /orders/:orderId/delivery/complete
+```
+
+### Dine-In
+
+Pedidos presenciais podem utilizar o tipo `DINE_IN` e ser associados a uma mesa. A ocupação é derivada dos pedidos ativos, sem duplicar esse estado na tabela `tables`. A criação utiliza Row-Level Locking para impedir que pedidos concorrentes ocupem a mesma mesa.
+
 ### Concorrência e auditoria
 
 Alterações de status utilizam:
@@ -184,6 +210,28 @@ Alterações de status utilizam:
 Isso garante que alterações concorrentes sobre o mesmo pedido sejam serializadas pelo banco e que nenhuma mudança de status seja persistida sem seu respectivo evento de auditoria.
 
 O `order_history` é **append-only**.
+
+---
+
+## 📊 Dashboard
+
+O dashboard administrativo possui consultas analíticas para:
+
+- resumo de vendas;
+- produtos mais vendidos;
+- clientes com maior movimentação.
+
+As agregações são executadas diretamente no PostgreSQL, evitando transportar grandes volumes de pedidos para a aplicação apenas para realizar cálculos em memória.
+
+Endpoints atuais:
+
+```text
+GET /restaurants/:restaurantId/dashboard/sales-summary
+GET /restaurants/:restaurantId/dashboard/top-products
+GET /restaurants/:restaurantId/dashboard/top-customers
+```
+
+As consultas respeitam o isolamento por restaurante e utilizam filtros temporais quando aplicável.
 
 ---
 
@@ -202,7 +250,7 @@ Os testes E2E utilizam:
 
 ### Estado atual
 
-**177 testes automatizados passando em 21 arquivos de teste.**
+**243 testes automatizados passando.**
 
 O projeto também mantém o TypeScript em modo strict e o typecheck é executado com:
 
@@ -272,14 +320,15 @@ O projeto evita:
 
 ## 🗺️ Próximos passos
 
-Com o núcleo de Orders consolidado, os próximos grandes épicos planejados são:
+Com o núcleo operacional de Orders e o primeiro conjunto de consultas analíticas consolidados, o próximo ciclo está direcionado para a evolução administrativa do catálogo.
 
-- regras de cancelamento de pedidos;
-- pagamentos;
-- evolução do Delivery;
-- endereços e logística de entrega;
-- automações;
-- dashboard administrativo.
+Próxima frente planejada:
+
+- atualização de produtos;
+- ativação e desativação de produtos;
+- evolução da gestão do catálogo.
+
+Novas features poderão posteriormente avançar para automações, logística e evolução do dashboard.
 
 Cada nova funcionalidade será implementada como uma feature slice independente, mantendo o padrão de:
 
