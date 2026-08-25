@@ -10,12 +10,21 @@ export class InMemoryOrderItemsRepository implements OrderItemsRepository {
   public items: OrderItem[] = [];
 
   async createMany(data: CreateOrderItemData[]): Promise<OrderItem[]> {
-    const newItems = data.map((item) => ({
-      ...item,
-      id: randomUUID(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
+    const newItems: OrderItem[] = data.map((item) => {
+      const { addons, ...rest } = item;
+
+      return {
+        ...rest,
+        id: randomUUID(),
+        createdAt: new Date(),
+
+        addons: addons?.map((addon) => ({
+          ...addon,
+          id: randomUUID(),
+          createdAt: new Date(),
+        })),
+      };
+    });
 
     this.items.push(...newItems);
     return newItems;

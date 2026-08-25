@@ -16,6 +16,17 @@ export const createOrderBodySchema = z.object({
           .number()
           .int()
           .positive("A quantidade deve ser maior que zero."),
+        addons: z
+          .array(
+            z.object({
+              addonId: z.string().uuid("Formato de ID do adicional inválido."),
+              quantity: z
+                .number()
+                .int()
+                .positive("A quantidade deve ser maior que zero."),
+            }),
+          )
+          .optional(),
       }),
     )
     .min(1, "O pedido deve conter pelo menos um item."),
@@ -30,7 +41,6 @@ export const createOrderBodySchema = z.object({
       state: z.string().min(1),
       zipCode: z.string().min(1),
     })
-
     .optional(),
   observation: z.string().optional(),
 });

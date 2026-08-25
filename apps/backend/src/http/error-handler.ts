@@ -21,6 +21,8 @@ import { InvalidTimeRangeError } from "../modules/reservations/errors/invalid-ti
 import { InvalidTimeRangeFilterError } from "../modules/reservations/errors/invalid-time-range-filter-error.js";
 import { MissingDeliveryAddressError } from "../modules/orders/errors/missing-delivery-address-error.js";
 import { OrderNotFoundError } from "../modules/orders/errors/order-not-found-error.js";
+import { ProductAddonAlreadyExistsError } from "../modules/products/errors/product-addon-already-exists-error.js";
+import { ProductAddonNotFoundError } from "../modules/products/errors/product-addon-not-found-error.js";
 import { ProductCategoryHasProductsError } from "../modules/products/errors/product-category-has-products-error.js";
 import { ProductCategoryNotFoundError } from "../modules/products/errors/product-category-not-found-error.js";
 import { ProductCategoryRestaurantMismatchError } from "../modules/products/errors/product-category-restaurant-mismatch-error.js";
@@ -61,7 +63,8 @@ export const errorHandler = (
     error instanceof CatalogProductNotFoundError ||
     error instanceof OrderNotFoundError ||
     error instanceof DeliveryNotFoundError ||
-    error instanceof AddonNotFoundError
+    error instanceof AddonNotFoundError ||
+    error instanceof ProductAddonNotFoundError
   ) {
     return reply.status(404).send({ message: error.message });
   }
@@ -98,7 +101,8 @@ export const errorHandler = (
     error instanceof InvalidDeliveryOrderTypeError ||
     error instanceof InvalidDeliveryStatusTransitionError ||
     error instanceof TableOccupiedError ||
-    error instanceof AddonRestaurantMismatchError
+    error instanceof AddonRestaurantMismatchError ||
+    error instanceof ProductAddonAlreadyExistsError
   ) {
     return reply.status(409).send({ message: error.message });
   }

@@ -21,6 +21,10 @@ import { TableRestaurantMismatchError } from "../../reservations/errors/table-re
 interface CreateOrderRequestItem {
   productId: string;
   quantity: number;
+  addons?: {
+    addonId: string;
+    quantity: number;
+  }[];
 }
 
 export interface CreateOrderRequest {
@@ -146,7 +150,7 @@ export class CreateOrderUseCase {
         const order = await ordersRepository.create({
           restaurantId: request.restaurantId,
           customerId: request.customerId,
-          tableId: request.tableId ?? null, // <-- Associa a mesa
+          tableId: request.tableId ?? null,
           type: request.type,
           status: "PENDING",
           paymentStatus: "PENDING",

@@ -5,6 +5,7 @@ import {
 } from "../modules/orders/controllers/delivery-controllers.js";
 
 import { FastifyInstance } from "fastify";
+import { addAddonToProductController } from "../modules/products/controllers/add-addon-to-product.js";
 import { cancelOrderController } from "../modules/orders/controllers/cancel-order.js";
 import { cancelReservationController } from "../modules/reservations/controllers/cancel-reservation.js";
 import { createAddonController } from "../modules/products/controllers/create-addon.js";
@@ -31,6 +32,7 @@ import { getTopProductsController } from "../modules/orders/controllers/get-top-
 import { listAddonsController } from "../modules/products/controllers/list-addons.js";
 import { listCustomerReservationsController } from "../modules/customers/controllers/list-customer-reservations.js";
 import { listOrdersController } from "../modules/orders/controllers/list-orders.js";
+import { listProductAddonsController } from "../modules/products/controllers/list-product-addons.js";
 import { listProductCategoriesController } from "../modules/products/controllers/list-product-category.js";
 import { listProductsController } from "../modules/products/controllers/list-products.js";
 import { listReservationHistoryController } from "../modules/reservations/controllers/list-reservation-history.js";
@@ -38,6 +40,7 @@ import { listReservationsController } from "../modules/reservations/controllers/
 import { listRestaurantsController } from "../modules/restaurants/controllers/list-restaurants.js";
 import { listTablesController } from "../modules/tables/controllers/list-tables.js";
 import { payOrderController } from "../modules/orders/controllers/pay-order.js";
+import { removeAddonFromProductController } from "../modules/products/controllers/remove-addon-from-product.js";
 import { toggleAddonStatusController } from "../modules/products/controllers/toggle-addon-status.js";
 import { toggleProductCategoryStatusController } from "../modules/products/controllers/toggle-product-category-status.js";
 import { toggleProductStatusController } from "../modules/products/controllers/toggle-product-status.js";
@@ -93,6 +96,8 @@ export async function restaurantsRoutes(app: FastifyInstance) {
     "/restaurants/:restaurantId/products/:productId",
     deleteProductController,
   );
+
+  // === ADDONS ===
   app.post("/restaurants/:restaurantId/addons", createAddonController);
   app.get("/restaurants/:restaurantId/addons", listAddonsController);
   app.get("/addons/:addonId", getAddonController);
@@ -107,6 +112,20 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.delete(
     "/restaurants/:restaurantId/addons/:addonId",
     deleteAddonController,
+  );
+
+  // === PRODUCT ADDONS ASSOCIATION ===
+  app.post(
+    "/restaurants/:restaurantId/products/:productId/addons/:addonId",
+    addAddonToProductController,
+  );
+  app.delete(
+    "/restaurants/:restaurantId/products/:productId/addons/:addonId",
+    removeAddonFromProductController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/products/:productId/addons",
+    listProductAddonsController,
   );
 
   // === CUSTOMERS ===
