@@ -1,149 +1,420 @@
+````markdown
 # 🍕 Massa ao Ponto
 
-> Sistema de gestão e operação para uma pizzaria, desenvolvido como projeto de portfólio com foco em arquitetura, backend, regras de negócio, persistência e integração de sistemas.
+> Sistema de gestão e operação para uma pizzaria, desenvolvido como projeto de portfólio com foco em arquitetura de software, regras de negócio, persistência relacional, concorrência e testes automatizados.
 
 🚧 **Status: Em desenvolvimento**
 
-O Massa ao Ponto está sendo desenvolvido de forma incremental, utilizando **feature slices** para evoluir o sistema com regras de negócio bem definidas, testes automatizados e integração real com PostgreSQL.
+O Massa ao Ponto é desenvolvido incrementalmente através de **feature slices**, mantendo cada funcionalidade isolada por domínio e atravessando as camadas de persistência, negócio e HTTP.
+
+O objetivo não é construir apenas uma API CRUD, mas demonstrar como decisões de arquitetura, modelagem de domínio, transações, concorrência e testes podem ser aplicadas em um sistema próximo de um cenário real.
 
 ---
 
 ## 🚀 Status do projeto
 
-| Módulo                   | Status                                  |
-| ------------------------ | --------------------------------------- |
-| Infraestrutura           | ✅ Concluído                            |
-| Restaurantes             | ✅ Concluído                            |
-| Mesas                    | ✅ Criação e listagem                   |
-| Clientes                 | ✅ Consulta e histórico                 |
-| Reservas                 | ✅ Milestone 1 concluído                |
-| Disponibilidade          | ✅ Concluído                            |
-| Catálogo de Produtos     | ✅ Fundação concluída                   |
-| Orders / Pedidos         | ✅ Criação, consulta, status e ciclo operacional |
-| Delivery                 | ✅ Criação, início e conclusão          |
-| Pagamentos               | ✅ Pagamento simulado                   |
-| Automações               | ⏳ Planejado                            |
-| Dashboard administrativo | ✅ Sales Summary, Top Products e Top Customers |
+| Módulo               | Status                                     |
+| -------------------- | ------------------------------------------ |
+| Infraestrutura       | ✅ Concluído                               |
+| Restaurantes         | ✅ CRUD de leitura e criação               |
+| Mesas                | ✅ Criação e listagem                      |
+| Clientes             | ✅ Consulta e histórico                    |
+| Reservas             | ✅ Milestone 1 concluído                   |
+| Disponibilidade      | ✅ Concluído                               |
+| Catálogo de Produtos | ✅ Gestão completa                         |
+| Pedidos / Orders     | ✅ Ciclo operacional completo              |
+| Dine-In              | ✅ Pedidos presenciais e controle de mesas |
+| Delivery             | ✅ Criação, início e conclusão             |
+| Pagamentos           | ✅ Pagamento simulado                      |
+| Dashboard            | ✅ Consultas analíticas                    |
+| Automações           | ⏳ Planejado                               |
+
+### Estado atual
+
+- **Etapa atual:** 26
+- **Testes automatizados:** 272
+- **TypeScript:** strict
+- **Banco:** PostgreSQL
+- **ORM:** Drizzle
+- **HTTP:** Fastify
+- **Validação:** Zod
+- **Testes:** Vitest + E2E com PostgreSQL real
 
 ---
 
-## 🏗️ Arquitetura
+# 🏗️ Arquitetura
 
 O projeto utiliza um **Monolito Modular**, organizado por domínios e feature slices.
 
-A estrutura busca manter as regras de negócio independentes da camada HTTP, utilizando:
+A estrutura busca manter as regras de negócio independentes da infraestrutura HTTP e da persistência.
+
+Cada módulo segue, de forma geral, a organização:
+
+```text
+modules/
+└── <domain>/
+    ├── controllers/
+    ├── errors/
+    ├── repositories/
+    ├── schemas/
+    └── use-cases/
+```
+````
+
+A arquitetura utiliza:
 
 - **TypeScript** com `strict`;
 - **Fastify** para HTTP;
 - **Zod** para validação na borda;
 - **Drizzle ORM** para persistência;
 - **PostgreSQL** como banco de dados;
-- **Vitest** para testes unitários;
-- testes **E2E** através de `app.inject()` contra PostgreSQL real;
+- **Vitest** para testes;
+- testes E2E através de `app.inject()`;
+- PostgreSQL real nos testes de integração;
 - Repository Pattern com implementações **InMemory** e **Drizzle**;
-- transações explícitas através de Transaction Managers;
+- Transaction Managers para operações atômicas;
 - Row-Level Locking (`SELECT ... FOR UPDATE`) nos fluxos que exigem controle de concorrência;
-- históricos **append-only** para auditoria de mudanças.
+- históricos **append-only** para auditoria.
 
-A prioridade arquitetural é manter o sistema simples, explícito e orientado às regras reais do domínio, evitando abstrações e dependências desnecessárias.
+A prioridade arquitetural é manter o sistema:
+
+- explícito;
+- testável;
+- orientado às regras de negócio;
+- sem abstrações prematuras;
+- sem dependências desnecessárias;
+- sem acoplamento desnecessário entre os domínios.
 
 ---
 
-## 📍 Milestone 1 — Reservas e Clientes
+# 🍽️ Restaurantes
 
-O primeiro grande ciclo do sistema foi concluído, cobrindo o fluxo principal de reservas e a consulta de clientes.
+O módulo de restaurantes fornece a base de isolamento dos demais domínios.
 
-### Reservas
+### Funcionalidades
 
-- criação de reservas;
-- validação de capacidade;
-- validação de mesa e restaurante;
-- prevenção de conflitos de horário;
-- intervalos semiabertos `[startsAt, endsAt)`;
-- controle de concorrência com Row-Level Locking;
-- atualização de status através de State Machine;
-- cancelamento com janela de 2 horas;
-- listagem com filtros;
+- criação de restaurantes;
+- listagem;
 - consulta individual;
-- consulta de disponibilidade;
-- histórico de alterações;
-- transações atômicas entre reserva e histórico.
+- identificação do restaurante através de `restaurantId`;
+- utilização do restaurante como tenant dos módulos relacionados.
 
-### Clientes
+Os demais recursos que pertencem a uma pizzaria carregam o `restaurantId` quando a regra de negócio exige isolamento explícito.
+
+---
+
+# 🪑 Mesas
+
+O módulo de mesas representa os recursos físicos disponíveis no restaurante.
+
+### Funcionalidades
+
+- criação de mesas;
+- listagem por restaurante;
+- capacidade de pessoas;
+- controle de mesa ativa/inativa;
+- prevenção de números de mesa duplicados dentro do restaurante.
+
+A ocupação não é armazenada diretamente como uma flag.
+
+Em contextos presenciais, a ocupação é derivada semanticamente dos pedidos `DINE_IN` ativos.
+
+---
+
+# 👤 Clientes
+
+Clientes são entidades independentes utilizadas principalmente pelo domínio de Reservas e Orders.
+
+### Funcionalidades
 
 - consulta individual;
 - histórico de reservas;
 - reutilização de clientes através do telefone;
-- isolamento por identificador.
+- relacionamento com reservas e pedidos.
 
-**133 testes automatizados estavam passando ao encerramento do Milestone 1.**
-
----
-
-## 🍕 Delivery — Catálogo
-
-A segunda grande frente do projeto foi iniciada com a fundação do catálogo de produtos.
-
-### Categorias
-
-- criação de categorias por restaurante;
-- listagem de categorias;
-- isolamento por restaurante.
-
-### Produtos
-
-- criação de produtos;
-- listagem de produtos;
-- filtro por categoria;
-- filtro por status ativo;
-- validação de categoria pertencente ao restaurante correto;
-- preços armazenados como **inteiros em centavos**, evitando problemas de precisão com ponto flutuante.
-
-O catálogo foi construído como base para os futuros pedidos, mantendo produtos e categorias independentes do domínio de Orders.
+O cliente é criado ou reutilizado durante determinados fluxos, evitando duplicação desnecessária de registros.
 
 ---
 
-## 🛒 Orders — Pedidos
+# 📅 Reservas
 
-O domínio de pedidos já possui seu fluxo principal implementado.
+O domínio de Reservas foi o primeiro grande ciclo funcional do projeto.
 
-### Criação
+## Criação
 
 Endpoint:
 
-`POST /restaurants/:restaurantId/orders`
+```text
+POST /restaurants/:restaurantId/reservations
+```
 
-A criação do pedido é transacional e contempla:
+A criação contempla:
 
-- pedidos `DELIVERY` e `PICKUP`;
+- validação de restaurante;
+- validação de mesa;
+- validação de capacidade;
+- validação de mesa ativa;
+- validação de pertencimento da mesa ao restaurante;
+- reutilização/criação do cliente através do telefone;
+- validação de intervalo de horário;
+- prevenção de conflitos;
+- transação atômica;
+- registro de histórico.
+
+### Intervalos de tempo
+
+As reservas utilizam intervalos semiabertos:
+
+```text
+[startsAt, endsAt)
+```
+
+Assim:
+
+```text
+[19:00, 21:00)
+[21:00, 23:00)
+```
+
+não possuem conflito.
+
+A sobreposição é determinada pela condição:
+
+```text
+existing.startsAt < new.endsAt
+AND
+existing.endsAt > new.startsAt
+```
+
+Somente reservas nos estados `SCHEDULED` e `CONFIRMED` bloqueiam a mesa.
+
+---
+
+## Máquina de estados
+
+As reservas possuem uma State Machine própria:
+
+```text
+SCHEDULED
+   ├──→ CONFIRMED
+   └──→ CANCELLED
+
+CONFIRMED
+   ├──→ FINISHED
+   ├──→ NO_SHOW
+   └──→ CANCELLED
+```
+
+As transições são responsabilidade do Use Case.
+
+O Zod valida somente a estrutura do payload e os valores pertencentes ao enum.
+
+---
+
+## Cancelamento
+
+Endpoint:
+
+```text
+PATCH /reservations/:reservationId/cancel
+```
+
+O cancelamento possui uma janela mínima de antecedência de **2 horas**.
+
+A regra é implementada no domínio e recebe o horário atual como dependência de entrada, permitindo testes determinísticos sem depender do relógio do sistema.
+
+---
+
+## Disponibilidade
+
+Endpoint:
+
+```text
+GET /restaurants/:restaurantId/availability
+```
+
+A consulta:
+
+- considera apenas mesas ativas;
+- pode filtrar por capacidade;
+- identifica reservas conflitantes;
+- ignora reservas canceladas, finalizadas e no-show;
+- permite horários adjacentes;
+- não utiliza locks de escrita.
+
+A leitura utiliza consultas separadas e processamento com `Set` no Use Case, evitando operações desnecessariamente pesadas no banco.
+
+---
+
+## Histórico
+
+Endpoint:
+
+```text
+GET /reservations/:reservationId/history
+```
+
+O histórico é **append-only**.
+
+Alterações relevantes geram eventos contendo:
+
+- ação;
+- status anterior;
+- novo status;
+- observação;
+- data da alteração.
+
+Reserva e histórico são persistidos na mesma transação quando ocorre uma alteração de estado.
+
+---
+
+# 🍕 Catálogo de Produtos
+
+O catálogo é responsável pela gestão dos produtos comercializados pelo restaurante.
+
+## Categorias
+
+Endpoints:
+
+```text
+POST  /restaurants/:restaurantId/product-categories
+GET   /restaurants/:restaurantId/product-categories
+GET   /product-categories/:categoryId
+PATCH /restaurants/:restaurantId/product-categories/:categoryId
+PATCH /restaurants/:restaurantId/product-categories/:categoryId/toggle-status
+DELETE /restaurants/:restaurantId/product-categories/:categoryId
+```
+
+As categorias possuem:
+
+- criação;
+- listagem;
+- consulta individual;
+- atualização parcial;
+- ativação/desativação;
+- exclusão protegida.
+
+Uma categoria não pode ser removida enquanto possuir produtos associados.
+
+---
+
+## Produtos
+
+Endpoints:
+
+```text
+POST   /restaurants/:restaurantId/products
+GET    /restaurants/:restaurantId/products
+PATCH  /restaurants/:restaurantId/products/:productId
+PATCH  /restaurants/:restaurantId/products/:productId/toggle-status
+DELETE /restaurants/:restaurantId/products/:productId
+```
+
+As funcionalidades incluem:
+
+- criação;
+- listagem;
+- filtros por categoria;
+- filtros por status;
+- atualização parcial;
+- ativação/desativação;
+- exclusão;
+- validação de categoria;
+- isolamento por restaurante.
+
+### Preços
+
+Valores monetários são armazenados como inteiros em centavos:
+
+```text
+R$ 35,90 → 3590
+```
+
+Isso elimina problemas de precisão associados ao uso de ponto flutuante.
+
+### Preservação histórica
+
+Produtos que já participaram de pedidos não podem ser removidos.
+
+Os pedidos armazenam snapshots de:
+
+- nome do produto;
+- preço unitário.
+
+Dessa forma, alterações futuras no catálogo não modificam pedidos históricos.
+
+---
+
+# 🛒 Orders — Pedidos
+
+Orders é atualmente o maior domínio operacional do sistema.
+
+O pedido concentra os fluxos de venda, operação da cozinha, pagamento, delivery e atendimento presencial.
+
+---
+
+## Criação
+
+Endpoint:
+
+```text
+POST /restaurants/:restaurantId/orders
+```
+
+A criação contempla:
+
+- `DELIVERY`;
+- `PICKUP`;
+- `DINE_IN`;
 - validação de produtos;
 - validação de produtos ativos;
 - validação de pertencimento ao restaurante;
-- prevenção de produtos duplicados no mesmo pedido;
+- prevenção de produtos duplicados;
 - validação de quantidade;
-- cálculo server-side do subtotal;
-- cálculo server-side do total;
+- cálculo server-side;
 - valores monetários em centavos;
-- snapshot do nome e preço dos produtos;
-- snapshot dos dados do cliente;
+- snapshot dos produtos;
+- snapshot do cliente;
 - snapshot do endereço de entrega;
-- registro inicial em `order_history`.
+- criação atômica do pedido, itens e histórico.
 
-O backend é responsável pelos cálculos financeiros, não confiando nos valores enviados pelo cliente.
+O backend nunca confia nos totalizadores enviados pelo cliente.
 
-### Consulta
+---
 
-Foram implementadas consultas individuais e listagem de pedidos, incluindo isolamento por restaurante e consultas estruturadas para evitar problemas de N+1.
+# 📦 Order Items
 
-A consulta detalhada `GET /orders/:orderId` retorna o pedido e seus itens preservando os snapshots históricos de nome e preço, sem buscar novamente o catálogo atual.
+Cada item do pedido possui um snapshot próprio.
 
-### Máquina de estados
+Exemplo:
+
+```text
+product_name
+unit_price
+quantity
+subtotal
+```
+
+Se o produto sofrer uma alteração posteriormente:
+
+```text
+Pizza Calabresa → Pizza Calabresa Especial
+R$ 49,90 → R$ 59,90
+```
+
+os pedidos antigos continuam representando exatamente o estado do produto no momento da compra.
+
+---
+
+# 🔄 Máquina de Estados dos Pedidos
 
 Endpoint:
 
-`PATCH /orders/:orderId/status`
+```text
+PATCH /orders/:orderId/status
+```
 
-O ciclo de vida atual do pedido segue:
+O ciclo operacional principal é:
 
 ```text
 PENDING
@@ -159,31 +430,64 @@ OUT_FOR_DELIVERY
 DELIVERED
 ```
 
-Com cancelamento permitido nos estados operacionais definidos pelo domínio:
-
-```text
-PENDING ──────────────→ CANCELLED
-CONFIRMED ────────────→ CANCELLED
-PREPARING ────────────→ CANCELLED
-READY ────────────────→ CANCELLED
-OUT_FOR_DELIVERY ────→ CANCELLED
-```
-
 `DELIVERED` e `CANCELLED` são estados finais.
 
-A State Machine fica exclusivamente no Use Case, enquanto o Zod valida somente a estrutura do payload.
+As transições são protegidas exclusivamente pelo domínio.
 
-### Cancelamento
+---
 
-Pedidos possuem um fluxo específico de cancelamento através de `PATCH /orders/:orderId/cancel`. O cancelamento é permitido apenas enquanto a operação da cozinha ainda não foi iniciada.
+# ❌ Cancelamento
 
-### Pagamento
+Endpoint:
 
-O pagamento é tratado como um estado financeiro independente do estado operacional através de `PATCH /orders/:orderId/payment`. Pagar um pedido não altera automaticamente seu status operacional.
+```text
+PATCH /orders/:orderId/cancel
+```
 
-### Delivery
+O fluxo específico de cancelamento permite cancelar pedidos enquanto a operação da cozinha ainda não foi iniciada.
 
-Pedidos `DELIVERY` possuem um fluxo logístico próprio para criação, início e conclusão da entrega, com histórico append-only e operações transacionais.
+Atualmente:
+
+```text
+PENDING   → CANCELLED
+CONFIRMED → CANCELLED
+```
+
+Estados posteriores ao início da preparação são protegidos pelo domínio.
+
+O cancelamento utiliza o mesmo mecanismo transacional dos demais fluxos de alteração de pedidos.
+
+---
+
+# 💳 Pagamentos
+
+Endpoint:
+
+```text
+PATCH /orders/:orderId/payment
+```
+
+O pagamento é tratado como um estado financeiro independente do estado operacional.
+
+Estados financeiros:
+
+```text
+PENDING
+   ↓
+PAID
+```
+
+Pagar um pedido não altera automaticamente o estado da cozinha.
+
+O evento financeiro também é registrado no `order_history`.
+
+O sistema atualmente simula a confirmação do pagamento, mantendo a arquitetura preparada para uma futura integração real com um provedor externo.
+
+---
+
+# 🛵 Delivery
+
+Pedidos do tipo `DELIVERY` possuem um contexto logístico separado.
 
 Endpoints:
 
@@ -193,66 +497,282 @@ PATCH /orders/:orderId/delivery/start
 PATCH /orders/:orderId/delivery/complete
 ```
 
-### Dine-In
+Estados do Delivery:
 
-Pedidos presenciais podem utilizar o tipo `DINE_IN` e ser associados a uma mesa. A ocupação é derivada dos pedidos ativos, sem duplicar esse estado na tabela `tables`. A criação utiliza Row-Level Locking para impedir que pedidos concorrentes ocupem a mesma mesa.
+```text
+PENDING
+   ↓
+OUT_FOR_DELIVERY
+   ↓
+DELIVERED
+```
 
-### Concorrência e auditoria
+O Delivery possui:
 
-Alterações de status utilizam:
+- entidade própria;
+- histórico próprio;
+- transações;
+- controle de concorrência;
+- validação de tipo do pedido;
+- prevenção de duplicidade.
 
-- `SELECT ... FOR UPDATE`;
-- transação PostgreSQL;
-- atualização do pedido;
-- inserção do histórico;
-- commit atômico.
+O endereço não é duplicado na entidade Delivery.
 
-Isso garante que alterações concorrentes sobre o mesmo pedido sejam serializadas pelo banco e que nenhuma mudança de status seja persistida sem seu respectivo evento de auditoria.
-
-O `order_history` é **append-only**.
+O Delivery reutiliza o snapshot de endereço armazenado no pedido.
 
 ---
 
-## 📊 Dashboard
+# 🪑 Dine-In
 
-O dashboard administrativo possui consultas analíticas para:
+Pedidos presenciais utilizam:
 
-- resumo de vendas;
-- produtos mais vendidos;
-- clientes com maior movimentação.
+```text
+type: DINE_IN
+```
 
-As agregações são executadas diretamente no PostgreSQL, evitando transportar grandes volumes de pedidos para a aplicação apenas para realizar cálculos em memória.
+e ficam associados a uma mesa.
 
-Endpoints atuais:
+A mesa não recebe um campo adicional de `occupied`.
+
+A ocupação é derivada através dos pedidos ativos da mesa.
+
+Pedidos nos estados:
+
+```text
+PENDING
+CONFIRMED
+PREPARING
+READY
+```
+
+mantêm a mesa ocupada.
+
+Quando o pedido é finalizado ou cancelado, a mesa volta a ficar disponível.
+
+### Concorrência
+
+A criação de pedidos `DINE_IN` utiliza:
+
+```text
+SELECT ... FOR UPDATE
+```
+
+na mesa antes da verificação de ocupação.
+
+Isso impede que duas requisições simultâneas criem pedidos para a mesma mesa.
+
+O PostgreSQL atua como autoridade de concorrência, sem mutexes ou locks em memória da aplicação.
+
+---
+
+# 📋 Consultas de Orders
+
+Foram implementadas consultas para:
+
+- listagem de pedidos;
+- consulta individual;
+- consulta dos itens;
+- isolamento por restaurante;
+- preservação dos snapshots históricos.
+
+Endpoint individual:
+
+```text
+GET /orders/:orderId
+```
+
+A consulta detalhada retorna o pedido e seus itens sem consultar novamente o catálogo atual.
+
+A leitura dos itens é feita em lote, evitando N+1 queries.
+
+---
+
+# 📊 Dashboard
+
+O dashboard administrativo utiliza uma camada analítica separada dos repositories operacionais de Orders.
+
+As agregações são executadas diretamente no PostgreSQL para evitar transportar grandes volumes de dados para o Node.js apenas para realizar cálculos em memória.
+
+## Resumo de vendas
 
 ```text
 GET /restaurants/:restaurantId/dashboard/sales-summary
-GET /restaurants/:restaurantId/dashboard/top-products
-GET /restaurants/:restaurantId/dashboard/top-customers
 ```
 
-As consultas respeitam o isolamento por restaurante e utilizam filtros temporais quando aplicável.
+Fornece métricas como:
+
+- receita bruta;
+- receita paga;
+- quantidade de pedidos;
+- ticket médio.
+
+Pedidos cancelados são excluídos das métricas apropriadas.
 
 ---
 
-## 🧪 Testes
+## Top Products
+
+```text
+GET /restaurants/:restaurantId/dashboard/top-products
+```
+
+Permite identificar os produtos com maior movimentação de vendas.
+
+A agregação ocorre diretamente no PostgreSQL.
+
+---
+
+## Category Performance
+
+```text
+GET /restaurants/:restaurantId/dashboard/category-performance
+```
+
+Permite analisar o desempenho das categorias do catálogo.
+
+---
+
+## Top Customers
+
+```text
+GET /restaurants/:restaurantId/dashboard/top-customers
+```
+
+Permite identificar os clientes com maior movimentação no restaurante.
+
+A ordenação do ranking utiliza critérios determinísticos para evitar resultados instáveis em empates.
+
+---
+
+# 🔐 Multitenancy
+
+O projeto considera `restaurantId` como o principal identificador de tenant para recursos pertencentes a um restaurante.
+
+As regras de domínio verificam explicitamente relações como:
+
+```text
+Restaurant
+    ↓
+Category
+    ↓
+Product
+    ↓
+Order
+```
+
+Tentativas de operar sobre recursos pertencentes a outro restaurante são rejeitadas no domínio.
+
+O objetivo é evitar que um ID válido de outra entidade seja suficiente para atravessar a fronteira de um restaurante.
+
+---
+
+# 🔒 Concorrência
+
+Concorrência não é tratada através de locks na memória da aplicação.
+
+Quando existe uma condição de corrida relevante, o PostgreSQL é utilizado como autoridade.
+
+Exemplos:
+
+### Reservas
+
+```text
+SELECT ... FOR UPDATE
+        ↓
+verificação de conflito
+        ↓
+INSERT reservation
+        ↓
+COMMIT
+```
+
+### Dine-In
+
+```text
+SELECT table FOR UPDATE
+        ↓
+verificação de ocupação
+        ↓
+INSERT order
+        ↓
+COMMIT
+```
+
+### Atualização de pedidos
+
+```text
+SELECT order FOR UPDATE
+        ↓
+validação do estado atual
+        ↓
+UPDATE
+        ↓
+INSERT history
+        ↓
+COMMIT
+```
+
+Isso permite que requisições concorrentes sejam serializadas pelo próprio banco.
+
+---
+
+# 🧾 Auditoria
+
+Mudanças importantes de estado são registradas em históricos independentes.
+
+Os históricos seguem o modelo:
+
+```text
+Append-Only
+```
+
+Ou seja, eventos anteriores não são sobrescritos.
+
+Os principais históricos atualmente existentes são:
+
+- `reservation_history`;
+- `order_history`;
+- `delivery_history`.
+
+As alterações críticas são persistidas junto com a mudança de estado dentro da mesma transação.
+
+---
+
+# 🧪 Testes
 
 O projeto possui uma suíte combinando testes unitários e testes E2E.
 
-Os testes unitários utilizam implementações InMemory para manter as regras de domínio rápidas e isoladas.
+## Testes unitários
+
+Os Use Cases utilizam implementações **InMemory** dos repositories.
+
+Isso permite testar regras de negócio sem depender do banco de dados.
+
+## Testes E2E
 
 Os testes E2E utilizam:
 
 - Fastify `app.inject()`;
 - PostgreSQL real;
-- transações e constraints reais;
-- validação completa da camada HTTP até a persistência.
+- Drizzle;
+- Foreign Keys reais;
+- constraints reais;
+- transações reais;
+- fluxo completo HTTP → Use Case → Repository → PostgreSQL.
+
+Isso permite validar não apenas a regra isolada, mas também a integração entre as camadas.
 
 ### Estado atual
 
-**243 testes automatizados passando.**
+**272 testes automatizados passando.**
 
-O projeto também mantém o TypeScript em modo strict e o typecheck é executado com:
+O projeto mantém TypeScript strict e utiliza:
+
+```bash
+npm run typecheck
+```
+
+equivalente a:
 
 ```bash
 tsc --noEmit
@@ -260,101 +780,216 @@ tsc --noEmit
 
 ---
 
-## 🔐 Princípios e decisões arquiteturais
+# 🧱 Persistência
 
-Algumas decisões importantes tomadas durante o desenvolvimento:
+O PostgreSQL é a autoridade de persistência do sistema.
 
-### Dinheiro em centavos
+O Drizzle é utilizado como ORM/query builder, mantendo acesso explícito às operações necessárias.
 
-Valores financeiros são armazenados como `integer` no PostgreSQL.
+Os repositories possuem contratos específicos por domínio.
+
+Não existe um `BaseRepository<T>` genérico.
+
+Essa decisão mantém os contratos pequenos e orientados às necessidades reais de cada Use Case.
+
+---
+
+# 💰 Dinheiro em centavos
+
+Todos os valores financeiros utilizam inteiros.
+
+Exemplo:
 
 ```text
-R$ 35,90 → 3590
+R$ 10,50
+↓
+1050
 ```
 
-Isso evita inconsistências causadas por ponto flutuante.
+Isso se aplica aos principais valores financeiros de Orders, como:
 
-### Regras de negócio fora do HTTP
+- preço dos produtos;
+- subtotal;
+- taxa de entrega;
+- total.
 
-Controllers são responsáveis apenas por:
+A aplicação realiza os cálculos utilizando inteiros, evitando problemas de precisão de ponto flutuante.
+
+---
+
+# 🧠 Regras de negócio fora do HTTP
+
+Controllers possuem responsabilidades limitadas:
 
 1. receber a requisição;
-2. validar/normalizar a entrada;
-3. chamar o Use Case;
-4. devolver a resposta.
+2. extrair os dados;
+3. validar a estrutura na borda;
+4. chamar o Use Case;
+5. devolver a resposta.
 
-Regras de negócio permanecem nos Use Cases.
+As regras de negócio permanecem nos Use Cases.
 
-### Zod como proteção de borda
+Por exemplo:
 
-Zod é utilizado para:
+```text
+Zod
+→ "people deve ser inteiro positivo"
 
-- tipos;
+Use Case
+→ "people não pode ultrapassar a capacidade da mesa"
+```
+
+Essa separação evita transformar o Controller em uma camada de negócio.
+
+---
+
+# 🛡️ Zod como proteção de borda
+
+Zod é responsável principalmente por:
+
 - UUIDs;
+- tipos primitivos;
 - enums;
 - inteiros;
+- estruturas dos payloads;
+- query params;
 - coerção de datas;
-- estrutura dos payloads.
+- validações estruturais.
 
-Validações que dependem do estado do sistema permanecem no domínio.
+Regras que dependem do estado atual do sistema permanecem no domínio.
 
-### Concorrência delegada ao PostgreSQL
+Exemplo:
 
-Quando uma operação precisa garantir consistência diante de requisições simultâneas, o PostgreSQL é utilizado como autoridade através de transações e Row-Level Locking.
+```text
+Zod:
+status ∈ [PENDING, CONFIRMED, ...]
 
-### Históricos append-only
+Use Case:
+PENDING → CONFIRMED é permitido?
+```
 
-Mudanças importantes de estado não sobrescrevem o histórico. Cada transição gera um novo evento de auditoria.
+---
 
-### Pragmatismo
+# 🧩 Feature Slices
 
-O projeto evita:
+Cada funcionalidade é implementada verticalmente atravessando as camadas necessárias:
+
+```text
+Schema
+   ↓
+Repository
+   ↓
+Use Case
+   ↓
+Controller
+   ↓
+HTTP
+   ↓
+Testes
+```
+
+Quando necessário, a feature também atravessa:
+
+```text
+PostgreSQL
+Transaction Manager
+History
+Row-Level Locking
+```
+
+Isso permite evoluir o sistema incrementalmente sem exigir que toda a arquitetura seja construída antecipadamente.
+
+---
+
+# 🧹 Pragmatismo arquitetural
+
+O projeto evita deliberadamente:
 
 - frameworks de DI sem necessidade;
 - repositories genéricos;
 - abstrações prematuras;
-- bibliotecas temporais desnecessárias;
-- infraestrutura externa quando o PostgreSQL resolve o problema.
+- `any`;
+- `@ts-ignore`;
+- dependências desnecessárias;
+- bibliotecas temporais sem necessidade real;
+- locks em memória para problemas que pertencem ao banco;
+- comentários que apenas descrevem código óbvio.
+
+A regra é simples:
+
+> **A complexidade deve existir somente quando o domínio realmente exige.**
 
 ---
 
-## 🗺️ Próximos passos
+# 🗺️ Próximos passos
 
-Com o núcleo operacional de Orders e o primeiro conjunto de consultas analíticas consolidados, o próximo ciclo está direcionado para a evolução administrativa do catálogo.
+O núcleo operacional do Massa ao Ponto já possui:
 
-Próxima frente planejada:
+- gestão de restaurantes;
+- gestão de mesas;
+- clientes;
+- reservas;
+- disponibilidade;
+- catálogo;
+- pedidos;
+- pagamentos simulados;
+- Delivery;
+- Dine-In;
+- auditoria;
+- consultas individuais;
+- consultas analíticas;
+- gestão completa de produtos e categorias.
 
-- atualização de produtos;
-- ativação e desativação de produtos;
-- evolução da gestão do catálogo.
+A próxima evolução será definida a partir das necessidades restantes do domínio, priorizando novas funcionalidades que agreguem valor real ao sistema sem comprometer a simplicidade arquitetural.
 
-Novas features poderão posteriormente avançar para automações, logística e evolução do dashboard.
+Possíveis futuras frentes incluem:
 
-Cada nova funcionalidade será implementada como uma feature slice independente, mantendo o padrão de:
+- automações;
+- evolução do sistema financeiro;
+- integrações externas;
+- evolução logística;
+- novas funcionalidades administrativas;
+- expansão das operações presenciais;
+- melhorias de observabilidade e operação.
 
-**Schema → Repository → Use Case → Controller → HTTP → Testes**
-
-sem comprometer as regras já existentes.
+Cada nova funcionalidade continuará seguindo o princípio de evolução incremental através de **feature slices**.
 
 ---
 
-## 🎯 Objetivo do projeto
+# 🎯 Objetivo do projeto
 
-O Massa ao Ponto não tem como objetivo ser apenas uma API CRUD.
-
-O projeto está sendo construído para demonstrar, na prática, conhecimentos de:
+O Massa ao Ponto está sendo construído para demonstrar, na prática, conhecimentos de:
 
 - arquitetura de software;
 - modelagem de domínio;
+- Monolito Modular;
 - separação de responsabilidades;
+- Programação Orientada a Objetos;
 - regras de negócio;
-- concorrência;
-- transações;
-- persistência relacional;
-- testes automatizados;
-- APIs REST;
+- REST APIs;
 - TypeScript strict;
 - PostgreSQL;
+- Drizzle ORM;
+- transações;
+- concorrência;
+- Row-Level Locking;
+- persistência relacional;
+- testes unitários;
+- testes E2E;
+- multitenancy;
+- auditoria;
+- modelagem financeira;
+- analytics;
 - integração entre camadas.
 
-A proposta é evoluir o sistema de forma incremental, documentando as decisões arquiteturais e mantendo uma suíte de testes que permita refatorar e adicionar novas funcionalidades com segurança.
+O projeto não busca apenas demonstrar que é possível construir endpoints.
+
+A proposta é demonstrar **como construir um sistema de negócio evolutivo**, onde novas funcionalidades podem ser adicionadas sem abandonar as regras, a integridade dos dados ou a capacidade de testar o comportamento do sistema.
+
+---
+
+## 📌 Princípio central
+
+> **Código simples, regras explícitas, banco como autoridade e testes como proteção contra regressões.**
+
+O Massa ao Ponto continua sendo desenvolvido de forma incremental, documentando as decisões arquiteturais relevantes e mantendo uma base suficientemente sólida para permitir que o sistema cresça sem transformar cada nova feature em uma refatoração.
