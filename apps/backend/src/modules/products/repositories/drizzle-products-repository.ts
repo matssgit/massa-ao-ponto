@@ -1,6 +1,6 @@
 import {
   CreateProductData,
-  FindManyProductsFilters,
+  FindManyProductsParams,
   Product,
   ProductsRepository,
   UpdateProductData,
@@ -11,7 +11,7 @@ import { db } from "../../../db/index.js";
 import { products } from "../../../db/schema/index.js";
 
 export class DrizzleProductsRepository implements ProductsRepository {
-  constructor(private readonly client: any = db) {}
+  constructor(private readonly client: typeof db = db) {}
 
   async create(data: CreateProductData): Promise<Product> {
     const [product] = await this.client
@@ -19,23 +19,6 @@ export class DrizzleProductsRepository implements ProductsRepository {
       .values(data)
       .returning();
     return product;
-  }
-
-  async findMany({
-    restaurantId,
-    categoryId,
-    active,
-  }: FindManyProductsFilters): Promise<Product[]> {
-    const conditions = [eq(products.restaurantId, restaurantId)];
-
-    if (categoryId) conditions.push(eq(products.categoryId, categoryId));
-    if (active !== undefined) conditions.push(eq(products.active, active));
-
-    return await this.client
-      .select()
-      .from(products)
-      .where(and(...conditions))
-      .orderBy(asc(products.displayOrder));
   }
 
   async findById(id: string): Promise<Product | null> {
@@ -46,13 +29,34 @@ export class DrizzleProductsRepository implements ProductsRepository {
     return product || null;
   }
 
+  async findMany({
+    restaurantId,
+    categoryId,
+    active,
+  }: FindManyProductsParams): Promise<Product[]> {
+    const conditions = [eq(products.restaurantId, restaurantId)];
+
+    if (categoryId) {
+      conditions.push(eq(products.categoryId, categoryId));
+    }
+
+    if (active !== undefined) {
+      conditions.push(eq(products.active, active));
+    }
+
+    return await this.client
+      .select()
+      .from(products)
+      .where(and(...conditions))
+      .orderBy(asc(products.displayOrder), asc(products.id));
+  }
+
   async update(id: string, data: UpdateProductData): Promise<Product> {
     const [updated] = await this.client
       .update(products)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(products.id, id))
       .returning();
-
     return updated;
   }
 

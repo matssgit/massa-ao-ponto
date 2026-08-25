@@ -16,7 +16,7 @@ export interface UpdateProductData {
   active?: boolean;
 }
 
-export interface FindManyProductsFilters {
+export interface FindManyProductsParams {
   restaurantId: string;
   categoryId?: string;
   active?: boolean;
@@ -37,7 +37,7 @@ export interface Product {
 
 export interface ProductsRepository {
   create(data: CreateProductData): Promise<Product>;
-  findMany(filters: FindManyProductsFilters): Promise<Product[]>;
+  findMany(params: FindManyProductsParams): Promise<Product[]>;
   findById(id: string): Promise<Product | null>;
   update(id: string, data: UpdateProductData): Promise<Product>;
   delete(id: string): Promise<void>;

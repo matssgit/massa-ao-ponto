@@ -1,6 +1,6 @@
 import {
   CreateProductData,
-  FindManyProductsFilters,
+  FindManyProductsParams,
   Product,
   ProductsRepository,
   UpdateProductData,
@@ -19,8 +19,8 @@ export class InMemoryProductsRepository implements ProductsRepository {
       name: data.name,
       description: data.description ?? null,
       price: data.price,
-      displayOrder: data.displayOrder,
       active: true,
+      displayOrder: data.displayOrder,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -28,11 +28,15 @@ export class InMemoryProductsRepository implements ProductsRepository {
     return product;
   }
 
+  async findById(id: string): Promise<Product | null> {
+    return this.items.find((item) => item.id === id) || null;
+  }
+
   async findMany({
     restaurantId,
     categoryId,
     active,
-  }: FindManyProductsFilters): Promise<Product[]> {
+  }: FindManyProductsParams): Promise<Product[]> {
     return this.items
       .filter((item) => {
         if (item.restaurantId !== restaurantId) return false;
@@ -40,17 +44,18 @@ export class InMemoryProductsRepository implements ProductsRepository {
         if (active !== undefined && item.active !== active) return false;
         return true;
       })
-      .sort((a, b) => a.displayOrder - b.displayOrder);
-  }
-
-  async findById(id: string): Promise<Product | null> {
-    return this.items.find((item) => item.id === id) || null;
+      .sort((a, b) => {
+        if (a.displayOrder === b.displayOrder) {
+          return a.id.localeCompare(b.id);
+        }
+        return a.displayOrder - b.displayOrder;
+      });
   }
 
   async update(id: string, data: UpdateProductData): Promise<Product> {
     const index = this.items.findIndex((item) => item.id === id);
-
     const updated = { ...this.items[index] };
+
     if (data.name !== undefined) updated.name = data.name;
     if (data.description !== undefined)
       updated.description = data.description ?? null;
