@@ -10,7 +10,11 @@ export const orderStatusEnum = pgEnum("order_status", [
   "CANCELLED",
 ]);
 
-export const orderTypeEnum = pgEnum("order_type", ["DELIVERY", "PICKUP"]);
+export const orderTypeEnum = pgEnum("order_type", [
+  "DELIVERY",
+  "PICKUP",
+  "DINE_IN",
+]);
 
 export const orderPaymentStatusEnum = pgEnum("order_payment_status", [
   "PENDING",

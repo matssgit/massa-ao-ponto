@@ -13,3 +13,4 @@ export * from "./order-history.js";
 export * from "./delivery-status.js";
 export * from "./deliveries.js";
 export * from "./delivery-history.js";
+export * from "./addons.js";

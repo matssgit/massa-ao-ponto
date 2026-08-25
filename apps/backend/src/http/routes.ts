@@ -7,14 +7,17 @@ import {
 import { FastifyInstance } from "fastify";
 import { cancelOrderController } from "../modules/orders/controllers/cancel-order.js";
 import { cancelReservationController } from "../modules/reservations/controllers/cancel-reservation.js";
+import { createAddonController } from "../modules/products/controllers/create-addon.js";
 import { createOrderController } from "../modules/orders/controllers/create-order.js";
 import { createProductCategoryController } from "../modules/products/controllers/create-product-category.js";
 import { createProductController } from "../modules/products/controllers/create-product.js";
 import { createReservationController } from "../modules/reservations/controllers/create-reservation.js";
 import { createRestaurantController } from "../modules/restaurants/controllers/create-restaurant.js";
 import { createTableController } from "../modules/tables/controllers/create-table.js";
+import { deleteAddonController } from "../modules/products/controllers/delete-addon.js";
 import { deleteProductCategoryController } from "../modules/products/controllers/delete-product-category.js";
 import { deleteProductController } from "../modules/products/controllers/delete-product.js";
+import { getAddonController } from "../modules/products/controllers/get-addon.js";
 import { getAvailabilityController } from "../modules/reservations/controllers/get-availability.js";
 import { getCategoryPerformanceController } from "../modules/orders/controllers/get-category-performance.js";
 import { getCustomerController } from "../modules/customers/controllers/get-customer.js";
@@ -25,6 +28,7 @@ import { getRestaurantController } from "../modules/restaurants/controllers/get-
 import { getSalesSummaryController } from "../modules/orders/controllers/get-sales-summary.js";
 import { getTopCustomersController } from "../modules/orders/controllers/get-top-customers.js";
 import { getTopProductsController } from "../modules/orders/controllers/get-top-products.js";
+import { listAddonsController } from "../modules/products/controllers/list-addons.js";
 import { listCustomerReservationsController } from "../modules/customers/controllers/list-customer-reservations.js";
 import { listOrdersController } from "../modules/orders/controllers/list-orders.js";
 import { listProductCategoriesController } from "../modules/products/controllers/list-product-category.js";
@@ -34,8 +38,10 @@ import { listReservationsController } from "../modules/reservations/controllers/
 import { listRestaurantsController } from "../modules/restaurants/controllers/list-restaurants.js";
 import { listTablesController } from "../modules/tables/controllers/list-tables.js";
 import { payOrderController } from "../modules/orders/controllers/pay-order.js";
+import { toggleAddonStatusController } from "../modules/products/controllers/toggle-addon-status.js";
 import { toggleProductCategoryStatusController } from "../modules/products/controllers/toggle-product-category-status.js";
 import { toggleProductStatusController } from "../modules/products/controllers/toggle-product-status.js";
+import { updateAddonController } from "../modules/products/controllers/update-addon.js";
 import { updateOrderStatusController } from "../modules/orders/controllers/update-order-status.js";
 import { updateProductCategoryController } from "../modules/products/controllers/update-product-category.js";
 import { updateProductController } from "../modules/products/controllers/update-product.js";
@@ -86,6 +92,21 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.delete(
     "/restaurants/:restaurantId/products/:productId",
     deleteProductController,
+  );
+  app.post("/restaurants/:restaurantId/addons", createAddonController);
+  app.get("/restaurants/:restaurantId/addons", listAddonsController);
+  app.get("/addons/:addonId", getAddonController);
+  app.patch(
+    "/restaurants/:restaurantId/addons/:addonId",
+    updateAddonController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId/addons/:addonId/toggle-status",
+    toggleAddonStatusController,
+  );
+  app.delete(
+    "/restaurants/:restaurantId/addons/:addonId",
+    deleteAddonController,
   );
 
   // === CUSTOMERS ===

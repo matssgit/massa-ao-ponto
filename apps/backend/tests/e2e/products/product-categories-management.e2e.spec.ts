@@ -1,9 +1,15 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  addons,
+  deliveries,
+  deliveryHistory,
+  orderHistory,
+  orderItems,
+  orders,
   productCategories,
   products,
   restaurants,
 } from "../../../src/db/schema/index.js";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
@@ -14,12 +20,24 @@ describe("Product Categories Management (E2E)", () => {
   afterAll(async () => await app.close());
 
   beforeEach(async () => {
+    // 1. Limpa rastros logísticos e de histórico de pedidos
+    await db.delete(deliveryHistory);
+    await db.delete(deliveries);
+    await db.delete(orderHistory);
+
+    // 2. Limpa os pedidos
+    await db.delete(orderItems);
+    await db.delete(orders);
+
+    // 3. Limpa o catálogo
+    await db.delete(addons);
     await db.delete(products);
     await db.delete(productCategories);
-    await db.delete(restaurants);
-    
-  });
 
+    // 4. Limpa o restaurante
+    await db.delete(restaurants);
+  });
+  
   it("deve retornar a categoria no endpoint individual", async () => {
     const [rest] = await db
       .insert(restaurants)

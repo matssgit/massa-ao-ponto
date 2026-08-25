@@ -1,5 +1,7 @@
 import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 
+import { AddonNotFoundError } from "../modules/products/errors/addon-not-found-error.js";
+import { AddonRestaurantMismatchError } from "../modules/products/errors/addon-restaurant-mismatch-error.js";
 import { CapacityExceededError } from "../modules/reservations/errors/capacity-exceeded-error.js";
 import { ProductNotFoundError as CatalogProductNotFoundError } from "../modules/products/errors/product-not-found-error.js";
 import { CustomerNotFoundError } from "../modules/customers/errors/customer-not-found-error.js";
@@ -37,8 +39,6 @@ import { TableOccupiedError } from "../modules/orders/errors/table-occupied-erro
 import { TableRestaurantMismatchError } from "../modules/reservations/errors/table-restaurant-mismatch-error.js";
 import { ZodError } from "zod";
 
-// Novos Erros de Catálogo
-
 export const errorHandler = (
   error: FastifyError,
   request: FastifyRequest,
@@ -60,7 +60,8 @@ export const errorHandler = (
     error instanceof ProductNotFoundError ||
     error instanceof CatalogProductNotFoundError ||
     error instanceof OrderNotFoundError ||
-    error instanceof DeliveryNotFoundError
+    error instanceof DeliveryNotFoundError ||
+    error instanceof AddonNotFoundError
   ) {
     return reply.status(404).send({ message: error.message });
   }
@@ -96,7 +97,8 @@ export const errorHandler = (
     error instanceof DeliveryAlreadyExistsError ||
     error instanceof InvalidDeliveryOrderTypeError ||
     error instanceof InvalidDeliveryStatusTransitionError ||
-    error instanceof TableOccupiedError
+    error instanceof TableOccupiedError ||
+    error instanceof AddonRestaurantMismatchError
   ) {
     return reply.status(409).send({ message: error.message });
   }
