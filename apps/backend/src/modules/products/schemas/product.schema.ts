@@ -37,3 +37,8 @@ export const updateProductBodySchema = z.object({
   displayOrder: z.number().int().nonnegative().optional(),
   active: z.boolean().optional(),
 });
+
+export const deleteProductParamsSchema = z.object({
+  restaurantId: z.string().uuid(),
+  productId: z.string().uuid(),
+});

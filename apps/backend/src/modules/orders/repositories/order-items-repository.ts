@@ -15,4 +15,5 @@ export interface OrderItem extends CreateOrderItemData {
 export interface OrderItemsRepository {
   createMany(data: CreateOrderItemData[]): Promise<OrderItem[]>;
   findManyByOrderIds(orderIds: string[]): Promise<OrderItem[]>;
+  hasByProductId(productId: string): Promise<boolean>;
 }

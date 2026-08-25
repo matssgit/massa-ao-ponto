@@ -25,3 +25,8 @@ export const updateCategoryBodySchema = z.object({
   displayOrder: z.number().int().nonnegative().optional(),
   active: z.boolean().optional(),
 });
+
+export const deleteCategoryParamsSchema = z.object({
+  restaurantId: z.string().uuid(),
+  categoryId: z.string().uuid(),
+});

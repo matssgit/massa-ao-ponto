@@ -40,4 +40,5 @@ export interface ProductsRepository {
   findMany(filters: FindManyProductsFilters): Promise<Product[]>;
   findById(id: string): Promise<Product | null>;
   update(id: string, data: UpdateProductData): Promise<Product>;
+  delete(id: string): Promise<void>;
 }

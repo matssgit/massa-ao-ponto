@@ -3,9 +3,9 @@ import {
   OrderItem,
   OrderItemsRepository,
 } from "./order-items-repository.js";
+import { eq, inArray } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
-import { inArray } from "drizzle-orm";
 import { orderItems } from "../../../db/schema/index.js";
 
 export class DrizzleOrderItemsRepository implements OrderItemsRepository {
@@ -22,5 +22,14 @@ export class DrizzleOrderItemsRepository implements OrderItemsRepository {
       .select()
       .from(orderItems)
       .where(inArray(orderItems.orderId, orderIds));
+  }
+
+  async hasByProductId(productId: string): Promise<boolean> {
+    const [result] = await this.client
+      .select({ id: orderItems.id })
+      .from(orderItems)
+      .where(eq(orderItems.productId, productId))
+      .limit(1);
+    return !!result;
   }
 }

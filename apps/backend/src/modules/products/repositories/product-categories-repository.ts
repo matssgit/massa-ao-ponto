@@ -28,4 +28,5 @@ export interface ProductCategoriesRepository {
   findMany(restaurantId: string): Promise<ProductCategory[]>;
   findById(id: string): Promise<ProductCategory | null>;
   update(id: string, data: UpdateProductCategoryData): Promise<ProductCategory>;
+  delete(id: string): Promise<void>;
 }

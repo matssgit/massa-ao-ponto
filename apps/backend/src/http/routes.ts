@@ -13,6 +13,8 @@ import { createProductController } from "../modules/products/controllers/create-
 import { createReservationController } from "../modules/reservations/controllers/create-reservation.js";
 import { createRestaurantController } from "../modules/restaurants/controllers/create-restaurant.js";
 import { createTableController } from "../modules/tables/controllers/create-table.js";
+import { deleteProductCategoryController } from "../modules/products/controllers/delete-product-category.js";
+import { deleteProductController } from "../modules/products/controllers/delete-product.js";
 import { getAvailabilityController } from "../modules/reservations/controllers/get-availability.js";
 import { getCategoryPerformanceController } from "../modules/orders/controllers/get-category-performance.js";
 import { getCustomerController } from "../modules/customers/controllers/get-customer.js";
@@ -76,6 +78,14 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   app.patch(
     "/restaurants/:restaurantId/product-categories/:categoryId/toggle-status",
     toggleProductCategoryStatusController,
+  );
+  app.delete(
+    "/restaurants/:restaurantId/product-categories/:categoryId",
+    deleteProductCategoryController,
+  );
+  app.delete(
+    "/restaurants/:restaurantId/products/:productId",
+    deleteProductController,
   );
 
   // === CUSTOMERS ===

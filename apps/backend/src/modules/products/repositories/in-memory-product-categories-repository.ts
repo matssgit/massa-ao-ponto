@@ -54,4 +54,9 @@ export class InMemoryProductCategoriesRepository implements ProductCategoriesRep
 
     return updated;
   }
+
+  async delete(id: string): Promise<void> {
+    const index = this.items.findIndex((item) => item.id === id);
+    if (index >= 0) this.items.splice(index, 1);
+  }
 }

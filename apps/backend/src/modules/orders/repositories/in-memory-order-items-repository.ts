@@ -25,4 +25,8 @@ export class InMemoryOrderItemsRepository implements OrderItemsRepository {
     if (orderIds.length === 0) return [];
     return this.items.filter((item) => orderIds.includes(item.orderId));
   }
+
+  async hasByProductId(productId: string): Promise<boolean> {
+    return this.items.some((item) => item.productId === productId);
+  }
 }

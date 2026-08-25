@@ -47,4 +47,10 @@ export class DrizzleProductCategoriesRepository implements ProductCategoriesRepo
       .returning();
     return updated;
   }
+
+  async delete(id: string): Promise<void> {
+    await this.client
+      .delete(productCategories)
+      .where(eq(productCategories.id, id));
+  }
 }

@@ -1,6 +1,7 @@
 import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 
 import { CapacityExceededError } from "../modules/reservations/errors/capacity-exceeded-error.js";
+import { ProductNotFoundError as CatalogProductNotFoundError } from "../modules/products/errors/product-not-found-error.js";
 import { CustomerNotFoundError } from "../modules/customers/errors/customer-not-found-error.js";
 import { DeliveryAlreadyExistsError } from "../modules/orders/errors/delivery-already-exists-error.js";
 import { DeliveryNotFoundError } from "../modules/orders/errors/delivery-not-found-error.js";
@@ -18,8 +19,10 @@ import { InvalidTimeRangeError } from "../modules/reservations/errors/invalid-ti
 import { InvalidTimeRangeFilterError } from "../modules/reservations/errors/invalid-time-range-filter-error.js";
 import { MissingDeliveryAddressError } from "../modules/orders/errors/missing-delivery-address-error.js";
 import { OrderNotFoundError } from "../modules/orders/errors/order-not-found-error.js";
+import { ProductCategoryHasProductsError } from "../modules/products/errors/product-category-has-products-error.js";
 import { ProductCategoryNotFoundError } from "../modules/products/errors/product-category-not-found-error.js";
 import { ProductCategoryRestaurantMismatchError } from "../modules/products/errors/product-category-restaurant-mismatch-error.js";
+import { ProductHasOrdersError } from "../modules/products/errors/product-has-orders-error.js";
 import { ProductInactiveError } from "../modules/orders/errors/product-inactive-error.js";
 import { ProductNotFoundError } from "../modules/orders/errors/product-not-found-error.js";
 import { ProductRestaurantMismatchError } from "../modules/orders/errors/product-restaurant-mismatch-error.js";
@@ -33,6 +36,8 @@ import { TableNumberAlreadyExistsError } from "../modules/tables/errors/table-nu
 import { TableOccupiedError } from "../modules/orders/errors/table-occupied-error.js";
 import { TableRestaurantMismatchError } from "../modules/reservations/errors/table-restaurant-mismatch-error.js";
 import { ZodError } from "zod";
+
+// Novos Erros de Catálogo
 
 export const errorHandler = (
   error: FastifyError,
@@ -53,9 +58,9 @@ export const errorHandler = (
     error instanceof CustomerNotFoundError ||
     error instanceof ProductCategoryNotFoundError ||
     error instanceof ProductNotFoundError ||
+    error instanceof CatalogProductNotFoundError ||
     error instanceof OrderNotFoundError ||
-    error instanceof DeliveryNotFoundError ||
-    error instanceof TableNotFoundError
+    error instanceof DeliveryNotFoundError
   ) {
     return reply.status(404).send({ message: error.message });
   }
@@ -81,9 +86,8 @@ export const errorHandler = (
     error instanceof InvalidReservationStatusTransitionError ||
     error instanceof ReservationCancellationWindowExpiredError ||
     error instanceof ProductCategoryRestaurantMismatchError ||
-    error instanceof DuplicateProductInOrderError ||
-    error instanceof ProductInactiveError ||
-    error instanceof ProductRestaurantMismatchError ||
+    error instanceof ProductCategoryHasProductsError ||
+    error instanceof ProductHasOrdersError ||
     error instanceof DuplicateProductInOrderError ||
     error instanceof ProductInactiveError ||
     error instanceof ProductRestaurantMismatchError ||
@@ -92,9 +96,7 @@ export const errorHandler = (
     error instanceof DeliveryAlreadyExistsError ||
     error instanceof InvalidDeliveryOrderTypeError ||
     error instanceof InvalidDeliveryStatusTransitionError ||
-    error instanceof TableOccupiedError ||
-    error instanceof TableRestaurantMismatchError ||
-    error instanceof TableInactiveError
+    error instanceof TableOccupiedError
   ) {
     return reply.status(409).send({ message: error.message });
   }
