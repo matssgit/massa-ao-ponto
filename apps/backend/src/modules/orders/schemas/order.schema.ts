@@ -46,6 +46,7 @@ export const createOrderBodySchema = z.object({
 });
 
 export const getOrderParamsSchema = z.object({
+  restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),
   orderId: z.string().uuid(),
 });
 
@@ -65,10 +66,12 @@ export const listOrdersQuerySchema = z.object({
       "CANCELLED",
     ])
     .optional(),
-  type: z.enum(["DELIVERY", "PICKUP"]).optional(),
+  type: z.enum(["DELIVERY", "PICKUP", "DINE_IN"]).optional(),
   customerId: z.string().uuid("Formato de ID de cliente inválido").optional(),
   startsAt: z.coerce.date().optional(),
   endsAt: z.coerce.date().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const updateOrderStatusParamsSchema = z.object({

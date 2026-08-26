@@ -18,4 +18,14 @@ export class InMemoryOrderHistoryRepository implements OrderHistoryRepository {
     this.items.push(history);
     return history;
   }
+
+  async findManyByOrderId(orderId: string): Promise<OrderHistory[]> {
+    return this.items
+      .filter((history) => history.orderId === orderId)
+      .sort((a, b) => {
+        const dateDiff = a.createdAt.getTime() - b.createdAt.getTime();
+        if (dateDiff !== 0) return dateDiff;
+        return a.id.localeCompare(b.id);
+      });
+  }
 }

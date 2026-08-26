@@ -2,6 +2,8 @@ import {
   CreateOrderData,
   ListOrdersFilters,
   Order,
+  OrderPaymentStatus,
+  OrderStatus,
   OrdersRepository,
 } from "./orders-repository.js";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
@@ -9,8 +11,10 @@ import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { orders } from "../../../db/schema/index.js";
 
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export class DrizzleOrdersRepository implements OrdersRepository {
-  constructor(private readonly client: any = db) {}
+  constructor(private readonly client: typeof db | Transaction = db) {}
 
   async create(data: CreateOrderData): Promise<Order> {
     const [order] = await this.client.insert(orders).values(data).returning();
@@ -25,12 +29,28 @@ export class DrizzleOrdersRepository implements OrdersRepository {
     return result[0] || null;
   }
 
+  async findByIdAndRestaurantId(
+    orderId: string,
+    restaurantId: string,
+  ): Promise<Order | null> {
+    const [order] = await this.client
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.id, orderId),
+          eq(orders.restaurantId, restaurantId),
+        ),
+      );
+
+    return order || null;
+  }
+
   async findMany(filters: ListOrdersFilters): Promise<Order[]> {
     const conditions = [eq(orders.restaurantId, filters.restaurantId)];
 
-    if (filters.status)
-      conditions.push(eq(orders.status, filters.status as any));
-    if (filters.type) conditions.push(eq(orders.type, filters.type as any));
+    if (filters.status) conditions.push(eq(orders.status, filters.status));
+    if (filters.type) conditions.push(eq(orders.type, filters.type));
     if (filters.customerId)
       conditions.push(eq(orders.customerId, filters.customerId));
     if (filters.startsAt)
@@ -41,7 +61,9 @@ export class DrizzleOrdersRepository implements OrdersRepository {
       .select()
       .from(orders)
       .where(and(...conditions))
-      .orderBy(desc(orders.createdAt), desc(orders.id));
+      .orderBy(desc(orders.createdAt), desc(orders.id))
+      .limit(filters.limit)
+      .offset((filters.page - 1) * filters.limit);
   }
 
   async findByIdForUpdate(id: string): Promise<Order | null> {
@@ -49,22 +71,25 @@ export class DrizzleOrdersRepository implements OrdersRepository {
       .select()
       .from(orders)
       .where(eq(orders.id, id))
-      .for("update"); // Aplica o Row-Level Locking do Postgres
+      .for("update");
 
     return result[0] || null;
   }
 
-  async updateStatus(id: string, status: string): Promise<void> {
+  async updateStatus(id: string, status: OrderStatus): Promise<void> {
     await this.client
       .update(orders)
-      .set({ status: status as any, updatedAt: new Date() })
+      .set({ status, updatedAt: new Date() })
       .where(eq(orders.id, id));
   }
 
-  async updatePaymentStatus(id: string, paymentStatus: string): Promise<void> {
+  async updatePaymentStatus(
+    id: string,
+    paymentStatus: OrderPaymentStatus,
+  ): Promise<void> {
     await this.client
       .update(orders)
-      .set({ paymentStatus: paymentStatus as any, updatedAt: new Date() })
+      .set({ paymentStatus, updatedAt: new Date() })
       .where(eq(orders.id, id));
   }
 

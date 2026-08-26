@@ -2,6 +2,8 @@ import {
   CreateOrderData,
   ListOrdersFilters,
   Order,
+  OrderPaymentStatus,
+  OrderStatus,
   OrdersRepository,
 } from "./orders-repository.js";
 
@@ -25,7 +27,21 @@ export class InMemoryOrdersRepository implements OrdersRepository {
     return this.items.find((item) => item.id === id) || null;
   }
 
+  async findByIdAndRestaurantId(
+    orderId: string,
+    restaurantId: string,
+  ): Promise<Order | null> {
+    return (
+      this.items.find(
+        (item) =>
+          item.id === orderId && item.restaurantId === restaurantId,
+      ) || null
+    );
+  }
+
   async findMany(filters: ListOrdersFilters): Promise<Order[]> {
+    const offset = (filters.page - 1) * filters.limit;
+
     return this.items
       .filter((item) => {
         if (item.restaurantId !== filters.restaurantId) return false;
@@ -41,14 +57,15 @@ export class InMemoryOrdersRepository implements OrdersRepository {
         const dateDiff = b.createdAt.getTime() - a.createdAt.getTime();
         if (dateDiff !== 0) return dateDiff;
         return b.id.localeCompare(a.id);
-      });
+      })
+      .slice(offset, offset + filters.limit);
   }
 
   async findByIdForUpdate(id: string): Promise<Order | null> {
     return this.findById(id);
   }
 
-  async updateStatus(id: string, status: string): Promise<void> {
+  async updateStatus(id: string, status: OrderStatus): Promise<void> {
     const index = this.items.findIndex((item) => item.id === id);
     if (index !== -1) {
       this.items[index].status = status;
@@ -56,7 +73,10 @@ export class InMemoryOrdersRepository implements OrdersRepository {
     }
   }
 
-  async updatePaymentStatus(id: string, paymentStatus: string): Promise<void> {
+  async updatePaymentStatus(
+    id: string,
+    paymentStatus: OrderPaymentStatus,
+  ): Promise<void> {
     const index = this.items.findIndex((item) => item.id === id);
     if (index !== -1) {
       this.items[index].paymentStatus = paymentStatus;

@@ -8,6 +8,7 @@ import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repos
 import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-status-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
+import { OrderStatus } from "../repositories/orders-repository.js";
 import { randomUUID } from "node:crypto";
 
 describe("CancelOrderUseCase", () => {
@@ -30,7 +31,7 @@ describe("CancelOrderUseCase", () => {
     useCase = new CancelOrderUseCase(transactionManager);
   });
 
-  async function createOrder(status: string) {
+  async function createOrder(status: OrderStatus) {
     return await ordersRepository.create({
       restaurantId: randomUUID(),
       customerId: randomUUID(),
@@ -74,7 +75,7 @@ describe("CancelOrderUseCase", () => {
   });
 
   it("deve rejeitar cancelamento de pedido PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED ou CANCELLED", async () => {
-    const statuses = [
+    const statuses: OrderStatus[] = [
       "PREPARING",
       "READY",
       "OUT_FOR_DELIVERY",
@@ -89,7 +90,7 @@ describe("CancelOrderUseCase", () => {
       ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
 
       const unchanged = await ordersRepository.findById(order.id);
-      expect(unchanged?.status).toBe(status); // Garante que a transação fez rollback/abortou
+      expect(unchanged?.status).toBe(status);
     }
   });
 

@@ -7,6 +7,7 @@ import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repos
 import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-status-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
+import { OrderStatus } from "../repositories/orders-repository.js";
 import { UpdateOrderStatusUseCase } from "./update-order-status.use-case.js";
 import { randomUUID } from "node:crypto";
 
@@ -30,7 +31,7 @@ describe("UpdateOrderStatusUseCase", () => {
     useCase = new UpdateOrderStatusUseCase(transactionManager);
   });
 
-  async function createOrder(status: string) {
+  async function createOrder(status: OrderStatus) {
     return await ordersRepository.create({
       restaurantId: randomUUID(),
       customerId: randomUUID(),

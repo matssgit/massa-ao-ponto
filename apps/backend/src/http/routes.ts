@@ -159,7 +159,10 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   // === ORDERS ===
   app.post("/restaurants/:restaurantId/orders", createOrderController);
   app.get("/restaurants/:restaurantId/orders", listOrdersController);
-  app.get("/orders/:orderId", getOrderController); // Consulta global individual
+  app.get(
+    "/restaurants/:restaurantId/orders/:orderId",
+    getOrderController,
+  );
   app.patch("/orders/:orderId/status", updateOrderStatusController);
   app.patch("/orders/:orderId/cancel", cancelOrderController);
   app.patch("/orders/:orderId/payment", payOrderController);

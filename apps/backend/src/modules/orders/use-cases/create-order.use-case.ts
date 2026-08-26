@@ -1,4 +1,12 @@
-import { CreateOrderItemData } from "../repositories/order-items-repository.js";
+import {
+  CreateOrderItemAddonData,
+  CreateOrderItemData,
+} from "../repositories/order-items-repository.js";
+
+import { AddonInactiveError } from "../errors/addon-inactive-error.js";
+import { AddonNotFoundError } from "../../products/errors/addon-not-found-error.js";
+import { AddonRestaurantMismatchError } from "../../products/errors/addon-restaurant-mismatch-error.js";
+import { AddonsRepository } from "../../products/repositories/addons-repository.js";
 import { CustomerNotFoundError } from "../../customers/errors/customer-not-found-error.js";
 import { CustomersRepository } from "../../reservations/repositories/customers-repository.js";
 import { DuplicateProductInOrderError } from "../errors/duplicate-product-in-order-error.js";
@@ -7,6 +15,8 @@ import { InvalidItemQuantityError } from "../errors/invalid-item-quantity-error.
 import { InvalidOrderTypeError } from "../errors/invalid-order-type-error.js";
 import { MissingDeliveryAddressError } from "../errors/missing-delivery-address-error.js";
 import { OrderTransactionManager } from "../repositories/order-transaction-manager.js";
+import { ProductAddonNotFoundError } from "../../products/errors/product-addon-not-found-error.js";
+import { ProductAddonsRepository } from "../../products/repositories/product-addons-repository.js";
 import { ProductInactiveError } from "../errors/product-inactive-error.js";
 import { ProductNotFoundError } from "../errors/product-not-found-error.js";
 import { ProductRestaurantMismatchError } from "../errors/product-restaurant-mismatch-error.js";
@@ -51,11 +61,12 @@ export class CreateOrderUseCase {
     private readonly restaurantsRepository: RestaurantsRepository,
     private readonly customersRepository: CustomersRepository,
     private readonly productsRepository: ProductsRepository,
+    private readonly addonsRepository: AddonsRepository,
+    private readonly productAddonsRepository: ProductAddonsRepository,
     private readonly transactionManager: OrderTransactionManager,
   ) {}
 
   async execute(request: CreateOrderRequest) {
-    // 1. Validações estruturais do Tipo de Pedido e Mesa
     if (request.type === "DINE_IN" && !request.tableId) {
       throw new InvalidOrderTypeError("Pedidos DINE_IN exigem uma mesa.");
     }
@@ -98,7 +109,40 @@ export class CreateOrderUseCase {
         throw new ProductRestaurantMismatchError();
       if (itemRequest.quantity <= 0) throw new InvalidItemQuantityError();
 
-      const itemSubtotal = product.price * itemRequest.quantity;
+      let itemAddonsTotal = 0;
+      const itemAddonsSnapshot: CreateOrderItemAddonData[] = [];
+
+      if (itemRequest.addons && itemRequest.addons.length > 0) {
+        for (const addonReq of itemRequest.addons) {
+          if (addonReq.quantity <= 0) throw new InvalidItemQuantityError();
+
+          const addon = await this.addonsRepository.findById(addonReq.addonId);
+          if (!addon) throw new AddonNotFoundError();
+          if (!addon.active) throw new AddonInactiveError();
+          if (addon.restaurantId !== request.restaurantId)
+            throw new AddonRestaurantMismatchError();
+
+          const isAssociated = await this.productAddonsRepository.exists({
+            productId: product.id,
+            addonId: addon.id,
+          });
+          if (!isAssociated) throw new ProductAddonNotFoundError();
+
+          const addonSubtotal = addon.price * addonReq.quantity;
+          itemAddonsTotal += addonSubtotal;
+
+          itemAddonsSnapshot.push({
+            addonId: addon.id,
+            addonName: addon.name,
+            unitPrice: addon.price,
+            quantity: addonReq.quantity,
+            subtotal: addonSubtotal,
+          });
+        }
+      }
+
+      const itemSubtotal =
+        product.price * itemRequest.quantity + itemAddonsTotal;
       subtotal += itemSubtotal;
 
       itemsToCreate.push({
@@ -107,10 +151,10 @@ export class CreateOrderUseCase {
         unitPrice: product.price,
         quantity: itemRequest.quantity,
         subtotal: itemSubtotal,
+        addons: itemAddonsSnapshot.length > 0 ? itemAddonsSnapshot : undefined,
       });
     }
 
-    // Regras de taxa de entrega agora incluem DINE_IN
     if (request.type === "PICKUP" || request.type === "DINE_IN") {
       if (request.deliveryFee !== 0) throw new InvalidDeliveryFeeError();
     } else {
@@ -120,16 +164,13 @@ export class CreateOrderUseCase {
 
     const total = subtotal + request.deliveryFee;
 
-    // 2. Transação atômica (Proteção de Concorrência e Gravação)
     return await this.transactionManager.transaction(
       async ({
         ordersRepository,
         orderItemsRepository,
         orderHistoryRepository,
-        tablesRepository, // <-- Injetado pelo Transaction Manager
+        tablesRepository,
       }) => {
-        // Se for Dine-In, a mesa é bloqueada pelo Postgres (SELECT FOR UPDATE)
-        // Isso impede que dois caixas abram pedidos simultaneamente na mesma mesa
         if (request.type === "DINE_IN" && request.tableId) {
           const table = await tablesRepository.findByIdForUpdate(
             request.tableId,

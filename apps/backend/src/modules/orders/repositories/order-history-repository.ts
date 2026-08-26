@@ -13,4 +13,5 @@ export interface OrderHistory extends CreateOrderHistoryData {
 
 export interface OrderHistoryRepository {
   create(data: CreateOrderHistoryData): Promise<OrderHistory>;
+  findManyByOrderId(orderId: string): Promise<OrderHistory[]>;
 }

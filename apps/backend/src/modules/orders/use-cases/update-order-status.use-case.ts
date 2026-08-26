@@ -1,13 +1,14 @@
 import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-status-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
+import { OrderStatus } from "../repositories/orders-repository.js";
 import { OrderTransactionManager } from "../repositories/order-transaction-manager.js";
 
 interface UpdateOrderStatusRequest {
   orderId: string;
-  status: string;
+  status: OrderStatus;
 }
 
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
   CONFIRMED: ["PREPARING", "CANCELLED"],
   PREPARING: ["READY", "CANCELLED"],

@@ -1,3 +1,7 @@
+import {
+  OrderPaymentStatus,
+  OrderStatus,
+} from "../repositories/orders-repository.js";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { InMemoryOrderHistoryRepository } from "../repositories/in-memory-order-history-repository.js";
@@ -30,7 +34,10 @@ describe("PayOrderUseCase", () => {
     useCase = new PayOrderUseCase(transactionManager);
   });
 
-  async function createOrder(status: string, paymentStatus: string) {
+  async function createOrder(
+    status: OrderStatus,
+    paymentStatus: OrderPaymentStatus,
+  ) {
     return await ordersRepository.create({
       restaurantId: randomUUID(),
       customerId: randomUUID(),
