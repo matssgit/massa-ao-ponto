@@ -1,4 +1,3 @@
-
 # 🍕 Massa ao Ponto
 
 > Sistema de gestão e operação para uma pizzaria, desenvolvido como projeto de portfólio com foco em arquitetura de software, regras de negócio, persistência relacional, concorrência e testes automatizados.
@@ -59,7 +58,6 @@ modules/
     ├── schemas/
     └── use-cases/
 ```
-
 
 A arquitetura utiliza:
 
@@ -578,7 +576,7 @@ Foram implementadas consultas para:
 Endpoint individual:
 
 ```text
-GET /orders/:orderId
+GET /restaurants/:restaurantId/orders/:orderId
 ```
 
 A consulta detalhada retorna o pedido e seus itens sem consultar novamente o catálogo atual.
