@@ -46,6 +46,24 @@ export class DrizzleOrdersRepository implements OrdersRepository {
     return order || null;
   }
 
+  async findByIdAndRestaurantIdForUpdate(
+    orderId: string,
+    restaurantId: string,
+  ): Promise<Order | null> {
+    const [order] = await this.client
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.id, orderId),
+          eq(orders.restaurantId, restaurantId),
+        ),
+      )
+      .for("update");
+
+    return order || null;
+  }
+
   async findMany(filters: ListOrdersFilters): Promise<Order[]> {
     const conditions = [eq(orders.restaurantId, filters.restaurantId)];
 

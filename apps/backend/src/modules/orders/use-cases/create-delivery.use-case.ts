@@ -4,6 +4,7 @@ import { InvalidDeliveryOrderTypeError } from "../errors/invalid-delivery-order-
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
 
 interface CreateDeliveryRequest {
+  restaurantId: string;
   orderId: string;
 }
 
@@ -19,7 +20,11 @@ export class CreateDeliveryUseCase {
         deliveriesRepository,
         deliveryHistoryRepository,
       }) => {
-        const order = await ordersRepository.findByIdForUpdate(request.orderId);
+        const order =
+          await ordersRepository.findByIdAndRestaurantIdForUpdate(
+            request.orderId,
+            request.restaurantId,
+          );
 
         if (!order) throw new OrderNotFoundError();
         if (order.type !== "DELIVERY")

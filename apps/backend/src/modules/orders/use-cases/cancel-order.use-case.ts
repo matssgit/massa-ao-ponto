@@ -3,6 +3,7 @@ import { OrderNotFoundError } from "../errors/order-not-found-error.js";
 import { OrderTransactionManager } from "../repositories/order-transaction-manager.js";
 
 interface CancelOrderRequest {
+  restaurantId: string;
   orderId: string;
 }
 
@@ -13,7 +14,11 @@ export class CancelOrderUseCase {
     return await this.transactionManager.transaction(
       async ({ ordersRepository, orderHistoryRepository }) => {
         // 1. Busca com Row-Level Locking
-        const order = await ordersRepository.findByIdForUpdate(request.orderId);
+        const order =
+          await ordersRepository.findByIdAndRestaurantIdForUpdate(
+            request.orderId,
+            request.restaurantId,
+          );
 
         if (!order) {
           throw new OrderNotFoundError();

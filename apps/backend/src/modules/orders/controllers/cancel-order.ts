@@ -8,12 +8,14 @@ export async function cancelOrderController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { orderId } = cancelOrderParamsSchema.parse(request.params);
+  const { restaurantId, orderId } = cancelOrderParamsSchema.parse(
+    request.params,
+  );
 
   const transactionManager = new DrizzleOrderTransactionManager();
   const useCase = new CancelOrderUseCase(transactionManager);
 
-  await useCase.execute({ orderId });
+  await useCase.execute({ restaurantId, orderId });
 
   return reply.status(200).send({ status: "CANCELLED" });
 }

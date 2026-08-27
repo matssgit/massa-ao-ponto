@@ -11,13 +11,15 @@ export async function updateOrderStatusController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { orderId } = updateOrderStatusParamsSchema.parse(request.params);
+  const { restaurantId, orderId } = updateOrderStatusParamsSchema.parse(
+    request.params,
+  );
   const { status } = updateOrderStatusBodySchema.parse(request.body);
 
   const transactionManager = new DrizzleOrderTransactionManager();
   const useCase = new UpdateOrderStatusUseCase(transactionManager);
 
-  await useCase.execute({ orderId, status });
+  await useCase.execute({ restaurantId, orderId, status });
 
   return reply.status(204).send();
 }

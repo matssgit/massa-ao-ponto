@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryCustomersRepository } from "../repositories/in-memory-customers-repository.js";
 import { InMemoryReservationHistoryRepository } from "../repositories/in-memory-reservation-history-repository.js";
@@ -12,6 +12,7 @@ import { UpdateReservationStatusUseCase } from "./update-reservation-status.use-
 import { randomUUID } from "node:crypto";
 
 describe("UpdateReservationStatusUseCase", () => {
+  const restaurantId = "rest-1";
   let reservationsRepository: InMemoryReservationsRepository;
   let historyRepository: InMemoryReservationHistoryRepository;
   let transactionManager: InMemoryReservationTransactionManager;
@@ -47,76 +48,102 @@ describe("UpdateReservationStatusUseCase", () => {
 
   it("deve realizar transicoes validas de SCHEDULED", async () => {
     let id = createMockReservation("SCHEDULED");
+    const lookupSpy = vi.spyOn(
+      reservationsRepository,
+      "findByIdAndRestaurantIdForUpdate",
+    );
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "CONFIRMED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "CONFIRMED" }),
     ).resolves.toBeTruthy();
+    expect(lookupSpy).toHaveBeenCalledWith(id, restaurantId);
 
     id = createMockReservation("SCHEDULED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "CANCELLED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "CANCELLED" }),
     ).resolves.toBeTruthy();
   });
 
   it("deve realizar transicoes validas de CONFIRMED", async () => {
     let id = createMockReservation("CONFIRMED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "FINISHED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "FINISHED" }),
     ).resolves.toBeTruthy();
 
     id = createMockReservation("CONFIRMED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "NO_SHOW" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "NO_SHOW" }),
     ).resolves.toBeTruthy();
 
     id = createMockReservation("CONFIRMED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "CANCELLED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "CANCELLED" }),
     ).resolves.toBeTruthy();
   });
 
   it("deve impedir transicoes invalidas de SCHEDULED", async () => {
     const id = createMockReservation("SCHEDULED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "FINISHED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "FINISHED" }),
     ).rejects.toBeInstanceOf(InvalidReservationStatusTransitionError);
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "NO_SHOW" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "NO_SHOW" }),
     ).rejects.toBeInstanceOf(InvalidReservationStatusTransitionError);
   });
 
   it("deve impedir transicao para o mesmo status", async () => {
     const id = createMockReservation("SCHEDULED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "SCHEDULED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "SCHEDULED" }),
     ).rejects.toBeInstanceOf(InvalidReservationStatusTransitionError);
   });
 
   it("deve impedir transicao de estados finais", async () => {
     let id = createMockReservation("CANCELLED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "CONFIRMED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "CONFIRMED" }),
     ).rejects.toBeInstanceOf(InvalidReservationStatusTransitionError);
 
     id = createMockReservation("FINISHED");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "CONFIRMED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "CONFIRMED" }),
     ).rejects.toBeInstanceOf(InvalidReservationStatusTransitionError);
 
     id = createMockReservation("NO_SHOW");
     await expect(
-      useCase.execute({ reservationId: id, newStatus: "CONFIRMED" }),
+      useCase.execute({ restaurantId, reservationId: id, newStatus: "CONFIRMED" }),
     ).rejects.toBeInstanceOf(InvalidReservationStatusTransitionError);
   });
 
   it("deve falhar para reserva inexistente", async () => {
     await expect(
-      useCase.execute({ reservationId: "invalid-id", newStatus: "CONFIRMED" }),
+      useCase.execute({
+        restaurantId,
+        reservationId: "invalid-id",
+        newStatus: "CONFIRMED",
+      }),
     ).rejects.toBeInstanceOf(ReservationNotFoundError);
+  });
+
+  it("deve ocultar reserva cross-tenant sem criar histórico", async () => {
+    const id = createMockReservation("SCHEDULED");
+    const historySpy = vi.spyOn(historyRepository, "create");
+
+    await expect(
+      useCase.execute({
+        restaurantId: "rest-2",
+        reservationId: id,
+        newStatus: "CONFIRMED",
+      }),
+    ).rejects.toBeInstanceOf(ReservationNotFoundError);
+
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(reservationsRepository.items[0].status).toBe("SCHEDULED");
   });
 
   it("deve atualizar criar historico corretamente com observation", async () => {
     const id = createMockReservation("SCHEDULED");
     await useCase.execute({
+      restaurantId,
       reservationId: id,
       newStatus: "CONFIRMED",
       observation: "Confirmado por telefone",

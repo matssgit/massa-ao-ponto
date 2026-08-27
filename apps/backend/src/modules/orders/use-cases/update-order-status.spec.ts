@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryOrderHistoryRepository } from "../repositories/in-memory-order-history-repository.js";
 import { InMemoryOrderItemsRepository } from "../repositories/in-memory-order-items-repository.js";
@@ -62,8 +62,16 @@ describe("UpdateOrderStatusUseCase", () => {
 
   it("deve realizar uma transição válida (PENDING -> CONFIRMED) e registrar histórico", async () => {
     const order = await createOrder("PENDING");
+    const findForUpdate = vi.spyOn(
+      ordersRepository,
+      "findByIdAndRestaurantIdForUpdate",
+    );
 
-    await useCase.execute({ orderId: order.id, status: "CONFIRMED" });
+    await useCase.execute({
+      restaurantId: order.restaurantId,
+      orderId: order.id,
+      status: "CONFIRMED",
+    });
 
     const updatedOrder = await ordersRepository.findById(order.id);
     expect(updatedOrder?.status).toBe("CONFIRMED");
@@ -72,13 +80,18 @@ describe("UpdateOrderStatusUseCase", () => {
     expect(orderHistoryRepository.items[0].action).toBe("STATUS_CHANGED");
     expect(orderHistoryRepository.items[0].previousStatus).toBe("PENDING");
     expect(orderHistoryRepository.items[0].newStatus).toBe("CONFIRMED");
+    expect(findForUpdate).toHaveBeenCalledWith(order.id, order.restaurantId);
   });
 
   it("deve rejeitar uma transição inválida e não gravar histórico (PENDING -> DELIVERED)", async () => {
     const order = await createOrder("PENDING");
 
     await expect(
-      useCase.execute({ orderId: order.id, status: "DELIVERED" }),
+      useCase.execute({
+        restaurantId: order.restaurantId,
+        orderId: order.id,
+        status: "DELIVERED",
+      }),
     ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
 
     const unchangedOrder = await ordersRepository.findById(order.id);
@@ -95,7 +108,11 @@ describe("UpdateOrderStatusUseCase", () => {
       const order = await createOrder(currentStatus, "DELIVERY");
 
       await expect(
-        useCase.execute({ orderId: order.id, status: nextStatus }),
+        useCase.execute({
+          restaurantId: order.restaurantId,
+          orderId: order.id,
+          status: nextStatus,
+        }),
       ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
 
       expect(order.status).toBe(currentStatus);
@@ -108,7 +125,11 @@ describe("UpdateOrderStatusUseCase", () => {
     async (type) => {
       const order = await createOrder("READY", type);
 
-      await useCase.execute({ orderId: order.id, status: "DELIVERED" });
+      await useCase.execute({
+        restaurantId: order.restaurantId,
+        orderId: order.id,
+        status: "DELIVERED",
+      });
 
       expect(order.status).toBe("DELIVERED");
       expect(orderHistoryRepository.items).toHaveLength(1);
@@ -127,6 +148,7 @@ describe("UpdateOrderStatusUseCase", () => {
 
       await expect(
         useCase.execute({
+          restaurantId: order.restaurantId,
           orderId: order.id,
           status: "OUT_FOR_DELIVERY",
         }),
@@ -141,7 +163,11 @@ describe("UpdateOrderStatusUseCase", () => {
     const order = await createOrder("PENDING");
 
     await expect(
-      useCase.execute({ orderId: order.id, status: "CANCELLED" }),
+      useCase.execute({
+        restaurantId: order.restaurantId,
+        orderId: order.id,
+        status: "CANCELLED",
+      }),
     ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
 
     expect(order.status).toBe("PENDING");
@@ -151,18 +177,45 @@ describe("UpdateOrderStatusUseCase", () => {
   it("deve rejeitar transições a partir de estados finais (DELIVERED, CANCELLED)", async () => {
     const deliveredOrder = await createOrder("DELIVERED");
     await expect(
-      useCase.execute({ orderId: deliveredOrder.id, status: "CANCELLED" }),
+      useCase.execute({
+        restaurantId: deliveredOrder.restaurantId,
+        orderId: deliveredOrder.id,
+        status: "CANCELLED",
+      }),
     ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
 
     const cancelledOrder = await createOrder("CANCELLED");
     await expect(
-      useCase.execute({ orderId: cancelledOrder.id, status: "PENDING" }),
+      useCase.execute({
+        restaurantId: cancelledOrder.restaurantId,
+        orderId: cancelledOrder.id,
+        status: "PENDING",
+      }),
     ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
   });
 
   it("deve rejeitar caso o pedido não exista", async () => {
     await expect(
-      useCase.execute({ orderId: randomUUID(), status: "CONFIRMED" }),
+      useCase.execute({
+        restaurantId: randomUUID(),
+        orderId: randomUUID(),
+        status: "CONFIRMED",
+      }),
     ).rejects.toBeInstanceOf(OrderNotFoundError);
+  });
+
+  it("deve tratar pedido de outro restaurante como não encontrado sem alterar estado ou histórico", async () => {
+    const order = await createOrder("PENDING");
+
+    await expect(
+      useCase.execute({
+        restaurantId: randomUUID(),
+        orderId: order.id,
+        status: "CONFIRMED",
+      }),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+
+    expect(order.status).toBe("PENDING");
+    expect(orderHistoryRepository.items).toHaveLength(0);
   });
 });

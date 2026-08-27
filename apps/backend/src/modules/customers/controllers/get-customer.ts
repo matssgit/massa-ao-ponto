@@ -8,12 +8,14 @@ export async function getCustomerController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { customerId } = getCustomerParamsSchema.parse(request.params);
+  const { restaurantId, customerId } = getCustomerParamsSchema.parse(
+    request.params,
+  );
 
   const customersRepository = new DrizzleCustomersRepository();
   const useCase = new GetCustomerUseCase(customersRepository);
 
-  const customer = await useCase.execute({ customerId });
+  const customer = await useCase.execute({ restaurantId, customerId });
 
   return reply.status(200).send(customer);
 }

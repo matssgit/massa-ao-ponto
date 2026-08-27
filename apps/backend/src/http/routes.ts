@@ -135,9 +135,12 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   );
 
   // === CUSTOMERS ===
-  app.get("/customers/:customerId", getCustomerController);
   app.get(
-    "/customers/:customerId/reservations",
+    "/restaurants/:restaurantId/customers/:customerId",
+    getCustomerController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/customers/:customerId/reservations",
     listCustomerReservationsController,
   );
 
@@ -151,16 +154,22 @@ export async function restaurantsRoutes(app: FastifyInstance) {
     listReservationsController,
   );
   app.get("/restaurants/:restaurantId/availability", getAvailabilityController);
-  app.get("/reservations/:reservationId", getReservationController);
   app.get(
-    "/reservations/:reservationId/history",
+    "/restaurants/:restaurantId/reservations/:reservationId",
+    getReservationController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/reservations/:reservationId/history",
     listReservationHistoryController,
   );
   app.patch(
-    "/reservations/:reservationId/status",
+    "/restaurants/:restaurantId/reservations/:reservationId/status",
     updateReservationStatusController,
   );
-  app.patch("/reservations/:reservationId/cancel", cancelReservationController);
+  app.patch(
+    "/restaurants/:restaurantId/reservations/:reservationId/cancel",
+    cancelReservationController,
+  );
 
   // === ORDERS ===
   app.post("/restaurants/:restaurantId/orders", createOrderController);
@@ -169,12 +178,30 @@ export async function restaurantsRoutes(app: FastifyInstance) {
     "/restaurants/:restaurantId/orders/:orderId",
     getOrderController,
   );
-  app.patch("/orders/:orderId/status", updateOrderStatusController);
-  app.patch("/orders/:orderId/cancel", cancelOrderController);
-  app.patch("/orders/:orderId/payment", payOrderController);
-  app.post("/orders/:orderId/delivery", createDeliveryController);
-  app.patch("/orders/:orderId/delivery/start", startDeliveryController);
-  app.patch("/orders/:orderId/delivery/complete", completeDeliveryController);
+  app.patch(
+    "/restaurants/:restaurantId/orders/:orderId/status",
+    updateOrderStatusController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId/orders/:orderId/cancel",
+    cancelOrderController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId/orders/:orderId/payment",
+    payOrderController,
+  );
+  app.post(
+    "/restaurants/:restaurantId/orders/:orderId/delivery",
+    createDeliveryController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId/orders/:orderId/delivery/start",
+    startDeliveryController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId/orders/:orderId/delivery/complete",
+    completeDeliveryController,
+  );
   app.get(
     "/restaurants/:restaurantId/dashboard/sales-summary",
     getSalesSummaryController,

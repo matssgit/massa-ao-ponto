@@ -59,13 +59,13 @@ describe("Cancel Order (E2E)", () => {
     return order;
   }
 
-  describe("PATCH /orders/:orderId/cancel", () => {
+  describe("PATCH /restaurants/:restaurantId/orders/:orderId/cancel", () => {
     it("deve cancelar um pedido PENDING com sucesso (200)", async () => {
       const order = await createOrder("PENDING");
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/cancel`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -91,7 +91,7 @@ describe("Cancel Order (E2E)", () => {
       const order = await createOrder("CONFIRMED");
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/cancel`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
       });
       expect(response.statusCode).toBe(200);
     });
@@ -100,14 +100,14 @@ describe("Cancel Order (E2E)", () => {
       const preparingOrder = await createOrder("PREPARING");
       const preparingRes = await app.inject({
         method: "PATCH",
-        url: `/orders/${preparingOrder.id}/cancel`,
+        url: `/restaurants/${preparingOrder.restaurantId}/orders/${preparingOrder.id}/cancel`,
       });
       expect(preparingRes.statusCode).toBe(409);
 
       const deliveredOrder = await createOrder("DELIVERED");
       const deliveredRes = await app.inject({
         method: "PATCH",
-        url: `/orders/${deliveredOrder.id}/cancel`,
+        url: `/restaurants/${deliveredOrder.restaurantId}/orders/${deliveredOrder.id}/cancel`,
       });
       expect(deliveredRes.statusCode).toBe(409);
     });
@@ -115,7 +115,7 @@ describe("Cancel Order (E2E)", () => {
     it("deve retornar 404 para pedido inexistente", async () => {
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${randomUUID()}/cancel`,
+        url: `/restaurants/${randomUUID()}/orders/${randomUUID()}/cancel`,
       });
       expect(response.statusCode).toBe(404);
     });
@@ -123,24 +123,62 @@ describe("Cancel Order (E2E)", () => {
     it("deve retornar 400 para UUID inválido", async () => {
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/invalid-uuid/cancel`,
+        url: `/restaurants/${randomUUID()}/orders/invalid-uuid/cancel`,
       });
       expect(response.statusCode).toBe(400);
     });
 
-    it("deve validar que uma segunda tentativa simultânea falharia ao tentar cancelar um pedido já cancelado (409)", async () => {
+    it("deve serializar duas tentativas concorrentes de cancelamento", async () => {
       const order = await createOrder("PENDING");
 
-      // Primeira chamada (Concorre e ganha o Lock)
-      await app.inject({ method: "PATCH", url: `/orders/${order.id}/cancel` });
+      const responses = await Promise.all([
+        app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
+        }),
+        app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
+        }),
+      ]);
 
-      // Segunda chamada (Leria 'CANCELLED' do banco e cairia na validação da regra do Use Case)
-      const secondCall = await app.inject({
+      expect(responses.map(({ statusCode }) => statusCode).sort()).toEqual([
+        200, 409,
+      ]);
+    });
+
+    it("deve retornar 404 para pedido de outro restaurante sem cancelar ou gravar histórico", async () => {
+      const order = await createOrder("PENDING");
+      const otherTenantOrder = await createOrder("PENDING");
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/cancel`,
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const [unchangedOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(unchangedOrder.status).toBe("PENDING");
+
+      const history = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(history).toHaveLength(0);
+    });
+
+    it("deve remover a rota global antiga", async () => {
+      const order = await createOrder("PENDING");
+      const response = await app.inject({
         method: "PATCH",
         url: `/orders/${order.id}/cancel`,
       });
 
-      expect(secondCall.statusCode).toBe(409);
+      expect(response.statusCode).toBe(404);
     });
   });
 });

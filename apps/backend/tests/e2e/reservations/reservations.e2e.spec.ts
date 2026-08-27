@@ -395,6 +395,17 @@ describe("Reservations (E2E)", () => {
 
   it("should be able to update reservation status to CONFIRMED (200)", async () => {
     const { restaurant, table } = await setupBase();
+    const otherRestaurantResponse = await app.inject({
+      method: "POST",
+      url: "/restaurants",
+      payload: {
+        name: "Outro Restaurante",
+        address: "Rua",
+        phone: "22",
+        timezone: "UTC",
+      },
+    });
+    const otherRestaurant = otherRestaurantResponse.json();
 
     const createRes = await app.inject({
       method: "POST",
@@ -412,7 +423,7 @@ describe("Reservations (E2E)", () => {
 
     const response = await app.inject({
       method: "PATCH",
-      url: `/reservations/${reservation.id}/status`,
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
       payload: {
         status: "CONFIRMED",
         observation: "Confirmado por telefone",
@@ -432,6 +443,74 @@ describe("Reservations (E2E)", () => {
       previousStatus: "SCHEDULED",
       newStatus: "CONFIRMED",
       observation: "Confirmado por telefone",
+    });
+
+    const crossTenantResponse = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${otherRestaurant.id}/reservations/${reservation.id}/status`,
+      payload: { status: "FINISHED" },
+    });
+    expect(crossTenantResponse.statusCode).toBe(404);
+
+    const [preservedReservation] = await db
+      .select()
+      .from(reservations)
+      .where(eq(reservations.id, reservation.id));
+    const preservedHistory = await db
+      .select()
+      .from(reservationHistory)
+      .where(eq(reservationHistory.reservationId, reservation.id));
+    expect(preservedReservation.status).toBe("CONFIRMED");
+    expect(preservedHistory).toHaveLength(2);
+
+    const oldRouteResponse = await app.inject({
+      method: "PATCH",
+      url: `/reservations/${reservation.id}/status`,
+      payload: { status: "FINISHED" },
+    });
+    expect(oldRouteResponse.statusCode).toBe(404);
+  });
+
+  it("should serialize concurrent status updates with a row-level lock", async () => {
+    const { restaurant, table } = await setupBase();
+    const createResponse = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "Concorrente", phone: "11955555555" },
+        people: 2,
+        startsAt: "2026-08-25T19:00:00Z",
+        endsAt: "2026-08-25T21:00:00Z",
+      },
+    });
+    const reservation = createResponse.json();
+
+    const responses = await Promise.all([
+      app.inject({
+        method: "PATCH",
+        url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
+        payload: { status: "CONFIRMED" },
+      }),
+      app.inject({
+        method: "PATCH",
+        url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
+        payload: { status: "CONFIRMED" },
+      }),
+    ]);
+
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([
+      200, 409,
+    ]);
+
+    const history = await db
+      .select()
+      .from(reservationHistory)
+      .where(eq(reservationHistory.reservationId, reservation.id));
+    expect(history).toHaveLength(2);
+    expect(history[1]).toMatchObject({
+      previousStatus: "SCHEDULED",
+      newStatus: "CONFIRMED",
     });
   });
 
@@ -453,7 +532,7 @@ describe("Reservations (E2E)", () => {
 
     const response = await app.inject({
       method: "PATCH",
-      url: `/reservations/${reservation.id}/status`,
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
       payload: { status: "FINISHED" },
     });
 
@@ -463,7 +542,7 @@ describe("Reservations (E2E)", () => {
   it("should return 404 for non-existent reservation status update", async () => {
     const response = await app.inject({
       method: "PATCH",
-      url: `/reservations/${randomUUID()}/status`,
+      url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}/status`,
       payload: { status: "CONFIRMED" },
     });
     expect(response.statusCode).toBe(404);
@@ -472,7 +551,7 @@ describe("Reservations (E2E)", () => {
   it("should return 400 for invalid UUID in params", async () => {
     const response = await app.inject({
       method: "PATCH",
-      url: `/reservations/invalid-id/status`,
+      url: `/restaurants/${randomUUID()}/reservations/invalid-id/status`,
       payload: { status: "CONFIRMED" },
     });
     expect(response.statusCode).toBe(400);
@@ -481,7 +560,7 @@ describe("Reservations (E2E)", () => {
   it("should return 400 for invalid body payload", async () => {
     const response = await app.inject({
       method: "PATCH",
-      url: `/reservations/${randomUUID()}/status`,
+      url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}/status`,
       payload: { status: "INVALID_STATUS" },
     });
     expect(response.statusCode).toBe(400);
@@ -517,7 +596,7 @@ describe("Reservations (E2E)", () => {
     const secondReservationId = res2.json().id;
     await app.inject({
       method: "PATCH",
-      url: `/reservations/${secondReservationId}/status`,
+      url: `/restaurants/${restaurant.id}/reservations/${secondReservationId}/status`,
       payload: { status: "CONFIRMED" },
     });
 

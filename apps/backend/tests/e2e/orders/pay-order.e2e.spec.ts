@@ -59,13 +59,13 @@ describe("Pay Order (E2E)", () => {
     return order;
   }
 
-  describe("PATCH /orders/:orderId/payment", () => {
+  describe("PATCH /restaurants/:restaurantId/orders/:orderId/payment", () => {
     it("deve confirmar o pagamento de um pedido e retornar 200", async () => {
       const order = await createOrder("PENDING", "PENDING");
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/payment`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -91,7 +91,7 @@ describe("Pay Order (E2E)", () => {
       const order = await createOrder("PENDING", "PAID");
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/payment`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
       });
       expect(response.statusCode).toBe(409);
     });
@@ -100,7 +100,7 @@ describe("Pay Order (E2E)", () => {
       const order = await createOrder("DELIVERED", "PENDING");
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/payment`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
       });
       expect(response.statusCode).toBe(409);
     });
@@ -108,7 +108,7 @@ describe("Pay Order (E2E)", () => {
     it("deve retornar 404 para pedido inexistente", async () => {
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${randomUUID()}/payment`,
+        url: `/restaurants/${randomUUID()}/orders/${randomUUID()}/payment`,
       });
       expect(response.statusCode).toBe(404);
     });
@@ -116,21 +116,63 @@ describe("Pay Order (E2E)", () => {
     it("deve retornar 400 para UUID inválido", async () => {
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/invalid-uuid/payment`,
+        url: `/restaurants/${randomUUID()}/orders/invalid-uuid/payment`,
       });
       expect(response.statusCode).toBe(400);
     });
 
-    it("deve validar proteção de concorrência (dupla chamada na mesma rota resulta em um 409)", async () => {
+    it("deve serializar duas confirmações de pagamento concorrentes", async () => {
       const order = await createOrder("PENDING", "PENDING");
 
-      await app.inject({ method: "PATCH", url: `/orders/${order.id}/payment` });
+      const responses = await Promise.all([
+        app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
+        }),
+        app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
+        }),
+      ]);
 
-      const secondCall = await app.inject({
+      expect(responses.map(({ statusCode }) => statusCode).sort()).toEqual([
+        200, 409,
+      ]);
+    });
+
+    it("deve retornar 404 para pedido de outro restaurante sem pagar ou gravar histórico", async () => {
+      const order = await createOrder("PENDING", "PENDING");
+      const otherTenantOrder = await createOrder("PENDING", "PENDING");
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/payment`,
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const [unchangedOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(unchangedOrder.paymentStatus).toBe("PENDING");
+      expect(unchangedOrder.updatedAt.getTime()).toBe(order.updatedAt.getTime());
+
+      const history = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(history).toHaveLength(0);
+    });
+
+    it("deve remover a rota global antiga", async () => {
+      const order = await createOrder("PENDING", "PENDING");
+      const response = await app.inject({
         method: "PATCH",
         url: `/orders/${order.id}/payment`,
       });
-      expect(secondCall.statusCode).toBe(409);
+
+      expect(response.statusCode).toBe(404);
     });
   });
 });

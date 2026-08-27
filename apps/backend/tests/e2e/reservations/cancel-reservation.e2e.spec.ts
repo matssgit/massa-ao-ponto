@@ -64,6 +64,17 @@ describe("Cancel Reservation (E2E)", () => {
 
   it("deve cancelar com sucesso uma reserva distante (SCHEDULED) e liberar disponibilidade", async () => {
     const { restaurant, table } = await setupBase();
+    const otherRestaurantResponse = await app.inject({
+      method: "POST",
+      url: "/restaurants",
+      payload: {
+        name: "Outro Restaurante",
+        address: "Rua",
+        phone: "22",
+        timezone: "UTC",
+      },
+    });
+    const otherRestaurant = otherRestaurantResponse.json();
     const startsAt = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
     const endsAt = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString();
 
@@ -88,7 +99,7 @@ describe("Cancel Reservation (E2E)", () => {
 
     const cancelRes = await app.inject({
       method: "PATCH",
-      url: `/reservations/${reservation.id}/cancel`,
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
 
     expect(cancelRes.statusCode).toBe(200);
@@ -107,6 +118,24 @@ describe("Cancel Reservation (E2E)", () => {
       .where(eq(reservationHistory.reservationId, reservation.id));
     expect(history).toHaveLength(2);
     expect(history[1].newStatus).toBe("CANCELLED");
+
+    const crossTenantResponse = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${otherRestaurant.id}/reservations/${reservation.id}/cancel`,
+    });
+    expect(crossTenantResponse.statusCode).toBe(404);
+
+    const preservedHistory = await db
+      .select()
+      .from(reservationHistory)
+      .where(eq(reservationHistory.reservationId, reservation.id));
+    expect(preservedHistory).toHaveLength(2);
+
+    const oldRouteResponse = await app.inject({
+      method: "PATCH",
+      url: `/reservations/${reservation.id}/cancel`,
+    });
+    expect(oldRouteResponse.statusCode).toBe(404);
   });
 
   it("deve bloquear cancelamento com menos de 2 horas (409)", async () => {
@@ -129,7 +158,7 @@ describe("Cancel Reservation (E2E)", () => {
 
     const cancelRes = await app.inject({
       method: "PATCH",
-      url: `/reservations/${reservation.id}/cancel`,
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
 
     expect(cancelRes.statusCode).toBe(409);
@@ -155,12 +184,12 @@ describe("Cancel Reservation (E2E)", () => {
 
     await app.inject({
       method: "PATCH",
-      url: `/reservations/${reservation.id}/cancel`,
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
 
     const secondCancelRes = await app.inject({
       method: "PATCH",
-      url: `/reservations/${reservation.id}/cancel`,
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
     expect(secondCancelRes.statusCode).toBe(409);
   });
@@ -168,7 +197,7 @@ describe("Cancel Reservation (E2E)", () => {
   it("deve retornar 404 para reserva inexistente", async () => {
     const response = await app.inject({
       method: "PATCH",
-      url: `/reservations/${randomUUID()}/cancel`,
+      url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}/cancel`,
     });
     expect(response.statusCode).toBe(404);
   });
@@ -176,7 +205,7 @@ describe("Cancel Reservation (E2E)", () => {
   it("deve retornar 400 para UUID inválido", async () => {
     const response = await app.inject({
       method: "PATCH",
-      url: `/reservations/invalid-id/cancel`,
+      url: `/restaurants/${randomUUID()}/reservations/invalid-id/cancel`,
     });
     expect(response.statusCode).toBe(400);
   });

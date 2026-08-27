@@ -75,6 +75,7 @@ export const listOrdersQuerySchema = z.object({
 });
 
 export const updateOrderStatusParamsSchema = z.object({
+  restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),
   orderId: z.string().uuid("Formato de ID do pedido inválido."),
 });
 
@@ -91,9 +92,16 @@ export const updateOrderStatusBodySchema = z.object({
 });
 
 export const cancelOrderParamsSchema = z.object({
+  restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),
   orderId: z.string().uuid("Formato de ID do pedido inválido."),
 });
 
 export const payOrderParamsSchema = z.object({
+  restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),
+  orderId: z.string().uuid("Formato de ID do pedido inválido."),
+});
+
+export const deliveryParamsSchema = z.object({
+  restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),
   orderId: z.string().uuid("Formato de ID do pedido inválido."),
 });

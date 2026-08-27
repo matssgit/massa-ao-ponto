@@ -29,6 +29,14 @@ export interface ReservationsRepository {
     endsAt: Date,
   ): Promise<Reservation | null>;
   findById(id: string): Promise<Reservation | null>;
+  findByIdAndRestaurantId(
+    reservationId: string,
+    restaurantId: string,
+  ): Promise<Reservation | null>;
+  findByIdAndRestaurantIdForUpdate(
+    reservationId: string,
+    restaurantId: string,
+  ): Promise<Reservation | null>;
   updateStatus(id: string, status: Reservation["status"]): Promise<Reservation>;
   findManyByRestaurantId(
     filters: FindManyReservationsFilters,
@@ -39,6 +47,10 @@ export interface ReservationsRepository {
     endsAt: Date,
   ): Promise<string[]>;
   findByCustomerId(customerId: string): Promise<Reservation[]>;
+  findByCustomerIdAndRestaurantId(
+    customerId: string,
+    restaurantId: string,
+  ): Promise<Reservation[]>;
 }
 
 export interface FindManyReservationsFilters {

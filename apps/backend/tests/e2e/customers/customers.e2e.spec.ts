@@ -14,17 +14,11 @@ import {
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
-import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 describe("Customers (E2E)", () => {
-  beforeAll(async () => {
-    await app.ready();
-  });
-
-  afterAll(async () => {
-    await app.close();
-  });
+  beforeAll(async () => await app.ready());
+  afterAll(async () => await app.close());
 
   beforeEach(async () => {
     await db.delete(deliveryHistory);
@@ -39,172 +33,236 @@ describe("Customers (E2E)", () => {
     await db.delete(restaurants);
   });
 
-  async function setupBase() {
-    const restaurantRes = await app.inject({
+  async function createRestaurant(name: string, tableNumber: number) {
+    const restaurantResponse = await app.inject({
       method: "POST",
       url: "/restaurants",
-      payload: {
-        name: "Restaurante Teste",
-        address: "Rua",
-        phone: "11",
-        timezone: "UTC",
-      },
+      payload: { name, address: "Rua", phone: "11", timezone: "UTC" },
     });
-    const restaurant = restaurantRes.json();
-
-    const tableRes = await app.inject({
+    const restaurant = restaurantResponse.json();
+    const tableResponse = await app.inject({
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
-      payload: { number: 1, capacity: 4, type: "table" },
+      payload: { number: tableNumber, capacity: 4, type: "table" },
     });
 
-    return { restaurant, table: tableRes.json() };
+    return { restaurant, table: tableResponse.json() };
   }
 
-  describe("GET /customers/:customerId", () => {
-    it("deve retornar 200 para customer existente", async () => {
-      const { restaurant, table } = await setupBase();
-
-      const createRes = await app.inject({
-        method: "POST",
-        url: `/restaurants/${restaurant.id}/reservations`,
-        payload: {
-          tableId: table.id,
-          customer: { name: "João Silva", phone: "11999999999" },
-          people: 2,
-          startsAt: "2026-08-20T19:00:00Z",
-          endsAt: "2026-08-20T21:00:00Z",
-        },
-      });
-
-      const customerId = createRes.json().customerId;
-
-      const response = await app.inject({
-        method: "GET",
-        url: `/customers/${customerId}`,
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(response.json().id).toBe(customerId);
-      expect(response.json().name).toBe("João Silva");
+  async function createReservation(
+    restaurantId: string,
+    tableId: string,
+    phone: string,
+    startsAt: string,
+  ) {
+    const response = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurantId}/reservations`,
+      payload: {
+        tableId,
+        customer: { name: "Cliente Teste", phone },
+        people: 2,
+        startsAt,
+        endsAt: new Date(
+          new Date(startsAt).getTime() + 7_200_000,
+        ).toISOString(),
+      },
     });
 
-    it("deve retornar 404 para customer inexistente", async () => {
-      const response = await app.inject({
-        method: "GET",
-        url: `/customers/${randomUUID()}`,
-      });
-      expect(response.statusCode).toBe(404);
-    });
+    expect(response.statusCode).toBe(201);
+    return response.json();
+  }
 
-    it("deve retornar 400 para UUID inválido", async () => {
-      const response = await app.inject({
-        method: "GET",
-        url: "/customers/invalid-uuid",
-      });
-      expect(response.statusCode).toBe(400);
+  async function createOrder(customerId: string, restaurantId: string) {
+    await db.insert(orders).values({
+      restaurantId,
+      customerId,
+      type: "PICKUP",
+      subtotal: 1000,
+      total: 1000,
+      customerName: "Cliente Teste",
+      customerPhone: "11999999999",
     });
+  }
+
+  it("deve permitir acesso via Reservation apenas ao Restaurant relacionado", async () => {
+    const first = await createRestaurant("R1", 1);
+    const second = await createRestaurant("R2", 1);
+    const reservation = await createReservation(
+      first.restaurant.id,
+      first.table.id,
+      "11911111111",
+      "2026-08-20T19:00:00Z",
+    );
+
+    const ownerResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${first.restaurant.id}/customers/${reservation.customerId}`,
+    });
+    expect(ownerResponse.statusCode).toBe(200);
+    expect(ownerResponse.json().id).toBe(reservation.customerId);
+
+    const crossTenantResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${second.restaurant.id}/customers/${reservation.customerId}`,
+    });
+    expect(crossTenantResponse.statusCode).toBe(404);
   });
 
-  describe("GET /customers/:customerId/reservations", () => {
-    it("deve retornar 200 com array vazio quando customer não possui reservas", async () => {
-      const { restaurant, table } = await setupBase();
+  it("deve permitir acesso via Order e retornar Reservations vazias", async () => {
+    const { restaurant } = await createRestaurant("R1", 1);
+    const [customer] = await db
+      .insert(customers)
+      .values({ name: "Cliente Order", phone: "11922222222" })
+      .returning();
+    await createOrder(customer.id, restaurant.id);
 
-      const createRes = await app.inject({
-        method: "POST",
-        url: `/restaurants/${restaurant.id}/reservations`,
-        payload: {
-          tableId: table.id,
-          customer: { name: "Maria Silva", phone: "11988888888" },
-          people: 2,
-          startsAt: "2026-08-20T19:00:00Z",
-          endsAt: "2026-08-20T21:00:00Z",
-        },
-      });
+    const customerResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/customers/${customer.id}`,
+    });
+    expect(customerResponse.statusCode).toBe(200);
 
-      const customerId = createRes.json().customerId;
+    const reservationsResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/customers/${customer.id}/reservations`,
+    });
+    expect(reservationsResponse.statusCode).toBe(200);
+    expect(reservationsResponse.json()).toEqual([]);
+  });
 
-      await db.delete(reservationHistory);
-      await db
-        .delete(reservations)
-        .where(eq(reservations.customerId, customerId));
+  it("deve permitir acesso pelos dois Restaurants relacionados", async () => {
+    const first = await createRestaurant("R1", 1);
+    const second = await createRestaurant("R2", 1);
+    const reservation = await createReservation(
+      first.restaurant.id,
+      first.table.id,
+      "11933333333",
+      "2026-08-20T19:00:00Z",
+    );
+    await createOrder(reservation.customerId, second.restaurant.id);
 
-      const response = await app.inject({
-        method: "GET",
-        url: `/customers/${customerId}/reservations`,
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual([]);
+    const firstResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${first.restaurant.id}/customers/${reservation.customerId}`,
+    });
+    const secondResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${second.restaurant.id}/customers/${reservation.customerId}`,
     });
 
-    it("deve retornar reservas ordenadas e respeitando isolamento", async () => {
-      const { restaurant, table } = await setupBase();
+    expect(firstResponse.statusCode).toBe(200);
+    expect(secondResponse.statusCode).toBe(200);
+  });
 
-      const res1 = await app.inject({
-        method: "POST",
-        url: `/restaurants/${restaurant.id}/reservations`,
-        payload: {
-          tableId: table.id,
-          customer: { name: "Carlos Lima", phone: "11977777777" },
-          people: 2,
-          startsAt: "2026-08-22T19:00:00Z",
-          endsAt: "2026-08-22T21:00:00Z",
-        },
-      });
+  it("deve listar somente Reservations do Restaurant informado", async () => {
+    const first = await createRestaurant("R1", 1);
+    const second = await createRestaurant("R2", 1);
+    const firstReservation = await createReservation(
+      first.restaurant.id,
+      first.table.id,
+      "11944444444",
+      "2026-08-22T19:00:00Z",
+    );
+    const secondReservation = await createReservation(
+      second.restaurant.id,
+      second.table.id,
+      "11944444444",
+      "2026-08-21T19:00:00Z",
+    );
 
-      const customerId = res1.json().customerId;
-
-      await app.inject({
-        method: "POST",
-        url: `/restaurants/${restaurant.id}/reservations`,
-        payload: {
-          tableId: table.id,
-          customer: { name: "Carlos Lima", phone: "11977777777" },
-          people: 2,
-          startsAt: "2026-08-21T19:00:00Z",
-          endsAt: "2026-08-21T21:00:00Z",
-        },
-      });
-
-      await app.inject({
-        method: "POST",
-        url: `/restaurants/${restaurant.id}/reservations`,
-        payload: {
-          tableId: table.id,
-          customer: { name: "Outro Cliente", phone: "11966666666" },
-          people: 2,
-          startsAt: "2026-08-23T19:00:00Z",
-          endsAt: "2026-08-23T21:00:00Z",
-        },
-      });
-
-      const response = await app.inject({
-        method: "GET",
-        url: `/customers/${customerId}/reservations`,
-      });
-
-      expect(response.statusCode).toBe(200);
-      const items = response.json();
-      expect(items).toHaveLength(2);
-      expect(items[0].startsAt).toContain("2026-08-21");
-      expect(items[1].startsAt).toContain("2026-08-22");
+    const firstResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${first.restaurant.id}/customers/${firstReservation.customerId}/reservations`,
+    });
+    const secondResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${second.restaurant.id}/customers/${firstReservation.customerId}/reservations`,
     });
 
-    it("deve retornar 404 para customer inexistente", async () => {
-      const response = await app.inject({
-        method: "GET",
-        url: `/customers/${randomUUID()}/reservations`,
-      });
-      expect(response.statusCode).toBe(404);
+    expect(firstResponse.statusCode).toBe(200);
+    expect(firstResponse.json().map((item: { id: string }) => item.id)).toEqual([
+      firstReservation.id,
+    ]);
+    expect(secondResponse.statusCode).toBe(200);
+    expect(secondResponse.json().map((item: { id: string }) => item.id)).toEqual([
+      secondReservation.id,
+    ]);
+  });
+
+  it("deve preservar ordenação por startsAt e id", async () => {
+    const { restaurant, table } = await createRestaurant("R1", 1);
+    const first = await createReservation(
+      restaurant.id,
+      table.id,
+      "11955555555",
+      "2026-08-22T19:00:00Z",
+    );
+    const second = await createReservation(
+      restaurant.id,
+      table.id,
+      "11955555555",
+      "2026-08-21T19:00:00Z",
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/customers/${first.customerId}/reservations`,
     });
 
-    it("deve retornar 400 para UUID inválido", async () => {
-      const response = await app.inject({
+    expect(response.statusCode).toBe(200);
+    expect(response.json().map((item: { id: string }) => item.id)).toEqual([
+      second.id,
+      first.id,
+    ]);
+  });
+
+  it("deve ocultar Customer existente sem relacionamento e Customer inexistente", async () => {
+    const { restaurant } = await createRestaurant("R1", 1);
+    const [customer] = await db
+      .insert(customers)
+      .values({ name: "Sem Relação", phone: "11966666666" })
+      .returning();
+
+    for (const customerId of [customer.id, randomUUID()]) {
+      const customerResponse = await app.inject({
         method: "GET",
-        url: "/customers/invalid-uuid/reservations",
+        url: `/restaurants/${restaurant.id}/customers/${customerId}`,
       });
-      expect(response.statusCode).toBe(400);
+      const reservationsResponse = await app.inject({
+        method: "GET",
+        url: `/restaurants/${restaurant.id}/customers/${customerId}/reservations`,
+      });
+
+      expect(customerResponse.statusCode).toBe(404);
+      expect(reservationsResponse.statusCode).toBe(404);
+    }
+  });
+
+  it("deve remover rotas globais e validar UUIDs nas rotas tenant-aware", async () => {
+    const customerId = randomUUID();
+    const restaurantId = randomUUID();
+
+    const oldCustomerResponse = await app.inject({
+      method: "GET",
+      url: `/customers/${customerId}`,
     });
+    const oldReservationsResponse = await app.inject({
+      method: "GET",
+      url: `/customers/${customerId}/reservations`,
+    });
+    const invalidCustomerResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurantId}/customers/invalid-uuid`,
+    });
+    const invalidRestaurantResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/invalid-uuid/customers/${customerId}`,
+    });
+
+    expect(oldCustomerResponse.statusCode).toBe(404);
+    expect(oldReservationsResponse.statusCode).toBe(404);
+    expect(invalidCustomerResponse.statusCode).toBe(400);
+    expect(invalidRestaurantResponse.statusCode).toBe(400);
   });
 });

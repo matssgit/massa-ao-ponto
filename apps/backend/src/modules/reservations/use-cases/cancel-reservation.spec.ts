@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CancelReservationUseCase } from "./cancel-reservation.use-case.js";
 import { InMemoryCustomersRepository } from "../repositories/in-memory-customers-repository.js";
@@ -13,6 +13,7 @@ import { ReservationNotFoundError } from "../errors/reservation-not-found-error.
 import { randomUUID } from "node:crypto";
 
 describe("CancelReservationUseCase", () => {
+  const restaurantId = "rest-1";
   let reservationsRepository: InMemoryReservationsRepository;
   let historyRepository: InMemoryReservationHistoryRepository;
   let transactionManager: InMemoryReservationTransactionManager;
@@ -54,8 +55,13 @@ describe("CancelReservationUseCase", () => {
     const now = new Date("2026-08-20T17:00:00Z");
     const id = createMockReservation("SCHEDULED", startsAt);
 
-    const result = await useCase.execute({ reservationId: id, now });
+    const lookupSpy = vi.spyOn(
+      reservationsRepository,
+      "findByIdAndRestaurantIdForUpdate",
+    );
+    const result = await useCase.execute({ restaurantId, reservationId: id, now });
     expect(result.status).toBe("CANCELLED");
+    expect(lookupSpy).toHaveBeenCalledWith(id, restaurantId);
   });
 
   it("permite cancelamento quando faltam mais de 2 horas (CONFIRMED)", async () => {
@@ -63,14 +69,37 @@ describe("CancelReservationUseCase", () => {
     const now = new Date("2026-08-20T17:59:59Z");
     const id = createMockReservation("CONFIRMED", startsAt);
 
-    const result = await useCase.execute({ reservationId: id, now });
+    const result = await useCase.execute({ restaurantId, reservationId: id, now });
     expect(result.status).toBe("CANCELLED");
   });
 
   it("rejeita cancelamento de reserva inexistente", async () => {
     await expect(
-      useCase.execute({ reservationId: "invalid-id", now: new Date() }),
+      useCase.execute({
+        restaurantId,
+        reservationId: "invalid-id",
+        now: new Date(),
+      }),
     ).rejects.toBeInstanceOf(ReservationNotFoundError);
+  });
+
+  it("rejeita cancelamento cross-tenant sem criar histórico", async () => {
+    const id = createMockReservation(
+      "SCHEDULED",
+      new Date("2026-08-20T20:00:00Z"),
+    );
+    const historySpy = vi.spyOn(historyRepository, "create");
+
+    await expect(
+      useCase.execute({
+        restaurantId: "rest-2",
+        reservationId: id,
+        now: new Date("2026-08-20T15:00:00Z"),
+      }),
+    ).rejects.toBeInstanceOf(ReservationNotFoundError);
+
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(reservationsRepository.items[0].status).toBe("SCHEDULED");
   });
 
   it("rejeita cancelamento de reserva já CANCELLED", async () => {
@@ -78,6 +107,7 @@ describe("CancelReservationUseCase", () => {
     const id = createMockReservation("CANCELLED", startsAt);
     await expect(
       useCase.execute({
+        restaurantId,
         reservationId: id,
         now: new Date("2026-08-20T15:00:00Z"),
       }),
@@ -89,6 +119,7 @@ describe("CancelReservationUseCase", () => {
     const id = createMockReservation("FINISHED", startsAt);
     await expect(
       useCase.execute({
+        restaurantId,
         reservationId: id,
         now: new Date("2026-08-20T15:00:00Z"),
       }),
@@ -100,6 +131,7 @@ describe("CancelReservationUseCase", () => {
     const id = createMockReservation("NO_SHOW", startsAt);
     await expect(
       useCase.execute({
+        restaurantId,
         reservationId: id,
         now: new Date("2026-08-20T15:00:00Z"),
       }),
@@ -112,7 +144,7 @@ describe("CancelReservationUseCase", () => {
     const id = createMockReservation("SCHEDULED", startsAt);
 
     await expect(
-      useCase.execute({ reservationId: id, now }),
+      useCase.execute({ restaurantId, reservationId: id, now }),
     ).rejects.toBeInstanceOf(ReservationCancellationWindowExpiredError);
   });
 
@@ -122,7 +154,7 @@ describe("CancelReservationUseCase", () => {
     const id = createMockReservation("SCHEDULED", startsAt);
 
     await expect(
-      useCase.execute({ reservationId: id, now }),
+      useCase.execute({ restaurantId, reservationId: id, now }),
     ).rejects.toBeInstanceOf(ReservationCancellationWindowExpiredError);
   });
 
@@ -131,7 +163,7 @@ describe("CancelReservationUseCase", () => {
     const now = new Date("2026-08-20T15:00:00Z");
     const id = createMockReservation("SCHEDULED", startsAt);
 
-    await useCase.execute({ reservationId: id, now });
+    await useCase.execute({ restaurantId, reservationId: id, now });
 
     expect(historyRepository.items).toHaveLength(1);
     expect(historyRepository.items[0]).toMatchObject({

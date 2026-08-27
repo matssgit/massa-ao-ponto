@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryReservationHistoryRepository } from "../repositories/in-memory-reservation-history-repository.js";
 import { InMemoryReservationsRepository } from "../repositories/in-memory-reservations-repository.js";
@@ -20,10 +20,10 @@ describe("ListReservationHistoryUseCase", () => {
     );
   });
 
-  function createMockReservation(id: string) {
+  function createMockReservation(id: string, restaurantId: string) {
     reservationsRepository.items.push({
       id,
-      restaurantId: "rest-1",
+      restaurantId,
       tableId: "table-1",
       customerId: "cust-1",
       status: "SCHEDULED",
@@ -36,7 +36,8 @@ describe("ListReservationHistoryUseCase", () => {
 
   it("deve retornar os registros pertencentes à reserva", async () => {
     const id = randomUUID();
-    createMockReservation(id);
+    const restaurantId = randomUUID();
+    createMockReservation(id, restaurantId);
 
     historyRepository.items.push({
       id: randomUUID(),
@@ -48,14 +49,15 @@ describe("ListReservationHistoryUseCase", () => {
       createdAt: new Date(),
     });
 
-    const result = await useCase.execute({ reservationId: id });
+    const result = await useCase.execute({ restaurantId, reservationId: id });
     expect(result).toHaveLength(1);
     expect(result[0].reservationId).toBe(id);
   });
 
   it("deve retornar os registros em ordem cronológica crescente", async () => {
     const id = randomUUID();
-    createMockReservation(id);
+    const restaurantId = randomUUID();
+    createMockReservation(id, restaurantId);
 
     const now = Date.now();
 
@@ -80,7 +82,7 @@ describe("ListReservationHistoryUseCase", () => {
       },
     );
 
-    const result = await useCase.execute({ reservationId: id });
+    const result = await useCase.execute({ restaurantId, reservationId: id });
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe("event-1");
     expect(result[1].id).toBe("event-2");
@@ -88,23 +90,42 @@ describe("ListReservationHistoryUseCase", () => {
 
   it("deve retornar [] para reserva existente sem histórico", async () => {
     const id = randomUUID();
-    createMockReservation(id);
+    const restaurantId = randomUUID();
+    createMockReservation(id, restaurantId);
 
-    const result = await useCase.execute({ reservationId: id });
+    const result = await useCase.execute({ restaurantId, reservationId: id });
     expect(result).toEqual([]);
   });
 
-  it("deve lançar ReservationNotFoundError para reserva inexistente", async () => {
+  it("deve ocultar reserva cross-tenant sem consultar o histórico", async () => {
+    const id = randomUUID();
+    createMockReservation(id, randomUUID());
+    const historySpy = vi.spyOn(historyRepository, "findByReservationId");
+
     await expect(
-      useCase.execute({ reservationId: "invalid-id" }),
+      useCase.execute({ restaurantId: randomUUID(), reservationId: id }),
     ).rejects.toBeInstanceOf(ReservationNotFoundError);
+    expect(historySpy).not.toHaveBeenCalled();
+  });
+
+  it("deve rejeitar reserva inexistente sem consultar o histórico", async () => {
+    const historySpy = vi.spyOn(historyRepository, "findByReservationId");
+
+    await expect(
+      useCase.execute({
+        restaurantId: randomUUID(),
+        reservationId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(ReservationNotFoundError);
+    expect(historySpy).not.toHaveBeenCalled();
   });
 
   it("deve isolar o histórico por reservationId", async () => {
     const id1 = randomUUID();
     const id2 = randomUUID();
-    createMockReservation(id1);
-    createMockReservation(id2);
+    const restaurantId = randomUUID();
+    createMockReservation(id1, restaurantId);
+    createMockReservation(id2, restaurantId);
 
     historyRepository.items.push({
       id: randomUUID(),
@@ -126,7 +147,7 @@ describe("ListReservationHistoryUseCase", () => {
       createdAt: new Date(),
     });
 
-    const result = await useCase.execute({ reservationId: id1 });
+    const result = await useCase.execute({ restaurantId, reservationId: id1 });
     expect(result).toHaveLength(1);
     expect(result[0].reservationId).toBe(id1);
   });

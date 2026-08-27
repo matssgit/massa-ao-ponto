@@ -5,6 +5,7 @@ import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-statu
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
 
 interface CompleteDeliveryRequest {
+  restaurantId: string;
   orderId: string;
 }
 
@@ -21,7 +22,11 @@ export class CompleteDeliveryUseCase {
         orderHistoryRepository,
         deliveryHistoryRepository,
       }) => {
-        const order = await ordersRepository.findByIdForUpdate(request.orderId);
+        const order =
+          await ordersRepository.findByIdAndRestaurantIdForUpdate(
+            request.orderId,
+            request.restaurantId,
+          );
         if (!order) throw new OrderNotFoundError();
 
         const delivery = await deliveriesRepository.findByOrderIdForUpdate(

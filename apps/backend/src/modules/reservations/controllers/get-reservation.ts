@@ -8,12 +8,14 @@ export async function getReservationController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { reservationId } = getReservationParamsSchema.parse(request.params);
+  const { restaurantId, reservationId } = getReservationParamsSchema.parse(
+    request.params,
+  );
 
   const reservationsRepository = new DrizzleReservationsRepository();
   const useCase = new GetReservationUseCase(reservationsRepository);
 
-  const reservation = await useCase.execute({ reservationId });
+  const reservation = await useCase.execute({ restaurantId, reservationId });
 
   return reply.status(200).send(reservation);
 }

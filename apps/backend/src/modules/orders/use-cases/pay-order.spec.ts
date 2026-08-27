@@ -2,7 +2,7 @@ import {
   OrderPaymentStatus,
   OrderStatus,
 } from "../repositories/orders-repository.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryOrderHistoryRepository } from "../repositories/in-memory-order-history-repository.js";
 import { InMemoryOrderItemsRepository } from "../repositories/in-memory-order-items-repository.js";
@@ -62,8 +62,15 @@ describe("PayOrderUseCase", () => {
 
   it("deve confirmar o pagamento de um pedido e registrar no histórico", async () => {
     const order = await createOrder("PENDING", "PENDING");
+    const findForUpdate = vi.spyOn(
+      ordersRepository,
+      "findByIdAndRestaurantIdForUpdate",
+    );
 
-    const result = await useCase.execute({ orderId: order.id });
+    const result = await useCase.execute({
+      restaurantId: order.restaurantId,
+      orderId: order.id,
+    });
 
     expect(result.paymentStatus).toBe("PAID");
 
@@ -74,30 +81,57 @@ describe("PayOrderUseCase", () => {
     expect(orderHistoryRepository.items[0].action).toBe("PAYMENT_CONFIRMED");
     expect(orderHistoryRepository.items[0].previousStatus).toBe("PENDING");
     expect(orderHistoryRepository.items[0].newStatus).toBe("PENDING");
+    expect(findForUpdate).toHaveBeenCalledWith(order.id, order.restaurantId);
   });
 
   it("deve rejeitar se o pedido já estiver pago", async () => {
     const order = await createOrder("CONFIRMED", "PAID");
-    await expect(useCase.execute({ orderId: order.id })).rejects.toBeInstanceOf(
-      InvalidOrderPaymentTransitionError,
-    );
+    await expect(
+      useCase.execute({
+        restaurantId: order.restaurantId,
+        orderId: order.id,
+      }),
+    ).rejects.toBeInstanceOf(InvalidOrderPaymentTransitionError);
   });
 
   it("deve rejeitar pagamento de pedidos CANCELLED ou DELIVERED", async () => {
     const cancelledOrder = await createOrder("CANCELLED", "PENDING");
     await expect(
-      useCase.execute({ orderId: cancelledOrder.id }),
+      useCase.execute({
+        restaurantId: cancelledOrder.restaurantId,
+        orderId: cancelledOrder.id,
+      }),
     ).rejects.toBeInstanceOf(InvalidOrderPaymentTransitionError);
 
     const deliveredOrder = await createOrder("DELIVERED", "PENDING");
     await expect(
-      useCase.execute({ orderId: deliveredOrder.id }),
+      useCase.execute({
+        restaurantId: deliveredOrder.restaurantId,
+        orderId: deliveredOrder.id,
+      }),
     ).rejects.toBeInstanceOf(InvalidOrderPaymentTransitionError);
   });
 
   it("deve rejeitar se o pedido não existir", async () => {
     await expect(
-      useCase.execute({ orderId: randomUUID() }),
+      useCase.execute({
+        restaurantId: randomUUID(),
+        orderId: randomUUID(),
+      }),
     ).rejects.toBeInstanceOf(OrderNotFoundError);
+  });
+
+  it("deve tratar pedido de outro restaurante como não encontrado sem pagar ou gravar histórico", async () => {
+    const order = await createOrder("PENDING", "PENDING");
+
+    await expect(
+      useCase.execute({
+        restaurantId: randomUUID(),
+        orderId: order.id,
+      }),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+
+    expect(order.paymentStatus).toBe("PENDING");
+    expect(orderHistoryRepository.items).toHaveLength(0);
   });
 });

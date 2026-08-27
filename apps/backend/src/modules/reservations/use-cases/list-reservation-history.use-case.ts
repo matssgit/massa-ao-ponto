@@ -3,6 +3,7 @@ import { ReservationNotFoundError } from "../errors/reservation-not-found-error.
 import { ReservationsRepository } from "../repositories/reservations-repository.js";
 
 interface ListReservationHistoryRequest {
+  restaurantId: string;
   reservationId: string;
 }
 
@@ -12,9 +13,12 @@ export class ListReservationHistoryUseCase {
     private readonly reservationHistoryRepository: ReservationHistoryRepository,
   ) {}
 
-  async execute({ reservationId }: ListReservationHistoryRequest) {
+  async execute({ restaurantId, reservationId }: ListReservationHistoryRequest) {
     const reservation =
-      await this.reservationsRepository.findById(reservationId);
+      await this.reservationsRepository.findByIdAndRestaurantId(
+        reservationId,
+        restaurantId,
+      );
 
     if (!reservation) {
       throw new ReservationNotFoundError();

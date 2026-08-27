@@ -60,6 +60,10 @@ export interface OrdersRepository {
     orderId: string,
     restaurantId: string,
   ): Promise<Order | null>;
+  findByIdAndRestaurantIdForUpdate(
+    orderId: string,
+    restaurantId: string,
+  ): Promise<Order | null>;
   findMany(filters: ListOrdersFilters): Promise<Order[]>;
   findByIdForUpdate(id: string): Promise<Order | null>;
   updateStatus(id: string, status: OrderStatus): Promise<void>;

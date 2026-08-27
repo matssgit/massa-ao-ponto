@@ -39,6 +39,13 @@ export class InMemoryOrdersRepository implements OrdersRepository {
     );
   }
 
+  async findByIdAndRestaurantIdForUpdate(
+    orderId: string,
+    restaurantId: string,
+  ): Promise<Order | null> {
+    return this.findByIdAndRestaurantId(orderId, restaurantId);
+  }
+
   async findMany(filters: ListOrdersFilters): Promise<Order[]> {
     const offset = (filters.page - 1) * filters.limit;
 

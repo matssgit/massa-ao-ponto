@@ -163,12 +163,12 @@ describe("Get Order (E2E)", () => {
 
     const statusResponse = await app.inject({
       method: "PATCH",
-      url: `/orders/${order.id}/status`,
+      url: `/restaurants/${rest.id}/orders/${order.id}/status`,
       payload: { status: "CONFIRMED" },
     });
     const paymentResponse = await app.inject({
       method: "PATCH",
-      url: `/orders/${order.id}/payment`,
+      url: `/restaurants/${rest.id}/orders/${order.id}/payment`,
     });
 
     expect(statusResponse.statusCode).toBe(204);
@@ -296,7 +296,7 @@ describe("Get Order (E2E)", () => {
 
     const createResponse = await app.inject({
       method: "POST",
-      url: `/orders/${order.id}/delivery`,
+      url: `/restaurants/${restaurant.id}/orders/${order.id}/delivery`,
     });
     expect(createResponse.statusCode).toBe(201);
 
@@ -320,7 +320,7 @@ describe("Get Order (E2E)", () => {
 
     const startResponse = await app.inject({
       method: "PATCH",
-      url: `/orders/${order.id}/delivery/start`,
+      url: `/restaurants/${restaurant.id}/orders/${order.id}/delivery/start`,
     });
     expect(startResponse.statusCode).toBe(204);
 
@@ -339,7 +339,7 @@ describe("Get Order (E2E)", () => {
 
     const completeResponse = await app.inject({
       method: "PATCH",
-      url: `/orders/${order.id}/delivery/complete`,
+      url: `/restaurants/${restaurant.id}/orders/${order.id}/delivery/complete`,
     });
     expect(completeResponse.statusCode).toBe(204);
 

@@ -40,6 +40,25 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
     return this.items.find((item) => item.id === id) || null;
   }
 
+  async findByIdAndRestaurantId(
+    reservationId: string,
+    restaurantId: string,
+  ): Promise<Reservation | null> {
+    return (
+      this.items.find(
+        (item) =>
+          item.id === reservationId && item.restaurantId === restaurantId,
+      ) || null
+    );
+  }
+
+  async findByIdAndRestaurantIdForUpdate(
+    reservationId: string,
+    restaurantId: string,
+  ): Promise<Reservation | null> {
+    return this.findByIdAndRestaurantId(reservationId, restaurantId);
+  }
+
   async updateStatus(
     id: string,
     status: Reservation["status"],
@@ -100,6 +119,25 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
   async findByCustomerId(customerId: string): Promise<Reservation[]> {
     return this.items
       .filter((item) => item.customerId === customerId)
+      .sort((a, b) => {
+        const timeComparison = a.startsAt.getTime() - b.startsAt.getTime();
+        if (timeComparison !== 0) {
+          return timeComparison;
+        }
+        return a.id.localeCompare(b.id);
+      });
+  }
+
+  async findByCustomerIdAndRestaurantId(
+    customerId: string,
+    restaurantId: string,
+  ): Promise<Reservation[]> {
+    return this.items
+      .filter(
+        (item) =>
+          item.customerId === customerId &&
+          item.restaurantId === restaurantId,
+      )
       .sort((a, b) => {
         const timeComparison = a.startsAt.getTime() - b.startsAt.getTime();
         if (timeComparison !== 0) {

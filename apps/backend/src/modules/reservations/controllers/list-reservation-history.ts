@@ -9,7 +9,9 @@ export async function listReservationHistoryController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { reservationId } = getReservationParamsSchema.parse(request.params);
+  const { restaurantId, reservationId } = getReservationParamsSchema.parse(
+    request.params,
+  );
 
   const reservationsRepository = new DrizzleReservationsRepository();
   const historyRepository = new DrizzleReservationHistoryRepository();
@@ -18,7 +20,7 @@ export async function listReservationHistoryController(
     historyRepository,
   );
 
-  const history = await useCase.execute({ reservationId });
+  const history = await useCase.execute({ restaurantId, reservationId });
 
   return reply.status(200).send(history);
 }

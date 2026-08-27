@@ -19,6 +19,7 @@ export const createReservationBodySchema = z.object({
 });
 
 export const updateReservationStatusParamsSchema = z.object({
+  restaurantId: z.string().uuid("Invalid restaurant ID format."),
   reservationId: z.string().uuid("Invalid reservation ID format."),
 });
 
@@ -40,9 +41,11 @@ export const listReservationsQuerySchema = z.object({
 });
 
 export const cancelReservationParamsSchema = z.object({
+  restaurantId: z.string().uuid("Invalid restaurant ID format."),
   reservationId: z.string().uuid("Invalid reservation ID format."),
 });
 
 export const getReservationParamsSchema = z.object({
+  restaurantId: z.string().uuid("Invalid restaurant ID format."),
   reservationId: z.string().uuid("Invalid reservation ID format."),
 });

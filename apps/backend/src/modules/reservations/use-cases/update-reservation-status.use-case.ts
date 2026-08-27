@@ -4,6 +4,7 @@ import { ReservationNotFoundError } from "../errors/reservation-not-found-error.
 import { ReservationTransactionManager } from "../repositories/reservation-transaction-manager.js";
 
 interface UpdateReservationStatusRequest {
+  restaurantId: string;
   reservationId: string;
   newStatus: Reservation["status"];
   observation?: string | null;
@@ -27,8 +28,9 @@ export class UpdateReservationStatusUseCase {
 
   async execute(request: UpdateReservationStatusRequest) {
     return await this.transactionManager.execute(async (repos) => {
-      const reservation = await repos.reservations.findById(
+      const reservation = await repos.reservations.findByIdAndRestaurantIdForUpdate(
         request.reservationId,
+        request.restaurantId,
       );
 
       if (!reservation) {

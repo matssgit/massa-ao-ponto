@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CancelOrderUseCase } from "./cancel-order.use-case.js";
 import { InMemoryOrderHistoryRepository } from "../repositories/in-memory-order-history-repository.js";
@@ -56,7 +56,14 @@ describe("CancelOrderUseCase", () => {
 
   it("deve cancelar com sucesso um pedido PENDING", async () => {
     const order = await createOrder("PENDING");
-    await useCase.execute({ orderId: order.id });
+    const findForUpdate = vi.spyOn(
+      ordersRepository,
+      "findByIdAndRestaurantIdForUpdate",
+    );
+    await useCase.execute({
+      restaurantId: order.restaurantId,
+      orderId: order.id,
+    });
 
     const updated = await ordersRepository.findById(order.id);
     expect(updated?.status).toBe("CANCELLED");
@@ -64,11 +71,15 @@ describe("CancelOrderUseCase", () => {
     expect(orderHistoryRepository.items).toHaveLength(1);
     expect(orderHistoryRepository.items[0].previousStatus).toBe("PENDING");
     expect(orderHistoryRepository.items[0].newStatus).toBe("CANCELLED");
+    expect(findForUpdate).toHaveBeenCalledWith(order.id, order.restaurantId);
   });
 
   it("deve cancelar com sucesso um pedido CONFIRMED", async () => {
     const order = await createOrder("CONFIRMED");
-    await useCase.execute({ orderId: order.id });
+    await useCase.execute({
+      restaurantId: order.restaurantId,
+      orderId: order.id,
+    });
 
     const updated = await ordersRepository.findById(order.id);
     expect(updated?.status).toBe("CANCELLED");
@@ -86,7 +97,10 @@ describe("CancelOrderUseCase", () => {
     for (const status of statuses) {
       const order = await createOrder(status);
       await expect(
-        useCase.execute({ orderId: order.id }),
+        useCase.execute({
+          restaurantId: order.restaurantId,
+          orderId: order.id,
+        }),
       ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
 
       const unchanged = await ordersRepository.findById(order.id);
@@ -96,7 +110,24 @@ describe("CancelOrderUseCase", () => {
 
   it("deve rejeitar caso o pedido não exista", async () => {
     await expect(
-      useCase.execute({ orderId: randomUUID() }),
+      useCase.execute({
+        restaurantId: randomUUID(),
+        orderId: randomUUID(),
+      }),
     ).rejects.toBeInstanceOf(OrderNotFoundError);
+  });
+
+  it("deve tratar pedido de outro restaurante como não encontrado sem cancelar ou gravar histórico", async () => {
+    const order = await createOrder("PENDING");
+
+    await expect(
+      useCase.execute({
+        restaurantId: randomUUID(),
+        orderId: order.id,
+      }),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+
+    expect(order.status).toBe("PENDING");
+    expect(orderHistoryRepository.items).toHaveLength(0);
   });
 });

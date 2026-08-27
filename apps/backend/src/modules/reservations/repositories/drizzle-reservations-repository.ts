@@ -48,6 +48,41 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
     return result[0] || null;
   }
 
+  async findByIdAndRestaurantId(
+    reservationId: string,
+    restaurantId: string,
+  ): Promise<Reservation | null> {
+    const [reservation] = await this.client
+      .select()
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.id, reservationId),
+          eq(reservations.restaurantId, restaurantId),
+        ),
+      );
+
+    return reservation || null;
+  }
+
+  async findByIdAndRestaurantIdForUpdate(
+    reservationId: string,
+    restaurantId: string,
+  ): Promise<Reservation | null> {
+    const [reservation] = await this.client
+      .select()
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.id, reservationId),
+          eq(reservations.restaurantId, restaurantId),
+        ),
+      )
+      .for("update");
+
+    return reservation || null;
+  }
+
   async updateStatus(
     id: string,
     status: Reservation["status"],
@@ -111,6 +146,22 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
       .select()
       .from(reservations)
       .where(eq(reservations.customerId, customerId))
+      .orderBy(asc(reservations.startsAt), asc(reservations.id));
+  }
+
+  async findByCustomerIdAndRestaurantId(
+    customerId: string,
+    restaurantId: string,
+  ): Promise<Reservation[]> {
+    return await this.client
+      .select()
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.customerId, customerId),
+          eq(reservations.restaurantId, restaurantId),
+        ),
+      )
       .orderBy(asc(reservations.startsAt), asc(reservations.id));
   }
 }

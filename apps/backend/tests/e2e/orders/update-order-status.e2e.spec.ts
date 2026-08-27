@@ -72,13 +72,13 @@ describe("Update Order Status (E2E)", () => {
     return order;
   }
 
-  describe("PATCH /orders/:orderId/status", () => {
+  describe("PATCH /restaurants/:restaurantId/orders/:orderId/status", () => {
     it("deve transitar o status de PENDING para CONFIRMED e registrar history (204)", async () => {
       const order = await createOrder();
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/status`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/status`,
         payload: { status: "CONFIRMED" },
       });
 
@@ -106,7 +106,7 @@ describe("Update Order Status (E2E)", () => {
       for (const status of ["CONFIRMED", "PREPARING", "READY"] as const) {
         const response = await app.inject({
           method: "PATCH",
-          url: `/orders/${order.id}/status`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/status`,
           payload: { status },
         });
         expect(response.statusCode).toBe(204);
@@ -114,26 +114,26 @@ describe("Update Order Status (E2E)", () => {
 
       const genericStartResponse = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/status`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/status`,
         payload: { status: "OUT_FOR_DELIVERY" },
       });
       expect(genericStartResponse.statusCode).toBe(409);
 
       const createDeliveryResponse = await app.inject({
         method: "POST",
-        url: `/orders/${order.id}/delivery`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
       expect(createDeliveryResponse.statusCode).toBe(201);
 
       const startDeliveryResponse = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/delivery/start`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
       });
       expect(startDeliveryResponse.statusCode).toBe(204);
 
       const completeDeliveryResponse = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/delivery/complete`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/complete`,
       });
       expect(completeDeliveryResponse.statusCode).toBe(204);
 
@@ -166,7 +166,7 @@ describe("Update Order Status (E2E)", () => {
       const pickupToComplete = await createOrder("PICKUP", "READY");
       const completeResponse = await app.inject({
         method: "PATCH",
-        url: `/orders/${pickupToComplete.id}/status`,
+        url: `/restaurants/${pickupToComplete.restaurantId}/orders/${pickupToComplete.id}/status`,
         payload: { status: "DELIVERED" },
       });
       expect(completeResponse.statusCode).toBe(204);
@@ -174,7 +174,7 @@ describe("Update Order Status (E2E)", () => {
       const pickupToReject = await createOrder("PICKUP", "READY");
       const logisticsResponse = await app.inject({
         method: "PATCH",
-        url: `/orders/${pickupToReject.id}/status`,
+        url: `/restaurants/${pickupToReject.restaurantId}/orders/${pickupToReject.id}/status`,
         payload: { status: "OUT_FOR_DELIVERY" },
       });
       expect(logisticsResponse.statusCode).toBe(409);
@@ -185,7 +185,7 @@ describe("Update Order Status (E2E)", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/status`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/status`,
         payload: { status: "CANCELLED" },
       });
 
@@ -197,7 +197,7 @@ describe("Update Order Status (E2E)", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/status`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/status`,
         payload: { status: "READY" },
       });
 
@@ -213,7 +213,7 @@ describe("Update Order Status (E2E)", () => {
     it("deve retornar 404 se o pedido não existir", async () => {
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${randomUUID()}/status`,
+        url: `/restaurants/${randomUUID()}/orders/${randomUUID()}/status`,
         payload: { status: "CONFIRMED" },
       });
       expect(response.statusCode).toBe(404);
@@ -223,10 +223,46 @@ describe("Update Order Status (E2E)", () => {
       const order = await createOrder();
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/status`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/status`,
         payload: { status: "STATUS_INVENTADO" },
       });
       expect(response.statusCode).toBe(400);
+    });
+
+    it("deve retornar 404 para pedido de outro restaurante sem alterar estado ou histórico", async () => {
+      const order = await createOrder();
+      const otherTenantOrder = await createOrder();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/status`,
+        payload: { status: "CONFIRMED" },
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const [unchangedOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(unchangedOrder.status).toBe("PENDING");
+
+      const history = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(history).toHaveLength(0);
+    });
+
+    it("deve remover a rota global antiga", async () => {
+      const order = await createOrder();
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/orders/${order.id}/status`,
+        payload: { status: "CONFIRMED" },
+      });
+
+      expect(response.statusCode).toBe(404);
     });
   });
 });

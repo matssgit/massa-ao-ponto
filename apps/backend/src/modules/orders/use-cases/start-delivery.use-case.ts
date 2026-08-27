@@ -5,6 +5,7 @@ import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-statu
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
 
 interface StartDeliveryRequest {
+  restaurantId: string;
   orderId: string;
 }
 
@@ -22,7 +23,11 @@ export class StartDeliveryUseCase {
         deliveryHistoryRepository,
       }) => {
         // Locking garante concorrência sem race conditions
-        const order = await ordersRepository.findByIdForUpdate(request.orderId);
+        const order =
+          await ordersRepository.findByIdAndRestaurantIdForUpdate(
+            request.orderId,
+            request.restaurantId,
+          );
         if (!order) throw new OrderNotFoundError();
 
         const delivery = await deliveriesRepository.findByOrderIdForUpdate(

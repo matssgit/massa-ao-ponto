@@ -65,6 +65,17 @@ describe("Get Reservation (E2E)", () => {
 
   it("deve retornar 200 com os dados corretos de uma reserva existente", async () => {
     const { restaurant, table } = await setupBase();
+    const otherRestaurantResponse = await app.inject({
+      method: "POST",
+      url: "/restaurants",
+      payload: {
+        name: "Outro Restaurante",
+        address: "Rua",
+        phone: "22",
+        timezone: "UTC",
+      },
+    });
+    const otherRestaurant = otherRestaurantResponse.json();
 
     const createRes = await app.inject({
       method: "POST",
@@ -81,19 +92,31 @@ describe("Get Reservation (E2E)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: `/reservations/${createdReservation.id}`,
+      url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}`,
     });
 
     expect(response.statusCode).toBe(200);
     const fetchedReservation = response.json();
     expect(fetchedReservation.id).toBe(createdReservation.id);
     expect(fetchedReservation.status).toBe("SCHEDULED");
+
+    const crossTenantResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${otherRestaurant.id}/reservations/${createdReservation.id}`,
+    });
+    expect(crossTenantResponse.statusCode).toBe(404);
+
+    const oldRouteResponse = await app.inject({
+      method: "GET",
+      url: `/reservations/${createdReservation.id}`,
+    });
+    expect(oldRouteResponse.statusCode).toBe(404);
   });
 
   it("deve retornar 404 ao buscar uma reserva inexistente", async () => {
     const response = await app.inject({
       method: "GET",
-      url: `/reservations/${randomUUID()}`,
+      url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}`,
     });
     expect(response.statusCode).toBe(404);
   });
@@ -101,7 +124,7 @@ describe("Get Reservation (E2E)", () => {
   it("deve retornar 400 ao buscar utilizando um UUID inválido", async () => {
     const response = await app.inject({
       method: "GET",
-      url: `/reservations/invalid-uuid`,
+      url: `/restaurants/${randomUUID()}/reservations/invalid-uuid`,
     });
     expect(response.statusCode).toBe(400);
   });
@@ -124,13 +147,13 @@ describe("Get Reservation (E2E)", () => {
 
     await app.inject({
       method: "PATCH",
-      url: `/reservations/${createdReservation.id}/status`,
+      url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}/status`,
       payload: { status: "CANCELLED" },
     });
 
     const response = await app.inject({
       method: "GET",
-      url: `/reservations/${createdReservation.id}`,
+      url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}`,
     });
 
     expect(response.statusCode).toBe(200);

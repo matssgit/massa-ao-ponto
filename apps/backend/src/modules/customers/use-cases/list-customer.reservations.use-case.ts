@@ -3,6 +3,7 @@ import { CustomersRepository } from "../../reservations/repositories/customers-r
 import { ReservationsRepository } from "../../reservations/repositories/reservations-repository.js";
 
 interface ListCustomerReservationsRequest {
+  restaurantId: string;
   customerId: string;
 }
 
@@ -12,13 +13,19 @@ export class ListCustomerReservationsUseCase {
     private readonly reservationsRepository: ReservationsRepository,
   ) {}
 
-  async execute({ customerId }: ListCustomerReservationsRequest) {
-    const customer = await this.customersRepository.findById(customerId);
+  async execute({ restaurantId, customerId }: ListCustomerReservationsRequest) {
+    const customer = await this.customersRepository.findByIdAndRestaurantId(
+      customerId,
+      restaurantId,
+    );
 
     if (!customer) {
       throw new CustomerNotFoundError();
     }
 
-    return await this.reservationsRepository.findByCustomerId(customerId);
+    return await this.reservationsRepository.findByCustomerIdAndRestaurantId(
+      customerId,
+      restaurantId,
+    );
   }
 }

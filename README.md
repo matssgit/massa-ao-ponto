@@ -214,7 +214,7 @@ O Zod valida somente a estrutura do payload e os valores pertencentes ao enum.
 Endpoint:
 
 ```text
-PATCH /reservations/:reservationId/cancel
+PATCH /restaurants/:restaurantId/reservations/:reservationId/cancel
 ```
 
 O cancelamento possui uma janela mínima de antecedência de **2 horas**.
@@ -249,7 +249,7 @@ A leitura utiliza consultas separadas e processamento com `Set` no Use Case, evi
 Endpoint:
 
 ```text
-GET /reservations/:reservationId/history
+GET /restaurants/:restaurantId/reservations/:reservationId/history
 ```
 
 O histórico é **append-only**.
@@ -409,7 +409,7 @@ os pedidos antigos continuam representando exatamente o estado do produto no mom
 Endpoint:
 
 ```text
-PATCH /orders/:orderId/status
+PATCH /restaurants/:restaurantId/orders/:orderId/status
 ```
 
 O fluxo compartilhado de cozinha é:
@@ -428,15 +428,15 @@ Para pedidos `DELIVERY`, as transições logísticas não são realizadas por es
 
 ```text
 READY
-   ↓  PATCH /orders/:orderId/delivery/start
+   ↓  PATCH /restaurants/:restaurantId/orders/:orderId/delivery/start
 OUT_FOR_DELIVERY
-   ↓  PATCH /orders/:orderId/delivery/complete
+   ↓  PATCH /restaurants/:restaurantId/orders/:orderId/delivery/complete
 DELIVERED
 ```
 
 Pedidos `PICKUP` e `DINE_IN` finalizam diretamente em `READY → DELIVERED` pela atualização genérica. Eles não entram em `OUT_FOR_DELIVERY`.
 
-`DELIVERED` e `CANCELLED` são estados finais. O cancelamento não é aceito pela atualização genérica; ele pertence ao endpoint dedicado `PATCH /orders/:orderId/cancel`.
+`DELIVERED` e `CANCELLED` são estados finais. O cancelamento não é aceito pela atualização genérica; ele pertence ao endpoint dedicado `PATCH /restaurants/:restaurantId/orders/:orderId/cancel`.
 
 As transições são protegidas exclusivamente pelo domínio.
 
@@ -447,7 +447,7 @@ As transições são protegidas exclusivamente pelo domínio.
 Endpoint:
 
 ```text
-PATCH /orders/:orderId/cancel
+PATCH /restaurants/:restaurantId/orders/:orderId/cancel
 ```
 
 O fluxo específico de cancelamento permite cancelar pedidos enquanto a operação da cozinha ainda não foi iniciada.
@@ -470,7 +470,7 @@ O cancelamento utiliza o mesmo mecanismo transacional dos demais fluxos de alter
 Endpoint:
 
 ```text
-PATCH /orders/:orderId/payment
+PATCH /restaurants/:restaurantId/orders/:orderId/payment
 ```
 
 O pagamento é tratado como um estado financeiro independente do estado operacional.
@@ -498,9 +498,9 @@ Pedidos do tipo `DELIVERY` possuem um contexto logístico separado.
 Endpoints:
 
 ```text
-POST  /orders/:orderId/delivery
-PATCH /orders/:orderId/delivery/start
-PATCH /orders/:orderId/delivery/complete
+POST  /restaurants/:restaurantId/orders/:orderId/delivery
+PATCH /restaurants/:restaurantId/orders/:orderId/delivery/start
+PATCH /restaurants/:restaurantId/orders/:orderId/delivery/complete
 ```
 
 Estados do Delivery:

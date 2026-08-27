@@ -195,7 +195,10 @@ describe("Dine-In Orders (E2E)", () => {
       });
       const orderId = res1.json().id;
 
-      await app.inject({ method: "PATCH", url: `/orders/${orderId}/cancel` });
+      await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${restaurant.id}/orders/${orderId}/cancel`,
+      });
 
       const res2 = await app.inject({
         method: "POST",
@@ -230,7 +233,7 @@ describe("Dine-In Orders (E2E)", () => {
       for (const status of ["CONFIRMED", "PREPARING", "READY"] as const) {
         const response = await app.inject({
           method: "PATCH",
-          url: `/orders/${orderId}/status`,
+          url: `/restaurants/${restaurant.id}/orders/${orderId}/status`,
           payload: { status },
         });
         expect(response.statusCode).toBe(204);
@@ -238,14 +241,14 @@ describe("Dine-In Orders (E2E)", () => {
 
       const logisticsResponse = await app.inject({
         method: "PATCH",
-        url: `/orders/${orderId}/status`,
+        url: `/restaurants/${restaurant.id}/orders/${orderId}/status`,
         payload: { status: "OUT_FOR_DELIVERY" },
       });
       expect(logisticsResponse.statusCode).toBe(409);
 
       const completeResponse = await app.inject({
         method: "PATCH",
-        url: `/orders/${orderId}/status`,
+        url: `/restaurants/${restaurant.id}/orders/${orderId}/status`,
         payload: { status: "DELIVERED" },
       });
       expect(completeResponse.statusCode).toBe(204);

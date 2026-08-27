@@ -8,12 +8,14 @@ export async function cancelReservationController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { reservationId } = cancelReservationParamsSchema.parse(request.params);
+  const { restaurantId, reservationId } =
+    cancelReservationParamsSchema.parse(request.params);
 
   const transactionManager = new DrizzleReservationTransactionManager();
   const useCase = new CancelReservationUseCase(transactionManager);
 
   const reservation = await useCase.execute({
+    restaurantId,
     reservationId,
     now: new Date(),
   });

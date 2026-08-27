@@ -9,7 +9,9 @@ export async function listCustomerReservationsController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { customerId } = getCustomerParamsSchema.parse(request.params);
+  const { restaurantId, customerId } = getCustomerParamsSchema.parse(
+    request.params,
+  );
 
   const customersRepository = new DrizzleCustomersRepository();
   const reservationsRepository = new DrizzleReservationsRepository();
@@ -18,7 +20,7 @@ export async function listCustomerReservationsController(
     reservationsRepository,
   );
 
-  const reservations = await useCase.execute({ customerId });
+  const reservations = await useCase.execute({ restaurantId, customerId });
 
   return reply.status(200).send(reservations);
 }

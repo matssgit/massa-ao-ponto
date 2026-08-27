@@ -11,15 +11,15 @@ export async function updateReservationStatusController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { reservationId } = updateReservationStatusParamsSchema.parse(
-    request.params,
-  );
+  const { restaurantId, reservationId } =
+    updateReservationStatusParamsSchema.parse(request.params);
   const body = updateReservationStatusBodySchema.parse(request.body);
 
   const transactionManager = new DrizzleReservationTransactionManager();
   const useCase = new UpdateReservationStatusUseCase(transactionManager);
 
   const reservation = await useCase.execute({
+    restaurantId,
     reservationId,
     newStatus: body.status,
     observation: body.observation,

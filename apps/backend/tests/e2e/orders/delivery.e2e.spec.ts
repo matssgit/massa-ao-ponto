@@ -66,13 +66,13 @@ describe("Delivery Flow (E2E)", () => {
     return order;
   }
 
-  describe("POST /orders/:orderId/delivery", () => {
+  describe("POST /restaurants/:restaurantId/orders/:orderId/delivery", () => {
     it("deve criar um delivery para um pedido DELIVERY válido (201)", async () => {
       const order = await createOrder("DELIVERY", "PREPARING");
 
       const response = await app.inject({
         method: "POST",
-        url: `/orders/${order.id}/delivery`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
 
       expect(response.statusCode).toBe(201);
@@ -90,7 +90,7 @@ describe("Delivery Flow (E2E)", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: `/orders/${order.id}/delivery`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
 
       expect(response.statusCode).toBe(201);
@@ -108,7 +108,7 @@ describe("Delivery Flow (E2E)", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: `/orders/${order.id}/delivery`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
 
       expect(response.statusCode).toBe(409);
@@ -124,21 +124,55 @@ describe("Delivery Flow (E2E)", () => {
       const order = await createOrder("PICKUP", "PENDING");
       const response = await app.inject({
         method: "POST",
-        url: `/orders/${order.id}/delivery`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
       expect(response.statusCode).toBe(409);
     });
+
+    it("deve retornar 404 em create cross-tenant sem criar Delivery ou histories", async () => {
+      const order = await createOrder("DELIVERY", "PREPARING");
+      const otherTenantOrder = await createOrder("DELIVERY", "PREPARING");
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/delivery`,
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const [unchangedOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(unchangedOrder.status).toBe("PREPARING");
+
+      const dbDelivery = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.orderId, order.id));
+      expect(dbDelivery).toHaveLength(0);
+      expect(await db.select().from(deliveryHistory)).toHaveLength(0);
+
+      const orderEvents = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(orderEvents).toHaveLength(0);
+    });
   });
 
-  describe("PATCH /orders/:orderId/delivery/start", () => {
+  describe("PATCH /restaurants/:restaurantId/orders/:orderId/delivery/start", () => {
     it("deve iniciar a entrega e alterar status do pedido e do delivery (204)", async () => {
       // Pedido pronto na cozinha
       const order = await createOrder("DELIVERY", "READY");
-      await app.inject({ method: "POST", url: `/orders/${order.id}/delivery` });
+      await app.inject({
+        method: "POST",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
+      });
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/delivery/start`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
       });
       expect(response.statusCode).toBe(204);
 
@@ -191,29 +225,76 @@ describe("Delivery Flow (E2E)", () => {
     it("deve rejeitar início de entrega se o pedido não estiver READY (409)", async () => {
       // Pedido ainda está sendo preparado
       const order = await createOrder("DELIVERY", "PREPARING");
-      await app.inject({ method: "POST", url: `/orders/${order.id}/delivery` });
+      await app.inject({
+        method: "POST",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
+      });
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/delivery/start`,
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
       });
 
       expect(response.statusCode).toBe(409);
     });
-  });
 
-  describe("PATCH /orders/:orderId/delivery/complete", () => {
-    it("deve concluir a entrega e alterar status do pedido e do delivery (204)", async () => {
+    it("deve retornar 404 em start cross-tenant sem alterar estados ou histories", async () => {
       const order = await createOrder("DELIVERY", "READY");
-      await app.inject({ method: "POST", url: `/orders/${order.id}/delivery` });
+      const otherTenantOrder = await createOrder("DELIVERY", "READY");
       await app.inject({
-        method: "PATCH",
-        url: `/orders/${order.id}/delivery/start`,
+        method: "POST",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
 
       const response = await app.inject({
         method: "PATCH",
-        url: `/orders/${order.id}/delivery/complete`,
+        url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/delivery/start`,
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const [unchangedOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(unchangedOrder.status).toBe("READY");
+
+      const [unchangedDelivery] = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.orderId, order.id));
+      expect(unchangedDelivery.status).toBe("PENDING");
+
+      const orderEvents = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(orderEvents).toHaveLength(0);
+
+      const deliveryEvents = await db
+        .select()
+        .from(deliveryHistory)
+        .where(eq(deliveryHistory.deliveryId, unchangedDelivery.id));
+      expect(deliveryEvents).toHaveLength(1);
+      expect(deliveryEvents[0].action).toBe("DELIVERY_CREATED");
+    });
+  });
+
+  describe("PATCH /restaurants/:restaurantId/orders/:orderId/delivery/complete", () => {
+    it("deve concluir a entrega e alterar status do pedido e do delivery (204)", async () => {
+      const order = await createOrder("DELIVERY", "READY");
+      await app.inject({
+        method: "POST",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
+      });
+      await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/complete`,
       });
       expect(response.statusCode).toBe(204);
 
@@ -268,5 +349,69 @@ describe("Delivery Flow (E2E)", () => {
         ]),
       );
     });
+
+    it("deve retornar 404 em complete cross-tenant sem alterar estados ou histories", async () => {
+      const order = await createOrder("DELIVERY", "READY");
+      const otherTenantOrder = await createOrder("DELIVERY", "READY");
+      await app.inject({
+        method: "POST",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
+      });
+      await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/delivery/complete`,
+      });
+
+      expect(response.statusCode).toBe(404);
+
+      const [unchangedOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(unchangedOrder.status).toBe("OUT_FOR_DELIVERY");
+
+      const [unchangedDelivery] = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.orderId, order.id));
+      expect(unchangedDelivery.status).toBe("OUT_FOR_DELIVERY");
+
+      const orderEvents = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(orderEvents).toHaveLength(1);
+
+      const deliveryEvents = await db
+        .select()
+        .from(deliveryHistory)
+        .where(eq(deliveryHistory.deliveryId, unchangedDelivery.id));
+      expect(deliveryEvents).toHaveLength(2);
+    });
+  });
+
+  it("deve remover as três rotas globais antigas de Delivery", async () => {
+    const order = await createOrder("DELIVERY", "READY");
+
+    const responses = await Promise.all([
+      app.inject({ method: "POST", url: `/orders/${order.id}/delivery` }),
+      app.inject({
+        method: "PATCH",
+        url: `/orders/${order.id}/delivery/start`,
+      }),
+      app.inject({
+        method: "PATCH",
+        url: `/orders/${order.id}/delivery/complete`,
+      }),
+    ]);
+
+    expect(responses.map(({ statusCode }) => statusCode)).toEqual([
+      404, 404, 404,
+    ]);
   });
 });
