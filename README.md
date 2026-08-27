@@ -412,7 +412,7 @@ Endpoint:
 PATCH /orders/:orderId/status
 ```
 
-O ciclo operacional principal é:
+O fluxo compartilhado de cozinha é:
 
 ```text
 PENDING
@@ -422,13 +422,21 @@ CONFIRMED
 PREPARING
    ↓
 READY
-   ↓
+```
+
+Para pedidos `DELIVERY`, as transições logísticas não são realizadas por esse endpoint:
+
+```text
+READY
+   ↓  PATCH /orders/:orderId/delivery/start
 OUT_FOR_DELIVERY
-   ↓
+   ↓  PATCH /orders/:orderId/delivery/complete
 DELIVERED
 ```
 
-`DELIVERED` e `CANCELLED` são estados finais.
+Pedidos `PICKUP` e `DINE_IN` finalizam diretamente em `READY → DELIVERED` pela atualização genérica. Eles não entram em `OUT_FOR_DELIVERY`.
+
+`DELIVERED` e `CANCELLED` são estados finais. O cancelamento não é aceito pela atualização genérica; ele pertence ao endpoint dedicado `PATCH /orders/:orderId/cancel`.
 
 As transições são protegidas exclusivamente pelo domínio.
 
@@ -514,6 +522,10 @@ O Delivery possui:
 - validação de tipo do pedido;
 - prevenção de duplicidade.
 
+A entidade Delivery pode ser criada somente enquanto o pedido estiver em `PREPARING` ou `READY`. O início da saída exige Order `READY` e Delivery `PENDING`; a conclusão exige ambos em `OUT_FOR_DELIVERY`.
+
+StartDelivery e CompleteDelivery são as únicas operações que alteram simultaneamente os estados logísticos de Order e Delivery. Elas também persistem OrderHistory e DeliveryHistory na mesma transação.
+
 O endereço não é duplicado na entidade Delivery.
 
 O Delivery reutiliza o snapshot de endereço armazenado no pedido.
@@ -579,7 +591,25 @@ Endpoint individual:
 GET /restaurants/:restaurantId/orders/:orderId
 ```
 
-A consulta detalhada retorna o pedido e seus itens sem consultar novamente o catálogo atual.
+A consulta detalhada retorna o pedido, itens, histórico do pedido e a Delivery associada:
+
+```text
+{
+  order,
+  items,
+  history,
+  delivery: {
+    id,
+    orderId,
+    status,
+    createdAt,
+    updatedAt,
+    history
+  } | null
+}
+```
+
+A chave `delivery` sempre existe. Ela é `null` para PICKUP, DINE_IN e DELIVERY sem despacho criado. Quando existe, `delivery.history` contém apenas a timeline operacional da Delivery, separada de `history`, que continua sendo a timeline do Order.
 
 A leitura dos itens é feita em lote, evitando N+1 queries.
 
