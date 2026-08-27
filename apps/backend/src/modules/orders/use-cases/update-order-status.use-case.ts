@@ -1,6 +1,9 @@
 import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-status-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
-import { OrderStatus } from "../repositories/orders-repository.js";
+import {
+  OrderStatus,
+  OrderType,
+} from "../repositories/orders-repository.js";
 import { OrderTransactionManager } from "../repositories/order-transaction-manager.js";
 
 interface UpdateOrderStatusRequest {
@@ -8,15 +11,23 @@ interface UpdateOrderStatusRequest {
   status: OrderStatus;
 }
 
-const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  PENDING: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: ["PREPARING", "CANCELLED"],
-  PREPARING: ["READY", "CANCELLED"],
-  READY: ["OUT_FOR_DELIVERY", "CANCELLED"],
-  OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
-  DELIVERED: [],
-  CANCELLED: [],
-};
+function getAllowedTransitions(
+  orderType: OrderType,
+  currentStatus: OrderStatus,
+): OrderStatus[] {
+  if (currentStatus === "PENDING") return ["CONFIRMED"];
+  if (currentStatus === "CONFIRMED") return ["PREPARING"];
+  if (currentStatus === "PREPARING") return ["READY"];
+
+  if (
+    currentStatus === "READY" &&
+    (orderType === "PICKUP" || orderType === "DINE_IN")
+  ) {
+    return ["DELIVERED"];
+  }
+
+  return [];
+}
 
 export class UpdateOrderStatusUseCase {
   constructor(private readonly transactionManager: OrderTransactionManager) {}
@@ -29,7 +40,10 @@ export class UpdateOrderStatusUseCase {
           throw new OrderNotFoundError();
         }
 
-        const allowedNextStates = ALLOWED_TRANSITIONS[order.status] || [];
+        const allowedNextStates = getAllowedTransitions(
+          order.type,
+          order.status,
+        );
         if (!allowedNextStates.includes(request.status)) {
           throw new InvalidOrderStatusTransitionError(
             order.status,

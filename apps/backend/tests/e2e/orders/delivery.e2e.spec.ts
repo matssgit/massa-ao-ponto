@@ -68,7 +68,7 @@ describe("Delivery Flow (E2E)", () => {
 
   describe("POST /orders/:orderId/delivery", () => {
     it("deve criar um delivery para um pedido DELIVERY válido (201)", async () => {
-      const order = await createOrder("DELIVERY", "PENDING");
+      const order = await createOrder("DELIVERY", "PREPARING");
 
       const response = await app.inject({
         method: "POST",
@@ -83,6 +83,41 @@ describe("Delivery Flow (E2E)", () => {
         .from(deliveries)
         .where(eq(deliveries.orderId, order.id));
       expect(dbDelivery).toHaveLength(1);
+    });
+
+    it("deve criar um delivery quando o pedido estiver READY (201)", async () => {
+      const order = await createOrder("DELIVERY", "READY");
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/orders/${order.id}/delivery`,
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json().status).toBe("PENDING");
+    });
+
+    it.each([
+      "PENDING",
+      "CONFIRMED",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+      "CANCELLED",
+    ])("deve rejeitar criação de delivery para pedido em %s (409)", async (status) => {
+      const order = await createOrder("DELIVERY", status);
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/orders/${order.id}/delivery`,
+      });
+
+      expect(response.statusCode).toBe(409);
+
+      const dbDelivery = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.orderId, order.id));
+      expect(dbDelivery).toHaveLength(0);
     });
 
     it("deve rejeitar delivery para pedido PICKUP (409)", async () => {
@@ -119,6 +154,38 @@ describe("Delivery Flow (E2E)", () => {
         .from(deliveries)
         .where(eq(deliveries.orderId, order.id));
       expect(dbDelivery[0].status).toBe("OUT_FOR_DELIVERY");
+
+      const orderEvents = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(orderEvents).toHaveLength(1);
+      expect(orderEvents[0]).toMatchObject({
+        action: "STATUS_CHANGED",
+        previousStatus: "READY",
+        newStatus: "OUT_FOR_DELIVERY",
+        observation: "Expedição iniciada.",
+      });
+
+      const deliveryEvents = await db
+        .select()
+        .from(deliveryHistory)
+        .where(eq(deliveryHistory.deliveryId, dbDelivery[0].id));
+      expect(deliveryEvents).toHaveLength(2);
+      expect(deliveryEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: "DELIVERY_CREATED",
+            previousStatus: "PENDING",
+            newStatus: "PENDING",
+          }),
+          expect.objectContaining({
+            action: "DELIVERY_STARTED",
+            previousStatus: "PENDING",
+            newStatus: "OUT_FOR_DELIVERY",
+          }),
+        ]),
+      );
     });
 
     it("deve rejeitar início de entrega se o pedido não estiver READY (409)", async () => {
@@ -161,6 +228,45 @@ describe("Delivery Flow (E2E)", () => {
         .from(deliveries)
         .where(eq(deliveries.orderId, order.id));
       expect(dbDelivery[0].status).toBe("DELIVERED");
+
+      const orderEvents = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(orderEvents).toHaveLength(2);
+      expect(orderEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: "STATUS_CHANGED",
+            previousStatus: "READY",
+            newStatus: "OUT_FOR_DELIVERY",
+            observation: "Expedição iniciada.",
+          }),
+          expect.objectContaining({
+            action: "STATUS_CHANGED",
+            previousStatus: "OUT_FOR_DELIVERY",
+            newStatus: "DELIVERED",
+            observation: "Entrega concluída.",
+          }),
+        ]),
+      );
+
+      const deliveryEvents = await db
+        .select()
+        .from(deliveryHistory)
+        .where(eq(deliveryHistory.deliveryId, dbDelivery[0].id));
+      expect(deliveryEvents).toHaveLength(3);
+      expect(deliveryEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action: "DELIVERY_CREATED" }),
+          expect.objectContaining({ action: "DELIVERY_STARTED" }),
+          expect.objectContaining({
+            action: "DELIVERY_COMPLETED",
+            previousStatus: "OUT_FOR_DELIVERY",
+            newStatus: "DELIVERED",
+          }),
+        ]),
+      );
     });
   });
 });

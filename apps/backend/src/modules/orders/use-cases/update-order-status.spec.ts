@@ -7,7 +7,10 @@ import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repos
 import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-status-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
-import { OrderStatus } from "../repositories/orders-repository.js";
+import {
+  OrderStatus,
+  OrderType,
+} from "../repositories/orders-repository.js";
 import { UpdateOrderStatusUseCase } from "./update-order-status.use-case.js";
 import { randomUUID } from "node:crypto";
 
@@ -31,11 +34,14 @@ describe("UpdateOrderStatusUseCase", () => {
     useCase = new UpdateOrderStatusUseCase(transactionManager);
   });
 
-  async function createOrder(status: OrderStatus) {
+  async function createOrder(
+    status: OrderStatus,
+    type: OrderType = "DELIVERY",
+  ) {
     return await ordersRepository.create({
       restaurantId: randomUUID(),
       customerId: randomUUID(),
-      type: "DELIVERY",
+      type,
       status,
       paymentStatus: "PENDING",
       subtotal: 1000,
@@ -77,6 +83,68 @@ describe("UpdateOrderStatusUseCase", () => {
 
     const unchangedOrder = await ordersRepository.findById(order.id);
     expect(unchangedOrder?.status).toBe("PENDING");
+    expect(orderHistoryRepository.items).toHaveLength(0);
+  });
+
+  it.each([
+    ["READY", "OUT_FOR_DELIVERY"],
+    ["OUT_FOR_DELIVERY", "DELIVERED"],
+  ] as const)(
+    "deve rejeitar a transição logística de DELIVERY pela atualização genérica (%s -> %s)",
+    async (currentStatus, nextStatus) => {
+      const order = await createOrder(currentStatus, "DELIVERY");
+
+      await expect(
+        useCase.execute({ orderId: order.id, status: nextStatus }),
+      ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
+
+      expect(order.status).toBe(currentStatus);
+      expect(orderHistoryRepository.items).toHaveLength(0);
+    },
+  );
+
+  it.each(["PICKUP", "DINE_IN"] as const)(
+    "deve permitir READY -> DELIVERED para %s",
+    async (type) => {
+      const order = await createOrder("READY", type);
+
+      await useCase.execute({ orderId: order.id, status: "DELIVERED" });
+
+      expect(order.status).toBe("DELIVERED");
+      expect(orderHistoryRepository.items).toHaveLength(1);
+      expect(orderHistoryRepository.items[0]).toMatchObject({
+        action: "STATUS_CHANGED",
+        previousStatus: "READY",
+        newStatus: "DELIVERED",
+      });
+    },
+  );
+
+  it.each(["PICKUP", "DINE_IN"] as const)(
+    "deve rejeitar READY -> OUT_FOR_DELIVERY para %s",
+    async (type) => {
+      const order = await createOrder("READY", type);
+
+      await expect(
+        useCase.execute({
+          orderId: order.id,
+          status: "OUT_FOR_DELIVERY",
+        }),
+      ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
+
+      expect(order.status).toBe("READY");
+      expect(orderHistoryRepository.items).toHaveLength(0);
+    },
+  );
+
+  it("deve rejeitar CANCELLED pela atualização genérica", async () => {
+    const order = await createOrder("PENDING");
+
+    await expect(
+      useCase.execute({ orderId: order.id, status: "CANCELLED" }),
+    ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
+
+    expect(order.status).toBe("PENDING");
     expect(orderHistoryRepository.items).toHaveLength(0);
   });
 

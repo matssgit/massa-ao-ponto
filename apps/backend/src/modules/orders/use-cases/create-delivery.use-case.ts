@@ -26,9 +26,9 @@ export class CreateDeliveryUseCase {
           throw new InvalidDeliveryOrderTypeError(
             "Somente pedidos do tipo DELIVERY podem gerar entregas.",
           );
-        if (order.status === "CANCELLED")
+        if (order.status !== "PREPARING" && order.status !== "READY")
           throw new InvalidDeliveryOrderTypeError(
-            "Não é possível criar entrega para um pedido cancelado.",
+            "A entrega só pode ser criada quando o pedido estiver em PREPARING ou READY.",
           );
         if (
           !order.deliveryStreet ||

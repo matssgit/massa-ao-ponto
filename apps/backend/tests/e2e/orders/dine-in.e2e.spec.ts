@@ -210,5 +210,58 @@ describe("Dine-In Orders (E2E)", () => {
 
       expect(res2.statusCode).toBe(201);
     });
+
+    it("deve finalizar READY -> DELIVERED sem passar por OUT_FOR_DELIVERY e liberar a mesa", async () => {
+      const { restaurant, customer, table, product } = await setupDineIn();
+
+      const firstOrderResponse = await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/orders`,
+        payload: {
+          customerId: customer.id,
+          type: "DINE_IN",
+          tableId: table.id,
+          items: [{ productId: product.id, quantity: 1 }],
+        },
+      });
+      expect(firstOrderResponse.statusCode).toBe(201);
+      const orderId = firstOrderResponse.json().id;
+
+      for (const status of ["CONFIRMED", "PREPARING", "READY"] as const) {
+        const response = await app.inject({
+          method: "PATCH",
+          url: `/orders/${orderId}/status`,
+          payload: { status },
+        });
+        expect(response.statusCode).toBe(204);
+      }
+
+      const logisticsResponse = await app.inject({
+        method: "PATCH",
+        url: `/orders/${orderId}/status`,
+        payload: { status: "OUT_FOR_DELIVERY" },
+      });
+      expect(logisticsResponse.statusCode).toBe(409);
+
+      const completeResponse = await app.inject({
+        method: "PATCH",
+        url: `/orders/${orderId}/status`,
+        payload: { status: "DELIVERED" },
+      });
+      expect(completeResponse.statusCode).toBe(204);
+
+      const nextOrderResponse = await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/orders`,
+        payload: {
+          customerId: customer.id,
+          type: "DINE_IN",
+          tableId: table.id,
+          items: [{ productId: product.id, quantity: 1 }],
+        },
+      });
+
+      expect(nextOrderResponse.statusCode).toBe(201);
+    });
   });
 });

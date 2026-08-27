@@ -42,7 +42,7 @@ describe("Get Order (E2E)", () => {
     await db.delete(restaurants);
   });
 
-  async function createTenantOrder() {
+  async function createTenantOrder(type: "PICKUP" | "DINE_IN" = "PICKUP") {
     const [restaurantA, restaurantB] = await db
       .insert(restaurants)
       .values([
@@ -59,7 +59,7 @@ describe("Get Order (E2E)", () => {
       .values({
         restaurantId: restaurantA.id,
         customerId: customer.id,
-        type: "PICKUP",
+        type,
         status: "PENDING",
         paymentStatus: "PENDING",
         subtotal: 4000,
@@ -234,18 +234,131 @@ describe("Get Order (E2E)", () => {
       newStatus: "CONFIRMED",
       observation: null,
     });
+    expect(data.delivery).toBeNull();
   });
 
-  it("deve retornar histórico vazio quando o pedido não possuir eventos", async () => {
-    const { restaurantA, order } = await createTenantOrder();
+  it.each(["PICKUP", "DINE_IN"] as const)(
+    "deve retornar histórico vazio e delivery null para %s",
+    async (type) => {
+      const { restaurantA, order } = await createTenantOrder(type);
 
-    const response = await app.inject({
-      method: "GET",
-      url: `/restaurants/${restaurantA.id}/orders/${order.id}`,
+      const response = await app.inject({
+        method: "GET",
+        url: `/restaurants/${restaurantA.id}/orders/${order.id}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().history).toEqual([]);
+      expect(response.json().delivery).toBeNull();
+    },
+  );
+
+  it("deve retornar Delivery e seu histórico durante todo o despacho", async () => {
+    const [restaurant] = await db
+      .insert(restaurants)
+      .values({ name: "Delivery Rest", address: "", phone: "1", timezone: "UTC" })
+      .returning();
+    const [customer] = await db
+      .insert(customers)
+      .values({ name: "Cliente Delivery", phone: "11888" })
+      .returning();
+    const [order] = await db
+      .insert(orders)
+      .values({
+        restaurantId: restaurant.id,
+        customerId: customer.id,
+        type: "DELIVERY",
+        status: "READY",
+        paymentStatus: "PENDING",
+        subtotal: 4000,
+        deliveryFee: 500,
+        total: 4500,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        deliveryStreet: "Rua A",
+        deliveryNumber: "10",
+        deliveryNeighborhood: "Centro",
+        deliveryCity: "Guarujá",
+        deliveryState: "SP",
+        deliveryZipCode: "11410-000",
+      })
+      .returning();
+
+    const getOrder = () =>
+      app.inject({
+        method: "GET",
+        url: `/restaurants/${restaurant.id}/orders/${order.id}`,
+      });
+
+    const withoutDeliveryResponse = await getOrder();
+    expect(withoutDeliveryResponse.statusCode).toBe(200);
+    expect(withoutDeliveryResponse.json().delivery).toBeNull();
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: `/orders/${order.id}/delivery`,
     });
+    expect(createResponse.statusCode).toBe(201);
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json().history).toEqual([]);
+    await db
+      .update(deliveryHistory)
+      .set({ createdAt: new Date("2026-08-26T12:00:00.000Z") })
+      .where(eq(deliveryHistory.action, "DELIVERY_CREATED"));
+
+    const createdResponse = await getOrder();
+    expect(createdResponse.statusCode).toBe(200);
+    expect(createdResponse.json().delivery).toMatchObject({
+      id: createResponse.json().id,
+      orderId: order.id,
+      status: "PENDING",
+    });
+    expect(
+      createdResponse
+        .json()
+        .delivery.history.map(({ action }: { action: string }) => action),
+    ).toEqual(["DELIVERY_CREATED"]);
+
+    const startResponse = await app.inject({
+      method: "PATCH",
+      url: `/orders/${order.id}/delivery/start`,
+    });
+    expect(startResponse.statusCode).toBe(204);
+
+    await db
+      .update(deliveryHistory)
+      .set({ createdAt: new Date("2026-08-26T12:01:00.000Z") })
+      .where(eq(deliveryHistory.action, "DELIVERY_STARTED"));
+
+    const startedResponse = await getOrder();
+    expect(startedResponse.json().delivery.status).toBe("OUT_FOR_DELIVERY");
+    expect(
+      startedResponse
+        .json()
+        .delivery.history.map(({ action }: { action: string }) => action),
+    ).toEqual(["DELIVERY_CREATED", "DELIVERY_STARTED"]);
+
+    const completeResponse = await app.inject({
+      method: "PATCH",
+      url: `/orders/${order.id}/delivery/complete`,
+    });
+    expect(completeResponse.statusCode).toBe(204);
+
+    await db
+      .update(deliveryHistory)
+      .set({ createdAt: new Date("2026-08-26T12:02:00.000Z") })
+      .where(eq(deliveryHistory.action, "DELIVERY_COMPLETED"));
+
+    const completedResponse = await getOrder();
+    expect(completedResponse.json().delivery.status).toBe("DELIVERED");
+    expect(
+      completedResponse
+        .json()
+        .delivery.history.map(({ action }: { action: string }) => action),
+    ).toEqual([
+      "DELIVERY_CREATED",
+      "DELIVERY_STARTED",
+      "DELIVERY_COMPLETED",
+    ]);
   });
 
   it("deve retornar 404 para pedido inexistente", async () => {

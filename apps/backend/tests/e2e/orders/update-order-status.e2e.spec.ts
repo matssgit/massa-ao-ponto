@@ -14,6 +14,10 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
+import {
+  OrderStatus,
+  OrderType,
+} from "../../../src/modules/orders/repositories/orders-repository.js";
 import { randomUUID } from "node:crypto";
 
 describe("Update Order Status (E2E)", () => {
@@ -32,7 +36,10 @@ describe("Update Order Status (E2E)", () => {
     await db.delete(restaurants);
   });
 
-  async function createOrder() {
+  async function createOrder(
+    type: OrderType = "DELIVERY",
+    status: OrderStatus = "PENDING",
+  ) {
     const [restaurant] = await db
       .insert(restaurants)
       .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
@@ -46,14 +53,20 @@ describe("Update Order Status (E2E)", () => {
       .values({
         restaurantId: restaurant.id,
         customerId: customer.id,
-        type: "DELIVERY",
-        status: "PENDING",
+        type,
+        status,
         paymentStatus: "PENDING",
         subtotal: 10,
         deliveryFee: 0,
         total: 10,
         customerName: "A",
         customerPhone: "1",
+        deliveryStreet: type === "DELIVERY" ? "Rua A" : null,
+        deliveryNumber: type === "DELIVERY" ? "123" : null,
+        deliveryNeighborhood: type === "DELIVERY" ? "Bairro" : null,
+        deliveryCity: type === "DELIVERY" ? "Cidade" : null,
+        deliveryState: type === "DELIVERY" ? "SP" : null,
+        deliveryZipCode: type === "DELIVERY" ? "00000-000" : null,
       })
       .returning();
     return order;
@@ -87,41 +100,96 @@ describe("Update Order Status (E2E)", () => {
       expect(history[0].newStatus).toBe("CONFIRMED");
     });
 
-    it("deve completar o fluxo positivo completo até DELIVERED", async () => {
+    it("deve usar a rota genérica para cozinha e os endpoints especializados para logística DELIVERY", async () => {
       const order = await createOrder();
 
-      await app.inject({
-        method: "PATCH",
-        url: `/orders/${order.id}/status`,
-        payload: { status: "CONFIRMED" },
-      });
-      await app.inject({
-        method: "PATCH",
-        url: `/orders/${order.id}/status`,
-        payload: { status: "PREPARING" },
-      });
-      await app.inject({
-        method: "PATCH",
-        url: `/orders/${order.id}/status`,
-        payload: { status: "READY" },
-      });
-      await app.inject({
+      for (const status of ["CONFIRMED", "PREPARING", "READY"] as const) {
+        const response = await app.inject({
+          method: "PATCH",
+          url: `/orders/${order.id}/status`,
+          payload: { status },
+        });
+        expect(response.statusCode).toBe(204);
+      }
+
+      const genericStartResponse = await app.inject({
         method: "PATCH",
         url: `/orders/${order.id}/status`,
         payload: { status: "OUT_FOR_DELIVERY" },
       });
-      const lastRes = await app.inject({
-        method: "PATCH",
-        url: `/orders/${order.id}/status`,
-        payload: { status: "DELIVERED" },
-      });
+      expect(genericStartResponse.statusCode).toBe(409);
 
-      expect(lastRes.statusCode).toBe(204);
+      const createDeliveryResponse = await app.inject({
+        method: "POST",
+        url: `/orders/${order.id}/delivery`,
+      });
+      expect(createDeliveryResponse.statusCode).toBe(201);
+
+      const startDeliveryResponse = await app.inject({
+        method: "PATCH",
+        url: `/orders/${order.id}/delivery/start`,
+      });
+      expect(startDeliveryResponse.statusCode).toBe(204);
+
+      const completeDeliveryResponse = await app.inject({
+        method: "PATCH",
+        url: `/orders/${order.id}/delivery/complete`,
+      });
+      expect(completeDeliveryResponse.statusCode).toBe(204);
+
+      const [updatedOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(updatedOrder.status).toBe("DELIVERED");
+
       const history = await db
         .select()
         .from(orderHistory)
         .where(eq(orderHistory.orderId, order.id));
       expect(history).toHaveLength(5);
+
+      const [delivery] = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.orderId, order.id));
+      expect(delivery.status).toBe("DELIVERED");
+
+      const deliveryEvents = await db
+        .select()
+        .from(deliveryHistory)
+        .where(eq(deliveryHistory.deliveryId, delivery.id));
+      expect(deliveryEvents).toHaveLength(3);
+    });
+
+    it("deve permitir READY -> DELIVERED para PICKUP e rejeitar OUT_FOR_DELIVERY", async () => {
+      const pickupToComplete = await createOrder("PICKUP", "READY");
+      const completeResponse = await app.inject({
+        method: "PATCH",
+        url: `/orders/${pickupToComplete.id}/status`,
+        payload: { status: "DELIVERED" },
+      });
+      expect(completeResponse.statusCode).toBe(204);
+
+      const pickupToReject = await createOrder("PICKUP", "READY");
+      const logisticsResponse = await app.inject({
+        method: "PATCH",
+        url: `/orders/${pickupToReject.id}/status`,
+        payload: { status: "OUT_FOR_DELIVERY" },
+      });
+      expect(logisticsResponse.statusCode).toBe(409);
+    });
+
+    it("deve rejeitar CANCELLED pela atualização genérica", async () => {
+      const order = await createOrder();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/orders/${order.id}/status`,
+        payload: { status: "CANCELLED" },
+      });
+
+      expect(response.statusCode).toBe(409);
     });
 
     it("deve rejeitar transição inválida com 409", async () => {
