@@ -15,19 +15,41 @@ describe("GetProductCategoryUseCase", () => {
   });
 
   it("deve retornar a categoria corretamente", async () => {
+    const restaurantId = randomUUID();
     const created = await categoriesRepository.create({
-      restaurantId: randomUUID(),
+      restaurantId,
       name: "Bebidas",
       displayOrder: 1,
     });
-    const category = await useCase.execute({ categoryId: created.id });
+    const category = await useCase.execute({
+      restaurantId,
+      categoryId: created.id,
+    });
     expect(category.id).toBe(created.id);
     expect(category.name).toBe("Bebidas");
   });
 
   it("deve rejeitar se a categoria não existir", async () => {
     await expect(
-      useCase.execute({ categoryId: randomUUID() }),
+      useCase.execute({
+        restaurantId: randomUUID(),
+        categoryId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(ProductCategoryNotFoundError);
+  });
+
+  it("deve ocultar categoria de outro restaurante", async () => {
+    const created = await categoriesRepository.create({
+      restaurantId: randomUUID(),
+      name: "Bebidas",
+      displayOrder: 1,
+    });
+
+    await expect(
+      useCase.execute({
+        restaurantId: randomUUID(),
+        categoryId: created.id,
+      }),
     ).rejects.toBeInstanceOf(ProductCategoryNotFoundError);
   });
 });

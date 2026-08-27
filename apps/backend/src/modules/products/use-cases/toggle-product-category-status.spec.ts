@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { InMemoryProductCategoriesRepository } from "../repositories/in-memory-product-categories-repository.js";
-import { ProductCategoryRestaurantMismatchError } from "../errors/product-category-restaurant-mismatch-error.js";
+import { ProductCategoryNotFoundError } from "../errors/product-category-not-found-error.js";
 import { ToggleProductCategoryStatusUseCase } from "./toggle-product-category-status.use-case.js";
 import { randomUUID } from "node:crypto";
 
@@ -43,6 +43,10 @@ describe("ToggleProductCategoryStatusUseCase", () => {
     });
     await expect(
       useCase.execute({ restaurantId: randomUUID(), categoryId: category.id }),
-    ).rejects.toBeInstanceOf(ProductCategoryRestaurantMismatchError);
+    ).rejects.toBeInstanceOf(ProductCategoryNotFoundError);
+
+    expect(await categoriesRepository.findById(category.id)).toMatchObject({
+      active: true,
+    });
   });
 });

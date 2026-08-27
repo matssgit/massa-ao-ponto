@@ -13,6 +13,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 describe("Addons Management (E2E)", () => {
@@ -67,9 +68,21 @@ describe("Addons Management (E2E)", () => {
     // 3. GET
     const getRes = await app.inject({
       method: "GET",
-      url: `/addons/${addonId}`,
+      url: `/restaurants/${rest.id}/addons/${addonId}`,
     });
     expect(getRes.statusCode).toBe(200);
+
+    const oldRouteRes = await app.inject({
+      method: "GET",
+      url: `/addons/${addonId}`,
+    });
+    expect(oldRouteRes.statusCode).toBe(404);
+
+    const invalidIdRes = await app.inject({
+      method: "GET",
+      url: `/restaurants/${rest.id}/addons/invalid-id`,
+    });
+    expect(invalidIdRes.statusCode).toBe(400);
 
     // 4. UPDATE
     const updateRes = await app.inject({
@@ -96,7 +109,7 @@ describe("Addons Management (E2E)", () => {
     expect(deleteRes.statusCode).toBe(204);
   });
 
-  it("deve rejeitar atualizacao cross-tenant (409)", async () => {
+  it("deve ocultar e preservar o addon em acessos cross-tenant", async () => {
     const [rest1] = await db
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
@@ -110,11 +123,35 @@ describe("Addons Management (E2E)", () => {
       .values({ restaurantId: rest1.id, name: "Ovo", price: 200 })
       .returning();
 
-    const crossRes = await app.inject({
+    const getRes = await app.inject({
+      method: "GET",
+      url: `/restaurants/${rest2.id}/addons/${addon.id}`,
+    });
+    expect(getRes.statusCode).toBe(404);
+
+    const updateRes = await app.inject({
       method: "PATCH",
       url: `/restaurants/${rest2.id}/addons/${addon.id}`,
       payload: { price: 300 },
     });
-    expect(crossRes.statusCode).toBe(409);
+    expect(updateRes.statusCode).toBe(404);
+
+    const toggleRes = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${rest2.id}/addons/${addon.id}/toggle-status`,
+    });
+    expect(toggleRes.statusCode).toBe(404);
+
+    const deleteRes = await app.inject({
+      method: "DELETE",
+      url: `/restaurants/${rest2.id}/addons/${addon.id}`,
+    });
+    expect(deleteRes.statusCode).toBe(404);
+
+    const [preservedAddon] = await db
+      .select()
+      .from(addons)
+      .where(eq(addons.id, addon.id));
+    expect(preservedAddon).toMatchObject({ price: 200, active: true });
   });
 });

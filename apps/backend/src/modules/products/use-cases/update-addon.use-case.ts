@@ -1,5 +1,4 @@
 import { AddonNotFoundError } from "../errors/addon-not-found-error.js";
-import { AddonRestaurantMismatchError } from "../errors/addon-restaurant-mismatch-error.js";
 import { AddonsRepository } from "../repositories/addons-repository.js";
 
 interface UpdateAddonRequest {
@@ -15,11 +14,12 @@ export class UpdateAddonUseCase {
   constructor(private readonly addonsRepository: AddonsRepository) {}
 
   async execute({ restaurantId, addonId, ...data }: UpdateAddonRequest) {
-    const addon = await this.addonsRepository.findById(addonId);
+    const addon = await this.addonsRepository.findByIdAndRestaurantId(
+      addonId,
+      restaurantId,
+    );
 
     if (!addon) throw new AddonNotFoundError();
-    if (addon.restaurantId !== restaurantId)
-      throw new AddonRestaurantMismatchError();
 
     if (Object.keys(data).length === 0) return addon;
 

@@ -277,7 +277,7 @@ Endpoints:
 ```text
 POST  /restaurants/:restaurantId/product-categories
 GET   /restaurants/:restaurantId/product-categories
-GET   /product-categories/:categoryId
+GET   /restaurants/:restaurantId/product-categories/:categoryId
 PATCH /restaurants/:restaurantId/product-categories/:categoryId
 PATCH /restaurants/:restaurantId/product-categories/:categoryId/toggle-status
 DELETE /restaurants/:restaurantId/product-categories/:categoryId

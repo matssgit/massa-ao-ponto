@@ -34,5 +34,6 @@ export const listAddonsQuerySchema = z.object({
 });
 
 export const getAddonParamsSchema = z.object({
+  restaurantId: z.string().uuid(),
   addonId: z.string().uuid(),
 });

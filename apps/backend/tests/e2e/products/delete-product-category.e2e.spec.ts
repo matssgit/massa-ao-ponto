@@ -74,4 +74,31 @@ describe("Delete Product Category (E2E)", () => {
     });
     expect(response.statusCode).toBe(404);
   });
+
+  it("deve retornar 404 e preservar a categoria em exclusão cross-tenant", async () => {
+    const [owner] = await db
+      .insert(restaurants)
+      .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
+      .returning();
+    const [otherRest] = await db
+      .insert(restaurants)
+      .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
+      .returning();
+    const [category] = await db
+      .insert(productCategories)
+      .values({ restaurantId: owner.id, name: "Sucos", displayOrder: 1 })
+      .returning();
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/restaurants/${otherRest.id}/product-categories/${category.id}`,
+    });
+    expect(response.statusCode).toBe(404);
+
+    const preserved = await db
+      .select()
+      .from(productCategories)
+      .where(eq(productCategories.id, category.id));
+    expect(preserved).toHaveLength(1);
+  });
 });

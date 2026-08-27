@@ -8,12 +8,14 @@ export async function getProductCategoryController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { categoryId } = getCategoryParamsSchema.parse(request.params);
+  const { restaurantId, categoryId } = getCategoryParamsSchema.parse(
+    request.params,
+  );
 
   const categoriesRepository = new DrizzleProductCategoriesRepository();
   const useCase = new GetProductCategoryUseCase(categoriesRepository);
 
-  const result = await useCase.execute({ categoryId });
+  const result = await useCase.execute({ restaurantId, categoryId });
 
   return reply.status(200).send(result);
 }

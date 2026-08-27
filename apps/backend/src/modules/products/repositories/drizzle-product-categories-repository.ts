@@ -4,7 +4,7 @@ import {
   ProductCategory,
   UpdateProductCategoryData,
 } from "./product-categories-repository.js";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { productCategories } from "../../../db/schema/index.js";
@@ -33,6 +33,22 @@ export class DrizzleProductCategoriesRepository implements ProductCategoriesRepo
       .select()
       .from(productCategories)
       .where(eq(productCategories.id, id));
+    return category || null;
+  }
+
+  async findByIdAndRestaurantId(
+    categoryId: string,
+    restaurantId: string,
+  ): Promise<ProductCategory | null> {
+    const [category] = await this.client
+      .select()
+      .from(productCategories)
+      .where(
+        and(
+          eq(productCategories.id, categoryId),
+          eq(productCategories.restaurantId, restaurantId),
+        ),
+      );
     return category || null;
   }
 

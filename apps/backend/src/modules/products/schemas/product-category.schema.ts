@@ -11,6 +11,7 @@ export const productCategoryParamsSchema = z.object({
 });
 
 export const getCategoryParamsSchema = z.object({
+  restaurantId: z.string().uuid(),
   categoryId: z.string().uuid(),
 });
 

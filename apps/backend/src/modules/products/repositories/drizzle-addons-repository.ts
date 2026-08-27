@@ -26,6 +26,19 @@ export class DrizzleAddonsRepository implements AddonsRepository {
     return addon || null;
   }
 
+  async findByIdAndRestaurantId(
+    addonId: string,
+    restaurantId: string,
+  ): Promise<Addon | null> {
+    const [addon] = await this.client
+      .select()
+      .from(addons)
+      .where(
+        and(eq(addons.id, addonId), eq(addons.restaurantId, restaurantId)),
+      );
+    return addon || null;
+  }
+
   async findMany({
     restaurantId,
     active,

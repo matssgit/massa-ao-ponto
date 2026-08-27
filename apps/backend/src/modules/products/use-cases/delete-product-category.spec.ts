@@ -5,7 +5,6 @@ import { InMemoryProductCategoriesRepository } from "../repositories/in-memory-p
 import { InMemoryProductsRepository } from "../repositories/in-memory-products-repository.js";
 import { ProductCategoryHasProductsError } from "../errors/product-category-has-products-error.js";
 import { ProductCategoryNotFoundError } from "../errors/product-category-not-found-error.js";
-import { ProductCategoryRestaurantMismatchError } from "../errors/product-category-restaurant-mismatch-error.js";
 import { randomUUID } from "node:crypto";
 
 describe("DeleteProductCategoryUseCase", () => {
@@ -50,7 +49,9 @@ describe("DeleteProductCategoryUseCase", () => {
     });
     await expect(
       useCase.execute({ restaurantId: randomUUID(), categoryId: category.id }),
-    ).rejects.toBeInstanceOf(ProductCategoryRestaurantMismatchError);
+    ).rejects.toBeInstanceOf(ProductCategoryNotFoundError);
+
+    expect(await categoriesRepository.findById(category.id)).not.toBeNull();
   });
 
   it("deve rejeitar exclusão se a categoria possuir produtos", async () => {

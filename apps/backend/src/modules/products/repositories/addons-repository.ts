@@ -32,6 +32,10 @@ export interface AddonsRepository {
   create(data: CreateAddonData): Promise<Addon>;
   findMany(params: FindManyAddonsParams): Promise<Addon[]>;
   findById(id: string): Promise<Addon | null>;
+  findByIdAndRestaurantId(
+    addonId: string,
+    restaurantId: string,
+  ): Promise<Addon | null>;
   update(id: string, data: UpdateAddonData): Promise<Addon>;
   delete(id: string): Promise<void>;
 }

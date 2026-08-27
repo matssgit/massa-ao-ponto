@@ -1,7 +1,6 @@
 import { ProductCategoriesRepository } from "../repositories/product-categories-repository.js";
 import { ProductCategoryHasProductsError } from "../errors/product-category-has-products-error.js";
 import { ProductCategoryNotFoundError } from "../errors/product-category-not-found-error.js";
-import { ProductCategoryRestaurantMismatchError } from "../errors/product-category-restaurant-mismatch-error.js";
 import { ProductsRepository } from "../repositories/products-repository.js";
 
 interface DeleteProductCategoryRequest {
@@ -17,14 +16,13 @@ export class DeleteProductCategoryUseCase {
 
   async execute({ restaurantId, categoryId }: DeleteProductCategoryRequest) {
     const category =
-      await this.productCategoriesRepository.findById(categoryId);
+      await this.productCategoriesRepository.findByIdAndRestaurantId(
+        categoryId,
+        restaurantId,
+      );
 
     if (!category) {
       throw new ProductCategoryNotFoundError();
-    }
-
-    if (category.restaurantId !== restaurantId) {
-      throw new ProductCategoryRestaurantMismatchError();
     }
 
     const products = await this.productsRepository.findMany({

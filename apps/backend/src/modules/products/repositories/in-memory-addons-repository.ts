@@ -30,6 +30,17 @@ export class InMemoryAddonsRepository implements AddonsRepository {
     return this.items.find((item) => item.id === id) || null;
   }
 
+  async findByIdAndRestaurantId(
+    addonId: string,
+    restaurantId: string,
+  ): Promise<Addon | null> {
+    return (
+      this.items.find(
+        (item) => item.id === addonId && item.restaurantId === restaurantId,
+      ) || null
+    );
+  }
+
   async findMany({
     restaurantId,
     active,

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { InMemoryProductCategoriesRepository } from "../repositories/in-memory-product-categories-repository.js";
 import { ProductCategoryNotFoundError } from "../errors/product-category-not-found-error.js";
-import { ProductCategoryRestaurantMismatchError } from "../errors/product-category-restaurant-mismatch-error.js";
 import { UpdateProductCategoryUseCase } from "./update-product-category.use-case.js";
 import { randomUUID } from "node:crypto";
 
@@ -55,6 +54,11 @@ describe("UpdateProductCategoryUseCase", () => {
         categoryId: category.id,
         name: "Nova Bebida",
       }),
-    ).rejects.toBeInstanceOf(ProductCategoryRestaurantMismatchError);
+    ).rejects.toBeInstanceOf(ProductCategoryNotFoundError);
+
+    expect(await categoriesRepository.findById(category.id)).toMatchObject({
+      name: "Bebidas",
+      displayOrder: 1,
+    });
   });
 });

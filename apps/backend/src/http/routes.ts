@@ -79,7 +79,10 @@ export async function restaurantsRoutes(app: FastifyInstance) {
     "/restaurants/:restaurantId/products/:productId/toggle-status",
     toggleProductStatusController,
   );
-  app.get("/product-categories/:categoryId", getProductCategoryController);
+  app.get(
+    "/restaurants/:restaurantId/product-categories/:categoryId",
+    getProductCategoryController,
+  );
   app.patch(
     "/restaurants/:restaurantId/product-categories/:categoryId",
     updateProductCategoryController,
@@ -100,7 +103,10 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   // === ADDONS ===
   app.post("/restaurants/:restaurantId/addons", createAddonController);
   app.get("/restaurants/:restaurantId/addons", listAddonsController);
-  app.get("/addons/:addonId", getAddonController);
+  app.get(
+    "/restaurants/:restaurantId/addons/:addonId",
+    getAddonController,
+  );
   app.patch(
     "/restaurants/:restaurantId/addons/:addonId",
     updateAddonController,

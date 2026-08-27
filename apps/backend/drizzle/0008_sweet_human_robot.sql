@@ -1,0 +1,2 @@
+ALTER TYPE "order_type"
+ADD VALUE IF NOT EXISTS 'DINE_IN';

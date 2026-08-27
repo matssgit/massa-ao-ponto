@@ -13,6 +13,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 describe("Product Categories Management (E2E)", () => {
@@ -37,11 +38,15 @@ describe("Product Categories Management (E2E)", () => {
     // 4. Limpa o restaurante
     await db.delete(restaurants);
   });
-  
+
   it("deve retornar a categoria no endpoint individual", async () => {
     const [rest] = await db
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
+      .returning();
+    const [otherRest] = await db
+      .insert(restaurants)
+      .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
     const [cat] = await db
       .insert(productCategories)
@@ -50,10 +55,28 @@ describe("Product Categories Management (E2E)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: `/product-categories/${cat.id}`,
+      url: `/restaurants/${rest.id}/product-categories/${cat.id}`,
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().name).toBe("Sucos");
+
+    const crossTenantResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${otherRest.id}/product-categories/${cat.id}`,
+    });
+    expect(crossTenantResponse.statusCode).toBe(404);
+
+    const oldRouteResponse = await app.inject({
+      method: "GET",
+      url: `/product-categories/${cat.id}`,
+    });
+    expect(oldRouteResponse.statusCode).toBe(404);
+
+    const invalidIdResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${rest.id}/product-categories/invalid-id`,
+    });
+    expect(invalidIdResponse.statusCode).toBe(400);
   });
 
   it("deve atualizar o nome de uma categoria existente via PATCH e proteger cross-tenant", async () => {
@@ -83,13 +106,23 @@ describe("Product Categories Management (E2E)", () => {
       url: `/restaurants/${rest2.id}/product-categories/${cat.id}`,
       payload: { name: "Hack" },
     });
-    expect(crossTenantResponse.statusCode).toBe(409);
+    expect(crossTenantResponse.statusCode).toBe(404);
+
+    const [preservedCategory] = await db
+      .select()
+      .from(productCategories)
+      .where(eq(productCategories.id, cat.id));
+    expect(preservedCategory.name).toBe("Pizzas Artesanais");
   });
 
   it("deve inativar e reativar a categoria via toggle de status", async () => {
     const [rest] = await db
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
+      .returning();
+    const [otherRest] = await db
+      .insert(restaurants)
+      .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
     const [cat] = await db
       .insert(productCategories)
@@ -114,5 +147,17 @@ describe("Product Categories Management (E2E)", () => {
     });
     expect(res2.statusCode).toBe(200);
     expect(res2.json().active).toBe(true);
+
+    const crossTenantResponse = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${otherRest.id}/product-categories/${cat.id}/toggle-status`,
+    });
+    expect(crossTenantResponse.statusCode).toBe(404);
+
+    const [preservedCategory] = await db
+      .select()
+      .from(productCategories)
+      .where(eq(productCategories.id, cat.id));
+    expect(preservedCategory.active).toBe(true);
   });
 });

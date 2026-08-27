@@ -1,5 +1,4 @@
 import { AddonNotFoundError } from "../errors/addon-not-found-error.js";
-import { AddonRestaurantMismatchError } from "../errors/addon-restaurant-mismatch-error.js";
 import { AddonsRepository } from "../repositories/addons-repository.js";
 
 interface DeleteAddonRequest {
@@ -11,11 +10,12 @@ export class DeleteAddonUseCase {
   constructor(private readonly addonsRepository: AddonsRepository) {}
 
   async execute({ restaurantId, addonId }: DeleteAddonRequest) {
-    const addon = await this.addonsRepository.findById(addonId);
+    const addon = await this.addonsRepository.findByIdAndRestaurantId(
+      addonId,
+      restaurantId,
+    );
 
     if (!addon) throw new AddonNotFoundError();
-    if (addon.restaurantId !== restaurantId)
-      throw new AddonRestaurantMismatchError();
 
     await this.addonsRepository.delete(addonId);
   }

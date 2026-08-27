@@ -8,12 +8,12 @@ export async function getAddonController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const { addonId } = getAddonParamsSchema.parse(request.params);
+  const { restaurantId, addonId } = getAddonParamsSchema.parse(request.params);
 
   const addonsRepository = new DrizzleAddonsRepository();
   const useCase = new GetAddonUseCase(addonsRepository);
 
-  const addon = await useCase.execute({ addonId });
+  const addon = await useCase.execute({ restaurantId, addonId });
 
   return reply.status(200).send(addon);
 }

@@ -35,6 +35,18 @@ export class InMemoryProductCategoriesRepository implements ProductCategoriesRep
     return this.items.find((item) => item.id === id) || null;
   }
 
+  async findByIdAndRestaurantId(
+    categoryId: string,
+    restaurantId: string,
+  ): Promise<ProductCategory | null> {
+    return (
+      this.items.find(
+        (item) =>
+          item.id === categoryId && item.restaurantId === restaurantId,
+      ) || null
+    );
+  }
+
   async update(
     id: string,
     data: UpdateProductCategoryData,
