@@ -15,8 +15,8 @@ export class UpdateReservationStatusUseCase {
     Reservation["status"],
     Reservation["status"][]
   > = {
-    SCHEDULED: ["CONFIRMED", "CANCELLED"],
-    CONFIRMED: ["FINISHED", "NO_SHOW", "CANCELLED"],
+    SCHEDULED: ["CONFIRMED"],
+    CONFIRMED: ["FINISHED", "NO_SHOW"],
     CANCELLED: [],
     FINISHED: [],
     NO_SHOW: [],

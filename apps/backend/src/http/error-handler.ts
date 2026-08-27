@@ -21,6 +21,7 @@ import { InvalidTimeRangeError } from "../modules/reservations/errors/invalid-ti
 import { InvalidTimeRangeFilterError } from "../modules/reservations/errors/invalid-time-range-filter-error.js";
 import { MissingDeliveryAddressError } from "../modules/orders/errors/missing-delivery-address-error.js";
 import { OrderNotFoundError } from "../modules/orders/errors/order-not-found-error.js";
+import { PaidOrderCannotBeCancelledError } from "../modules/orders/errors/paid-order-cannot-be-cancelled-error.js";
 import { ProductAddonAlreadyExistsError } from "../modules/products/errors/product-addon-already-exists-error.js";
 import { ProductAddonNotFoundError } from "../modules/products/errors/product-addon-not-found-error.js";
 import { ProductCategoryHasProductsError } from "../modules/products/errors/product-category-has-products-error.js";
@@ -97,6 +98,7 @@ export const errorHandler = (
     error instanceof ProductRestaurantMismatchError ||
     error instanceof InvalidOrderStatusTransitionError ||
     error instanceof InvalidOrderPaymentTransitionError ||
+    error instanceof PaidOrderCannotBeCancelledError ||
     error instanceof DeliveryAlreadyExistsError ||
     error instanceof InvalidDeliveryOrderTypeError ||
     error instanceof InvalidDeliveryStatusTransitionError ||

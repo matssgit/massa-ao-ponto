@@ -14,6 +14,10 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
+import {
+  OrderPaymentStatus,
+  OrderStatus,
+} from "../../../src/modules/orders/repositories/orders-repository.js";
 import { randomUUID } from "node:crypto";
 
 describe("Cancel Order (E2E)", () => {
@@ -32,7 +36,10 @@ describe("Cancel Order (E2E)", () => {
     await db.delete(restaurants);
   });
 
-  async function createOrder(status: string) {
+  async function createOrder(
+    status: OrderStatus,
+    paymentStatus: OrderPaymentStatus = "PENDING",
+  ) {
     const [restaurant] = await db
       .insert(restaurants)
       .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
@@ -47,8 +54,8 @@ describe("Cancel Order (E2E)", () => {
         restaurantId: restaurant.id,
         customerId: customer.id,
         type: "DELIVERY",
-        status: status as any,
-        paymentStatus: "PENDING",
+        status,
+        paymentStatus,
         subtotal: 10,
         deliveryFee: 0,
         total: 10,
@@ -94,6 +101,65 @@ describe("Cancel Order (E2E)", () => {
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
       });
       expect(response.statusCode).toBe(200);
+    });
+
+    it.each(["PENDING", "CONFIRMED"] as const)(
+      "deve rejeitar cancelamento de pedido %s pago sem alterar pedido ou criar histórico de cancelamento",
+      async (status) => {
+        const order = await createOrder(status);
+
+        const paymentResponse = await app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
+        });
+        expect(paymentResponse.statusCode).toBe(200);
+
+        const [paidOrder] = await db
+          .select()
+          .from(orders)
+          .where(eq(orders.id, order.id));
+        const paidUpdatedAt = paidOrder.updatedAt;
+
+        const cancelResponse = await app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
+        });
+
+        expect(cancelResponse.statusCode).toBe(409);
+        expect(cancelResponse.json().message).toBe(
+          "Pedido pago não pode ser cancelado sem estorno.",
+        );
+
+        const [unchangedOrder] = await db
+          .select()
+          .from(orders)
+          .where(eq(orders.id, order.id));
+        expect(unchangedOrder.status).toBe(status);
+        expect(unchangedOrder.paymentStatus).toBe("PAID");
+        expect(unchangedOrder.updatedAt).toEqual(paidUpdatedAt);
+
+        const history = await db
+          .select()
+          .from(orderHistory)
+          .where(eq(orderHistory.orderId, order.id));
+        expect(history.map(({ action }) => action)).toEqual([
+          "PAYMENT_CONFIRMED",
+        ]);
+      },
+    );
+
+    it("deve preservar o erro operacional ao cancelar pedido PREPARING pago", async () => {
+      const order = await createOrder("PREPARING", "PAID");
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json().message).toBe(
+        "Não é possível alterar o status do pedido de 'PREPARING' para 'CANCELLED'.",
+      );
     });
 
     it("deve rejeitar cancelamento de pedido em PREPARING ou DELIVERED (409)", async () => {
@@ -145,6 +211,50 @@ describe("Cancel Order (E2E)", () => {
       expect(responses.map(({ statusCode }) => statusCode).sort()).toEqual([
         200, 409,
       ]);
+    });
+
+    it("deve serializar pagamento e cancelamento concorrentes sem produzir CANCELLED + PAID", async () => {
+      const order = await createOrder("PENDING");
+
+      const [paymentResponse, cancelResponse] = await Promise.all([
+        app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
+        }),
+        app.inject({
+          method: "PATCH",
+          url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
+        }),
+      ]);
+
+      expect(
+        [paymentResponse.statusCode, cancelResponse.statusCode].sort(),
+      ).toEqual([200, 409]);
+
+      const [finalOrder] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      const finalState = `${finalOrder.status} + ${finalOrder.paymentStatus}`;
+      expect(["PENDING + PAID", "CANCELLED + PENDING"]).toContain(finalState);
+      expect(finalState).not.toBe("CANCELLED + PAID");
+
+      const history = await db
+        .select()
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, order.id));
+      expect(history).toHaveLength(1);
+      expect(["PAYMENT_CONFIRMED", "CANCELLED"]).toContain(history[0].action);
+
+      if (finalState === "PENDING + PAID") {
+        expect(paymentResponse.statusCode).toBe(200);
+        expect(cancelResponse.statusCode).toBe(409);
+        expect(history[0].action).toBe("PAYMENT_CONFIRMED");
+      } else {
+        expect(cancelResponse.statusCode).toBe(200);
+        expect(paymentResponse.statusCode).toBe(409);
+        expect(history[0].action).toBe("CANCELLED");
+      }
     });
 
     it("deve retornar 404 para pedido de outro restaurante sem cancelar ou gravar histórico", async () => {

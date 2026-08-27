@@ -195,15 +195,15 @@ As reservas possuem uma State Machine própria:
 ```text
 SCHEDULED
    ├──→ CONFIRMED
-   └──→ CANCELLED
+   └──→ CANCELLED  (endpoint dedicado de cancelamento)
 
 CONFIRMED
    ├──→ FINISHED
    ├──→ NO_SHOW
-   └──→ CANCELLED
+   └──→ CANCELLED  (endpoint dedicado de cancelamento)
 ```
 
-As transições são responsabilidade do Use Case.
+O endpoint genérico de status controla `CONFIRMED`, `FINISHED` e `NO_SHOW`. `CANCELLED` é produzido exclusivamente pelo endpoint dedicado de cancelamento.
 
 O Zod valida somente a estrutura do payload e os valores pertencentes ao enum.
 
@@ -460,6 +460,8 @@ CONFIRMED → CANCELLED
 ```
 
 Estados posteriores ao início da preparação são protegidos pelo domínio.
+
+Enquanto não existir um fluxo explícito de estorno, pedidos com pagamento `PAID` não podem ser cancelados. A tentativa retorna conflito sem alterar o pedido nem criar evento de cancelamento.
 
 O cancelamento utiliza o mesmo mecanismo transacional dos demais fluxos de alteração de pedidos.
 

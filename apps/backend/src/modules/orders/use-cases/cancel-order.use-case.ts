@@ -1,6 +1,7 @@
 import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-status-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
 import { OrderTransactionManager } from "../repositories/order-transaction-manager.js";
+import { PaidOrderCannotBeCancelledError } from "../errors/paid-order-cannot-be-cancelled-error.js";
 
 interface CancelOrderRequest {
   restaurantId: string;
@@ -30,6 +31,10 @@ export class CancelOrderUseCase {
             order.status,
             "CANCELLED",
           );
+        }
+
+        if (order.paymentStatus === "PAID") {
+          throw new PaidOrderCannotBeCancelledError();
         }
 
         const previousStatus = order.status;

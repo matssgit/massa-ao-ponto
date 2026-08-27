@@ -131,6 +131,8 @@ describe("Get Reservation (E2E)", () => {
 
   it("deve recuperar a reserva independentemente de seu status (ex: CANCELLED)", async () => {
     const { restaurant, table } = await setupBase();
+    const startsAt = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+    const endsAt = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString();
 
     const createRes = await app.inject({
       method: "POST",
@@ -139,17 +141,17 @@ describe("Get Reservation (E2E)", () => {
         tableId: table.id,
         customer: { name: "Maria", phone: "11988888888" },
         people: 2,
-        startsAt: "2026-08-20T19:00:00Z",
-        endsAt: "2026-08-20T21:00:00Z",
+        startsAt,
+        endsAt,
       },
     });
     const createdReservation = createRes.json();
 
-    await app.inject({
+    const cancelResponse = await app.inject({
       method: "PATCH",
-      url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}/status`,
-      payload: { status: "CANCELLED" },
+      url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}/cancel`,
     });
+    expect(cancelResponse.statusCode).toBe(200);
 
     const response = await app.inject({
       method: "GET",

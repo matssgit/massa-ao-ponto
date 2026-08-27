@@ -97,6 +97,25 @@ describe("Cancel Reservation (E2E)", () => {
     });
     expect(checkAvailabilityOccupied.json()).toHaveLength(0);
 
+    const bypassResponse = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
+      payload: { status: "CANCELLED" },
+    });
+    expect(bypassResponse.statusCode).toBe(409);
+
+    const [preservedBeforeCancel] = await db
+      .select()
+      .from(reservations)
+      .where(eq(reservations.id, reservation.id));
+    expect(preservedBeforeCancel.status).toBe("SCHEDULED");
+
+    const historyBeforeCancel = await db
+      .select()
+      .from(reservationHistory)
+      .where(eq(reservationHistory.reservationId, reservation.id));
+    expect(historyBeforeCancel).toHaveLength(1);
+
     const cancelRes = await app.inject({
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
@@ -162,6 +181,25 @@ describe("Cancel Reservation (E2E)", () => {
     });
 
     expect(cancelRes.statusCode).toBe(409);
+
+    const bypassResponse = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
+      payload: { status: "CANCELLED" },
+    });
+    expect(bypassResponse.statusCode).toBe(409);
+
+    const [preservedReservation] = await db
+      .select()
+      .from(reservations)
+      .where(eq(reservations.id, reservation.id));
+    expect(preservedReservation.status).toBe("SCHEDULED");
+
+    const history = await db
+      .select()
+      .from(reservationHistory)
+      .where(eq(reservationHistory.reservationId, reservation.id));
+    expect(history).toHaveLength(1);
   });
 
   it("deve rejeitar cancelamento de reserva já cancelada (409)", async () => {

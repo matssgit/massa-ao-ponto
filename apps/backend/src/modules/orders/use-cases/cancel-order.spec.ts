@@ -8,7 +8,11 @@ import { InMemoryOrdersRepository } from "../repositories/in-memory-orders-repos
 import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InvalidOrderStatusTransitionError } from "../errors/invalid-order-status-transition-error.js";
 import { OrderNotFoundError } from "../errors/order-not-found-error.js";
-import { OrderStatus } from "../repositories/orders-repository.js";
+import { PaidOrderCannotBeCancelledError } from "../errors/paid-order-cannot-be-cancelled-error.js";
+import {
+  OrderPaymentStatus,
+  OrderStatus,
+} from "../repositories/orders-repository.js";
 import { randomUUID } from "node:crypto";
 
 describe("CancelOrderUseCase", () => {
@@ -31,13 +35,16 @@ describe("CancelOrderUseCase", () => {
     useCase = new CancelOrderUseCase(transactionManager);
   });
 
-  async function createOrder(status: OrderStatus) {
+  async function createOrder(
+    status: OrderStatus,
+    paymentStatus: OrderPaymentStatus = "PENDING",
+  ) {
     return await ordersRepository.create({
       restaurantId: randomUUID(),
       customerId: randomUUID(),
       type: "DELIVERY",
       status,
-      paymentStatus: "PENDING",
+      paymentStatus,
       subtotal: 1000,
       deliveryFee: 0,
       total: 1000,
@@ -83,6 +90,43 @@ describe("CancelOrderUseCase", () => {
 
     const updated = await ordersRepository.findById(order.id);
     expect(updated?.status).toBe("CANCELLED");
+  });
+
+  it.each(["PENDING", "CONFIRMED"] as const)(
+    "deve rejeitar cancelamento de pedido %s pago sem alterar pedido ou histórico",
+    async (status) => {
+      const order = await createOrder(status, "PAID");
+      const originalUpdatedAt = order.updatedAt;
+
+      await expect(
+        useCase.execute({
+          restaurantId: order.restaurantId,
+          orderId: order.id,
+        }),
+      ).rejects.toBeInstanceOf(PaidOrderCannotBeCancelledError);
+
+      const unchanged = await ordersRepository.findById(order.id);
+      expect(unchanged?.status).toBe(status);
+      expect(unchanged?.paymentStatus).toBe("PAID");
+      expect(unchanged?.updatedAt).toEqual(originalUpdatedAt);
+      expect(orderHistoryRepository.items).toHaveLength(0);
+    },
+  );
+
+  it("deve preservar o erro operacional para pedido não cancelável e pago", async () => {
+    const order = await createOrder("PREPARING", "PAID");
+
+    await expect(
+      useCase.execute({
+        restaurantId: order.restaurantId,
+        orderId: order.id,
+      }),
+    ).rejects.toBeInstanceOf(InvalidOrderStatusTransitionError);
+
+    const unchanged = await ordersRepository.findById(order.id);
+    expect(unchanged?.status).toBe("PREPARING");
+    expect(unchanged?.paymentStatus).toBe("PAID");
+    expect(orderHistoryRepository.items).toHaveLength(0);
   });
 
   it("deve rejeitar cancelamento de pedido PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED ou CANCELLED", async () => {

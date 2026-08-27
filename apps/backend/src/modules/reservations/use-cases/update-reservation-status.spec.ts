@@ -47,7 +47,7 @@ describe("UpdateReservationStatusUseCase", () => {
   }
 
   it("deve realizar transicoes validas de SCHEDULED", async () => {
-    let id = createMockReservation("SCHEDULED");
+    const id = createMockReservation("SCHEDULED");
     const lookupSpy = vi.spyOn(
       reservationsRepository,
       "findByIdAndRestaurantIdForUpdate",
@@ -56,11 +56,6 @@ describe("UpdateReservationStatusUseCase", () => {
       useCase.execute({ restaurantId, reservationId: id, newStatus: "CONFIRMED" }),
     ).resolves.toBeTruthy();
     expect(lookupSpy).toHaveBeenCalledWith(id, restaurantId);
-
-    id = createMockReservation("SCHEDULED");
-    await expect(
-      useCase.execute({ restaurantId, reservationId: id, newStatus: "CANCELLED" }),
-    ).resolves.toBeTruthy();
   });
 
   it("deve realizar transicoes validas de CONFIRMED", async () => {
@@ -73,12 +68,25 @@ describe("UpdateReservationStatusUseCase", () => {
     await expect(
       useCase.execute({ restaurantId, reservationId: id, newStatus: "NO_SHOW" }),
     ).resolves.toBeTruthy();
-
-    id = createMockReservation("CONFIRMED");
-    await expect(
-      useCase.execute({ restaurantId, reservationId: id, newStatus: "CANCELLED" }),
-    ).resolves.toBeTruthy();
   });
+
+  it.each(["SCHEDULED", "CONFIRMED"] as const)(
+    "deve rejeitar CANCELLED via updater genérico a partir de %s sem alterar reserva ou histórico",
+    async (status) => {
+      const id = createMockReservation(status);
+
+      await expect(
+        useCase.execute({
+          restaurantId,
+          reservationId: id,
+          newStatus: "CANCELLED",
+        }),
+      ).rejects.toBeInstanceOf(InvalidReservationStatusTransitionError);
+
+      expect(reservationsRepository.items[0].status).toBe(status);
+      expect(historyRepository.items).toHaveLength(0);
+    },
+  );
 
   it("deve impedir transicoes invalidas de SCHEDULED", async () => {
     const id = createMockReservation("SCHEDULED");
