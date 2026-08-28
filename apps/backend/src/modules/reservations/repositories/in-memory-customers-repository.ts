@@ -35,6 +35,10 @@ export class InMemoryCustomersRepository implements CustomersRepository {
     return this.items.find((item) => item.id === id) || null;
   }
 
+  async findManyByIds(ids: string[]): Promise<Customer[]> {
+    return this.items.filter((item) => ids.includes(item.id));
+  }
+
   async createIfNotExists(
     data: CreateCustomerData,
   ): Promise<Customer | null> {

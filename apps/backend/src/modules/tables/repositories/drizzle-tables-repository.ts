@@ -3,7 +3,7 @@ import {
   Table,
   TablesRepository,
 } from "./tables-repository.js";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { tables } from "../../../db/index.js";
@@ -19,6 +19,23 @@ export class DrizzleTablesRepository implements TablesRepository {
       .select()
       .from(tables)
       .where(eq(tables.restaurantId, restaurantId));
+  }
+
+  async findManyByIdsAndRestaurantId(
+    ids: string[],
+    restaurantId: string,
+  ): Promise<Table[]> {
+    if (ids.length === 0) return [];
+
+    return await db
+      .select()
+      .from(tables)
+      .where(
+        and(
+          inArray(tables.id, ids),
+          eq(tables.restaurantId, restaurantId),
+        ),
+      );
   }
 
   async findByRestaurantAndNumber(

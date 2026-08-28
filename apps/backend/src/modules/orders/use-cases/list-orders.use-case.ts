@@ -14,27 +14,41 @@ export class ListOrdersUseCase {
   ) {}
 
   async execute(filters: ListOrdersFilters) {
-    const orders = await this.ordersRepository.findMany(filters);
-
-    if (orders.length === 0) {
-      return [];
-    }
-
-    const orderIds = orders.map((order) => order.id);
-    const items = await this.orderItemsRepository.findManyByOrderIds(orderIds);
-
-    // Agrupa em memória (evita N+1 do banco)
+    const [orders, total] = await Promise.all([
+      this.ordersRepository.findMany(filters),
+      this.ordersRepository.count(filters),
+    ]);
     const itemsByOrderId = new Map<string, OrderItem[]>();
 
-    for (const item of items) {
-      const orderItemsList = itemsByOrderId.get(item.orderId) || [];
-      orderItemsList.push(item);
-      itemsByOrderId.set(item.orderId, orderItemsList);
+    if (orders.length > 0) {
+      const orderIds = orders.map((order) => order.id);
+      const items = await this.orderItemsRepository.findManyByOrderIds(orderIds);
+
+      for (const item of items) {
+        const orderItemsList = itemsByOrderId.get(item.orderId) || [];
+        orderItemsList.push({
+          ...item,
+          addons: item.addons ?? [],
+        });
+        itemsByOrderId.set(item.orderId, orderItemsList);
+      }
     }
 
-    return orders.map((order) => ({
-      order,
-      items: itemsByOrderId.get(order.id) || [],
-    }));
+    const totalPages = total === 0 ? 0 : Math.ceil(total / filters.limit);
+
+    return {
+      data: orders.map((order) => ({
+        order,
+        items: itemsByOrderId.get(order.id) || [],
+      })),
+      meta: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages,
+        hasNext: filters.page < totalPages,
+        hasPrevious: filters.page > 1,
+      },
+    };
   }
 }

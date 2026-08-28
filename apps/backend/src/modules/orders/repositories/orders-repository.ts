@@ -65,6 +65,7 @@ export interface OrdersRepository {
     restaurantId: string,
   ): Promise<Order | null>;
   findMany(filters: ListOrdersFilters): Promise<Order[]>;
+  count(filters: ListOrdersFilters): Promise<number>;
   findByIdForUpdate(id: string): Promise<Order | null>;
   updateStatus(id: string, status: OrderStatus): Promise<void>;
   updatePaymentStatus(

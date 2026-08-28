@@ -704,15 +704,76 @@ describe("Reservations (E2E)", () => {
       payload: { status: "CONFIRMED" },
     });
 
+    await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "Carlos", phone: "11966666666" },
+        people: 2,
+        startsAt: "2026-08-20T21:00:00.000Z",
+        endsAt: "2026-08-20T23:00:00.000Z",
+      },
+    });
+
+    const otherTenant = await setupBase();
+    await app.inject({
+      method: "POST",
+      url: `/restaurants/${otherTenant.restaurant.id}/reservations`,
+      payload: {
+        tableId: otherTenant.table.id,
+        customer: { name: "Outro tenant", phone: "11955555555" },
+        people: 2,
+        startsAt: "2026-08-20T16:00:00.000Z",
+        endsAt: "2026-08-20T17:00:00.000Z",
+      },
+    });
+
     const listAllResponse = await app.inject({
       method: "GET",
-      url: `/restaurants/${restaurant.id}/reservations`,
+      url: `/restaurants/${restaurant.id}/reservations?page=1&limit=2`,
     });
 
     expect(listAllResponse.statusCode).toBe(200);
     const listAll = listAllResponse.json();
-    expect(listAll).toHaveLength(2);
-    expect(listAll[0].startsAt).toContain("17:00:00");
+    expect(
+      listAll.data.map(
+        ({ reservation }: { reservation: { startsAt: string } }) =>
+          reservation.startsAt,
+      ),
+    ).toEqual([
+      "2026-08-20T17:00:00.000Z",
+      "2026-08-20T19:00:00.000Z",
+    ]);
+    expect(listAll.data[0]).toMatchObject({
+      reservation: { id: secondReservationId },
+      customer: { name: "Maria", phone: "11977777777" },
+      table: { id: table.id, restaurantId: restaurant.id },
+    });
+    expect(listAll.meta).toEqual({
+      page: 1,
+      limit: 2,
+      total: 3,
+      totalPages: 2,
+      hasNext: true,
+      hasPrevious: false,
+    });
+
+    const finalPageResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/reservations?page=2&limit=2`,
+    });
+
+    expect(finalPageResponse.statusCode).toBe(200);
+    expect(finalPageResponse.json().meta).toEqual({
+      page: 2,
+      limit: 2,
+      total: 3,
+      totalPages: 2,
+      hasNext: false,
+      hasPrevious: true,
+    });
+    expect(finalPageResponse.json().data).toHaveLength(1);
 
     const listFilteredResponse = await app.inject({
       method: "GET",
@@ -721,8 +782,79 @@ describe("Reservations (E2E)", () => {
 
     expect(listFilteredResponse.statusCode).toBe(200);
     const listFiltered = listFilteredResponse.json();
-    expect(listFiltered).toHaveLength(1);
-    expect(listFiltered[0].status).toBe("CONFIRMED");
+    expect(listFiltered.data).toHaveLength(1);
+    expect(listFiltered.data[0].reservation.status).toBe("CONFIRMED");
+    expect(listFiltered.meta).toMatchObject({
+      page: 1,
+      limit: 20,
+      total: 1,
+      totalPages: 1,
+    });
+  });
+
+  it("should list reservations using schedule overlap semantics", async () => {
+    const { restaurant, table } = await setupBase();
+    const secondTableResponse = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/tables`,
+      payload: { number: 2, capacity: 4, type: "table" },
+    });
+    const thirdTableResponse = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/tables`,
+      payload: { number: 3, capacity: 4, type: "table" },
+    });
+
+    const scenarios = [
+      {
+        tableId: table.id,
+        customer: { name: "Início parcial", phone: "11911111111" },
+        people: 2,
+        startsAt: "2026-08-20T18:00:00.000Z",
+        endsAt: "2026-08-20T20:00:00.000Z",
+      },
+      {
+        tableId: secondTableResponse.json().id,
+        customer: { name: "Fim parcial", phone: "11922222222" },
+        people: 2,
+        startsAt: "2026-08-20T20:00:00.000Z",
+        endsAt: "2026-08-20T22:00:00.000Z",
+      },
+      {
+        tableId: thirdTableResponse.json().id,
+        customer: { name: "Fora", phone: "11933333333" },
+        people: 2,
+        startsAt: "2026-08-20T21:00:00.000Z",
+        endsAt: "2026-08-20T23:00:00.000Z",
+      },
+    ];
+
+    for (const payload of scenarios) {
+      const response = await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/reservations`,
+        payload,
+      });
+      expect(response.statusCode).toBe(201);
+    }
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/restaurants/${restaurant.id}/reservations?startsAt=2026-08-20T19:00:00.000Z&endsAt=2026-08-20T21:00:00.000Z`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(
+      body.data.map(
+        ({ reservation }: { reservation: { startsAt: string } }) =>
+          reservation.startsAt,
+      ),
+    ).toEqual([
+      "2026-08-20T18:00:00.000Z",
+      "2026-08-20T20:00:00.000Z",
+    ]);
+    expect(body.meta.total).toBe(2);
   });
 
   it("should return 400 for inverted date range filter (startsAt > endsAt)", async () => {

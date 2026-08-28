@@ -12,6 +12,17 @@ import { randomUUID } from "node:crypto";
 export class InMemoryOrdersRepository implements OrdersRepository {
   public items: Order[] = [];
 
+  private matchesFilters(item: Order, filters: ListOrdersFilters): boolean {
+    if (item.restaurantId !== filters.restaurantId) return false;
+    if (filters.status && item.status !== filters.status) return false;
+    if (filters.type && item.type !== filters.type) return false;
+    if (filters.customerId && item.customerId !== filters.customerId)
+      return false;
+    if (filters.startsAt && item.createdAt < filters.startsAt) return false;
+    if (filters.endsAt && item.createdAt > filters.endsAt) return false;
+    return true;
+  }
+
   async create(data: CreateOrderData): Promise<Order> {
     const order: Order = {
       ...data,
@@ -50,22 +61,18 @@ export class InMemoryOrdersRepository implements OrdersRepository {
     const offset = (filters.page - 1) * filters.limit;
 
     return this.items
-      .filter((item) => {
-        if (item.restaurantId !== filters.restaurantId) return false;
-        if (filters.status && item.status !== filters.status) return false;
-        if (filters.type && item.type !== filters.type) return false;
-        if (filters.customerId && item.customerId !== filters.customerId)
-          return false;
-        if (filters.startsAt && item.createdAt < filters.startsAt) return false;
-        if (filters.endsAt && item.createdAt > filters.endsAt) return false;
-        return true;
-      })
+      .filter((item) => this.matchesFilters(item, filters))
       .sort((a, b) => {
         const dateDiff = b.createdAt.getTime() - a.createdAt.getTime();
         if (dateDiff !== 0) return dateDiff;
         return b.id.localeCompare(a.id);
       })
       .slice(offset, offset + filters.limit);
+  }
+
+  async count(filters: ListOrdersFilters): Promise<number> {
+    return this.items.filter((item) => this.matchesFilters(item, filters))
+      .length;
   }
 
   async findByIdForUpdate(id: string): Promise<Order | null> {

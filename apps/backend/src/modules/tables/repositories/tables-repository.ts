@@ -19,6 +19,10 @@ export interface CreateTableInput {
 export interface TablesRepository {
   create(data: CreateTableInput): Promise<Table>;
   findByRestaurantId(restaurantId: string): Promise<Table[]>;
+  findManyByIdsAndRestaurantId(
+    ids: string[],
+    restaurantId: string,
+  ): Promise<Table[]>;
   findByRestaurantAndNumber(
     restaurantId: string,
     number: string,

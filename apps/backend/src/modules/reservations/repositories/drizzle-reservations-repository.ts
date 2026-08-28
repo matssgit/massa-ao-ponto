@@ -4,10 +4,28 @@ import {
   Reservation,
   ReservationsRepository,
 } from "./reservations-repository.js";
-import { and, asc, eq, gt, gte, inArray, lt, lte } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { reservations } from "../../../db/schema/index.js";
+
+function buildListConditions(filters: FindManyReservationsFilters) {
+  const conditions = [eq(reservations.restaurantId, filters.restaurantId)];
+
+  if (filters.status) {
+    conditions.push(eq(reservations.status, filters.status));
+  }
+
+  if (filters.endsAt) {
+    conditions.push(lt(reservations.startsAt, filters.endsAt));
+  }
+
+  if (filters.startsAt) {
+    conditions.push(gt(reservations.endsAt, filters.startsAt));
+  }
+
+  return conditions;
+}
 
 export class DrizzleReservationsRepository implements ReservationsRepository {
   constructor(private readonly client: any = db) {}
@@ -98,27 +116,26 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
   async findManyByRestaurantId(
     filters: FindManyReservationsFilters,
   ): Promise<Reservation[]> {
-    const conditions = [eq(reservations.restaurantId, filters.restaurantId)];
-
-    if (filters.status) {
-      conditions.push(eq(reservations.status, filters.status));
-    }
-
-    if (filters.startsAt) {
-      conditions.push(gte(reservations.startsAt, filters.startsAt));
-    }
-
-    if (filters.endsAt) {
-      conditions.push(lte(reservations.endsAt, filters.endsAt));
-    }
-
     const result = await this.client
       .select()
       .from(reservations)
-      .where(and(...conditions))
-      .orderBy(asc(reservations.startsAt), asc(reservations.id));
+      .where(and(...buildListConditions(filters)))
+      .orderBy(asc(reservations.startsAt), asc(reservations.id))
+      .limit(filters.limit)
+      .offset((filters.page - 1) * filters.limit);
 
     return result;
+  }
+
+  async countByRestaurantId(
+    filters: FindManyReservationsFilters,
+  ): Promise<number> {
+    const [result] = await this.client
+      .select({ total: sql<number>`cast(count(*) as integer)` })
+      .from(reservations)
+      .where(and(...buildListConditions(filters)));
+
+    return result.total;
   }
 
   async findConflictingTableIds(

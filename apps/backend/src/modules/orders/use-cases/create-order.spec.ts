@@ -127,24 +127,211 @@ describe("CreateOrderUseCase", () => {
     return { restaurantId, customerId, p1, p2, a1, a2, a3 };
   }
 
-  // --- Testes Legados Preservados ---
+  function expectNoOrderPersistence() {
+    expect(ordersRepository.items).toHaveLength(0);
+    expect(orderItemsRepository.items).toHaveLength(0);
+    expect(orderHistoryRepository.items).toHaveLength(0);
+  }
+
   it("deve criar o pedido, itens, snapshots, calcular totais e registrar histórico", async () => {
-    /* ... Preservado ... */
+    const { restaurantId, p1, p2, a1 } = await createDeps();
+
+    const order = await useCase.execute({
+      restaurantId,
+      customer: { name: "Cliente Pedido", phone: "(11) 98888-7777" },
+      type: "DELIVERY",
+      items: [
+        {
+          productId: p1.id,
+          quantity: 2,
+          addons: [{ addonId: a1.id, quantity: 1 }],
+        },
+        { productId: p2.id, quantity: 1 },
+      ],
+      deliveryFee: 500,
+      deliveryAddress: {
+        street: "Rua das Pizzas",
+        number: "10",
+        neighborhood: "Centro",
+        city: "São Paulo",
+        state: "SP",
+        zipCode: "01001000",
+      },
+      observation: "Sem talheres",
+    });
+
+    expect(order).toMatchObject({
+      restaurantId,
+      customerName: "Cliente Pedido",
+      customerPhone: "11988887777",
+      type: "DELIVERY",
+      status: "PENDING",
+      paymentStatus: "PENDING",
+      subtotal: 9980,
+      deliveryFee: 500,
+      total: 10480,
+      deliveryStreet: "Rua das Pizzas",
+      deliveryNumber: "10",
+      observation: "Sem talheres",
+    });
+    expect(ordersRepository.items).toEqual([order]);
+    expect(orderItemsRepository.items).toHaveLength(2);
+    expect(orderItemsRepository.items[0]).toMatchObject({
+      orderId: order.id,
+      productId: p1.id,
+      productName: "Pizza Calabresa",
+      unitPrice: 3990,
+      quantity: 2,
+      subtotal: 8980,
+    });
+    expect(orderItemsRepository.items[0].addons).toEqual([
+      expect.objectContaining({
+        addonId: a1.id,
+        addonName: "Borda Recheada",
+        unitPrice: 1000,
+        quantity: 1,
+        subtotal: 1000,
+      }),
+    ]);
+    expect(orderHistoryRepository.items).toEqual([
+      expect.objectContaining({
+        orderId: order.id,
+        action: "CREATED",
+        previousStatus: null,
+        newStatus: "PENDING",
+        observation: "Pedido criado",
+      }),
+    ]);
   });
+
   it("deve manter o preço do pedido inalterado caso o catálogo mude depois (snapshot)", async () => {
-    /* ... Preservado ... */
+    const { restaurantId, p1 } = await createDeps();
+    const order = await useCase.execute({
+      restaurantId,
+      customer: { name: "Cliente", phone: "11988887777" },
+      type: "PICKUP",
+      items: [{ productId: p1.id, quantity: 1 }],
+      deliveryFee: 0,
+    });
+
+    await productsRepository.update(p1.id, {
+      name: "Pizza Renomeada",
+      price: 5990,
+    });
+
+    expect(order).toMatchObject({ subtotal: 3990, total: 3990 });
+    expect(orderItemsRepository.items[0]).toMatchObject({
+      productName: "Pizza Calabresa",
+      unitPrice: 3990,
+      subtotal: 3990,
+    });
   });
+
   it("deve lançar erro se tentar inserir o mesmo produto duas vezes no mesmo pedido", async () => {
-    /* ... Preservado ... */
+    const { restaurantId, p1 } = await createDeps();
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP",
+        items: [
+          { productId: p1.id, quantity: 1 },
+          { productId: p1.id, quantity: 2 },
+        ],
+        deliveryFee: 0,
+      }),
+    ).rejects.toBeInstanceOf(DuplicateProductInOrderError);
+
+    expectNoOrderPersistence();
+    expect(customersRepository.items).toHaveLength(1);
   });
+
   it("deve validar tipo de pedido PICKUP (deliveryFee obrigatório = 0)", async () => {
-    /* ... Preservado ... */
+    const { restaurantId, p1 } = await createDeps();
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP",
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 1,
+      }),
+    ).rejects.toBeInstanceOf(InvalidDeliveryFeeError);
+
+    expectNoOrderPersistence();
+    expect(customersRepository.items).toHaveLength(1);
   });
+
   it("deve validar tipo de pedido DELIVERY (endereço obrigatório)", async () => {
-    /* ... Preservado ... */
+    const { restaurantId, p1 } = await createDeps();
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "DELIVERY",
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 500,
+      }),
+    ).rejects.toBeInstanceOf(MissingDeliveryAddressError);
+
+    expectNoOrderPersistence();
+    expect(customersRepository.items).toHaveLength(1);
   });
-  it("deve falhar se produto inativo ou de outro restaurante", async () => {
-    /* ... Preservado ... */
+
+  it("deve falhar sem persistir quando o produto estiver inativo", async () => {
+    const { restaurantId, p1 } = await createDeps();
+    await productsRepository.update(p1.id, { active: false });
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP",
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 0,
+      }),
+    ).rejects.toBeInstanceOf(ProductInactiveError);
+
+    expectNoOrderPersistence();
+    expect(customersRepository.items).toHaveLength(1);
+  });
+
+  it("deve falhar sem persistir quando o produto pertencer a outro restaurante", async () => {
+    const { restaurantId, p1 } = await createDeps();
+    p1.restaurantId = randomUUID();
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP",
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 0,
+      }),
+    ).rejects.toBeInstanceOf(ProductRestaurantMismatchError);
+
+    expectNoOrderPersistence();
+    expect(customersRepository.items).toHaveLength(1);
+  });
+
+  it("deve falhar sem persistir quando o produto não existir", async () => {
+    const { restaurantId } = await createDeps();
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP",
+        items: [{ productId: randomUUID(), quantity: 1 }],
+        deliveryFee: 0,
+      }),
+    ).rejects.toBeInstanceOf(ProductNotFoundError);
+
+    expectNoOrderPersistence();
+    expect(customersRepository.items).toHaveLength(1);
   });
 
   it("deve criar customer por objeto e preservar o snapshot canônico", async () => {
@@ -228,7 +415,6 @@ describe("CreateOrderUseCase", () => {
     ).rejects.toBeInstanceOf(CustomerNotFoundError);
   });
 
-  // --- Novos Testes de Addons (Fase 3A) ---
   describe("Order Addons Validations", () => {
     it("deve calcular o subtotal corretamente para um pedido sem addons", async () => {
       const { restaurantId, p1 } = await createDeps();

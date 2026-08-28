@@ -16,6 +16,7 @@ export interface CustomersRepository {
   create(data: CreateCustomerData): Promise<Customer>;
   createIfNotExists(data: CreateCustomerData): Promise<Customer | null>;
   findById(id: string): Promise<Customer | null>;
+  findManyByIds(ids: string[]): Promise<Customer[]>;
   findByIdAndRestaurantId(
     customerId: string,
     restaurantId: string,

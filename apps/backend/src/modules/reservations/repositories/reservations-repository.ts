@@ -41,6 +41,7 @@ export interface ReservationsRepository {
   findManyByRestaurantId(
     filters: FindManyReservationsFilters,
   ): Promise<Reservation[]>;
+  countByRestaurantId(filters: FindManyReservationsFilters): Promise<number>;
   findConflictingTableIds(
     restaurantId: string,
     startsAt: Date,
@@ -58,4 +59,6 @@ export interface FindManyReservationsFilters {
   status?: "SCHEDULED" | "CONFIRMED" | "CANCELLED" | "FINISHED" | "NO_SHOW";
   startsAt?: Date;
   endsAt?: Date;
+  page: number;
+  limit: number;
 }

@@ -6,7 +6,7 @@ import {
 
 import { customers, orders, reservations } from "../../../db/schema/index.js";
 import { db } from "../../../db/index.js";
-import { and, eq, exists, or } from "drizzle-orm";
+import { and, eq, exists, inArray, or } from "drizzle-orm";
 
 export class DrizzleCustomersRepository implements CustomersRepository {
   constructor(private readonly client: any = db) {}
@@ -31,6 +31,15 @@ export class DrizzleCustomersRepository implements CustomersRepository {
       .where(eq(customers.id, id));
 
     return result[0] || null;
+  }
+
+  async findManyByIds(ids: string[]): Promise<Customer[]> {
+    if (ids.length === 0) return [];
+
+    return await this.client
+      .select()
+      .from(customers)
+      .where(inArray(customers.id, ids));
   }
 
   async createIfNotExists(

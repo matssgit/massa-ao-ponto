@@ -6,12 +6,26 @@ import {
   OrderStatus,
   OrdersRepository,
 } from "./orders-repository.js";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { orders } from "../../../db/schema/index.js";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function buildListConditions(filters: ListOrdersFilters) {
+  const conditions = [eq(orders.restaurantId, filters.restaurantId)];
+
+  if (filters.status) conditions.push(eq(orders.status, filters.status));
+  if (filters.type) conditions.push(eq(orders.type, filters.type));
+  if (filters.customerId)
+    conditions.push(eq(orders.customerId, filters.customerId));
+  if (filters.startsAt)
+    conditions.push(gte(orders.createdAt, filters.startsAt));
+  if (filters.endsAt) conditions.push(lte(orders.createdAt, filters.endsAt));
+
+  return conditions;
+}
 
 export class DrizzleOrdersRepository implements OrdersRepository {
   constructor(private readonly client: typeof db | Transaction = db) {}
@@ -65,23 +79,22 @@ export class DrizzleOrdersRepository implements OrdersRepository {
   }
 
   async findMany(filters: ListOrdersFilters): Promise<Order[]> {
-    const conditions = [eq(orders.restaurantId, filters.restaurantId)];
-
-    if (filters.status) conditions.push(eq(orders.status, filters.status));
-    if (filters.type) conditions.push(eq(orders.type, filters.type));
-    if (filters.customerId)
-      conditions.push(eq(orders.customerId, filters.customerId));
-    if (filters.startsAt)
-      conditions.push(gte(orders.createdAt, filters.startsAt));
-    if (filters.endsAt) conditions.push(lte(orders.createdAt, filters.endsAt));
-
     return await this.client
       .select()
       .from(orders)
-      .where(and(...conditions))
+      .where(and(...buildListConditions(filters)))
       .orderBy(desc(orders.createdAt), desc(orders.id))
       .limit(filters.limit)
       .offset((filters.page - 1) * filters.limit);
+  }
+
+  async count(filters: ListOrdersFilters): Promise<number> {
+    const [result] = await this.client
+      .select({ total: sql<number>`cast(count(*) as integer)` })
+      .from(orders)
+      .where(and(...buildListConditions(filters)));
+
+    return result.total;
   }
 
   async findByIdForUpdate(id: string): Promise<Order | null> {

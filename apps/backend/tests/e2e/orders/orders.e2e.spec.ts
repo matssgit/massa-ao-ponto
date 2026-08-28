@@ -520,11 +520,19 @@ describe("Orders (E2E)", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const data = response.json();
-      expect(data).toHaveLength(20);
-      expect(data.map(({ order }: { order: { id: string } }) => order.id)).toEqual(
-        createdOrders.slice(0, 20).map((order) => order.id),
-      );
+      const body = response.json();
+      expect(body.data).toHaveLength(20);
+      expect(
+        body.data.map(({ order }: { order: { id: string } }) => order.id),
+      ).toEqual(createdOrders.slice(0, 20).map((order) => order.id));
+      expect(body.meta).toEqual({
+        page: 1,
+        limit: 20,
+        total: 21,
+        totalPages: 2,
+        hasNext: true,
+        hasPrevious: false,
+      });
     });
 
     it("deve retornar o segundo conjunto, respeitar o limit e hidratar itens", async () => {
@@ -547,16 +555,25 @@ describe("Orders (E2E)", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const data = response.json();
-      expect(data).toHaveLength(2);
-      expect(data.map(({ order }: { order: { id: string } }) => order.id)).toEqual(
-        createdOrders.slice(2, 4).map((order) => order.id),
-      );
-      expect(data[0].items).toHaveLength(1);
-      expect(data[0].items[0]).toMatchObject({
+      const body = response.json();
+      expect(body.data).toHaveLength(2);
+      expect(
+        body.data.map(({ order }: { order: { id: string } }) => order.id),
+      ).toEqual(createdOrders.slice(2, 4).map((order) => order.id));
+      expect(body.data[0].items).toHaveLength(1);
+      expect(body.data[0].items[0]).toMatchObject({
         orderId: pagedOrder.id,
         productId: product.id,
         productName: product.name,
+        addons: [],
+      });
+      expect(body.meta).toEqual({
+        page: 2,
+        limit: 2,
+        total: 5,
+        totalPages: 3,
+        hasNext: true,
+        hasPrevious: true,
       });
     });
 
@@ -569,7 +586,39 @@ describe("Orders (E2E)", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual([]);
+      expect(response.json()).toEqual({
+        data: [],
+        meta: {
+          page: 3,
+          limit: 2,
+          total: 3,
+          totalPages: 2,
+          hasNext: false,
+          hasPrevious: true,
+        },
+      });
+    });
+
+    it("deve retornar metadata consistente quando não existem pedidos", async () => {
+      const { restaurant } = await createDeps();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `/restaurants/${restaurant.id}/orders`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [],
+        meta: {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrevious: false,
+        },
+      });
     });
 
     it("deve combinar paginação com filtros existentes", async () => {
@@ -584,10 +633,18 @@ describe("Orders (E2E)", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const data = response.json();
-      expect(data.map(({ order }: { order: { id: string } }) => order.id)).toEqual(
-        confirmedOrders.slice(2, 4).map((order) => order.id),
-      );
+      const body = response.json();
+      expect(
+        body.data.map(({ order }: { order: { id: string } }) => order.id),
+      ).toEqual(confirmedOrders.slice(2, 4).map((order) => order.id));
+      expect(body.meta).toEqual({
+        page: 2,
+        limit: 2,
+        total: 4,
+        totalPages: 2,
+        hasNext: false,
+        hasPrevious: true,
+      });
     });
 
     it.each(["page=0", "limit=0", "limit=101"])(

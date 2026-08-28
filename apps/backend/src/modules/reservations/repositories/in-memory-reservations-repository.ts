@@ -10,6 +10,17 @@ import { randomUUID } from "node:crypto";
 export class InMemoryReservationsRepository implements ReservationsRepository {
   public items: Reservation[] = [];
 
+  private matchesFilters(
+    item: Reservation,
+    filters: FindManyReservationsFilters,
+  ): boolean {
+    if (item.restaurantId !== filters.restaurantId) return false;
+    if (filters.status && item.status !== filters.status) return false;
+    if (filters.endsAt && item.startsAt >= filters.endsAt) return false;
+    if (filters.startsAt && item.endsAt <= filters.startsAt) return false;
+    return true;
+  }
+
   async create(data: CreateReservationData): Promise<Reservation> {
     const reservation: Reservation = {
       id: randomUUID(),
@@ -71,33 +82,18 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
   async findManyByRestaurantId(
     filters: FindManyReservationsFilters,
   ): Promise<Reservation[]> {
+    const offset = (filters.page - 1) * filters.limit;
+
     return this.items
-      .filter((item) => {
-        if (item.restaurantId !== filters.restaurantId) {
-          return false;
-        }
-
-        if (filters.status && item.status !== filters.status) {
-          return false;
-        }
-
-        if (filters.startsAt && item.startsAt < filters.startsAt) {
-          return false;
-        }
-
-        if (filters.endsAt && item.endsAt > filters.endsAt) {
-          return false;
-        }
-
-        return true;
-      })
+      .filter((item) => this.matchesFilters(item, filters))
       .sort((a, b) => {
         const timeComparison = a.startsAt.getTime() - b.startsAt.getTime();
         if (timeComparison !== 0) {
           return timeComparison;
         }
         return a.id.localeCompare(b.id);
-      });
+      })
+      .slice(offset, offset + filters.limit);
   }
 
   async findConflictingTableIds(
@@ -145,5 +141,12 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
         }
         return a.id.localeCompare(b.id);
       });
+  }
+
+  async countByRestaurantId(
+    filters: FindManyReservationsFilters,
+  ): Promise<number> {
+    return this.items.filter((item) => this.matchesFilters(item, filters))
+      .length;
   }
 }
