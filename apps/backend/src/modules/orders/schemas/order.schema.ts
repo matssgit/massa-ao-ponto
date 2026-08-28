@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { customerInputSchema } from "../../customers/schemas/customer.schema.js";
 
 export const createOrderParamsSchema = z.object({
   restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),
 });
 
-export const createOrderBodySchema = z.object({
-  customerId: z.string().uuid("Formato de ID do cliente inválido."),
+const createOrderBodyBaseSchema = z.object({
   type: z.enum(["DELIVERY", "PICKUP", "DINE_IN"]),
   tableId: z.string().uuid("ID da mesa inválido.").optional(),
   items: z
@@ -49,6 +49,17 @@ export const getOrderParamsSchema = z.object({
   restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),
   orderId: z.string().uuid(),
 });
+
+export const createOrderBodySchema = z.union([
+  createOrderBodyBaseSchema.extend({
+    customerId: z.string().uuid("Formato de ID do cliente inválido."),
+    customer: z.never().optional(),
+  }),
+  createOrderBodyBaseSchema.extend({
+    customer: customerInputSchema,
+    customerId: z.never().optional(),
+  }),
+]);
 
 export const listOrdersParamsSchema = z.object({
   restaurantId: z.string().uuid("Formato de ID do restaurante inválido."),

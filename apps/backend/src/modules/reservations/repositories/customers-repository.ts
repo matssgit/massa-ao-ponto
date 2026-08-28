@@ -14,15 +14,10 @@ export interface CreateCustomerData {
 export interface CustomersRepository {
   findByPhone(phone: string): Promise<Customer | null>;
   create(data: CreateCustomerData): Promise<Customer>;
+  createIfNotExists(data: CreateCustomerData): Promise<Customer | null>;
   findById(id: string): Promise<Customer | null>;
   findByIdAndRestaurantId(
     customerId: string,
     restaurantId: string,
   ): Promise<Customer | null>;
-}
-
-export interface CustomersRepository {
-  create(data: CreateCustomerData): Promise<Customer>;
-  findByPhone(phone: string): Promise<Customer | null>;
-  findById(id: string): Promise<Customer | null>;
 }

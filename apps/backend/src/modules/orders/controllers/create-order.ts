@@ -6,7 +6,6 @@ import {
 
 import { CreateOrderUseCase } from "../use-cases/create-order.use-case.js";
 import { DrizzleAddonsRepository } from "../../products/repositories/drizzle-addons-repository.js";
-import { DrizzleCustomersRepository } from "../../reservations/repositories/drizzle-customers-repository.js";
 import { DrizzleOrderTransactionManager } from "../repositories/drizzle-order-transaction-manager.js";
 import { DrizzleProductAddonsRepository } from "../../products/repositories/drizzle-product-addons-repository.js";
 import { DrizzleProductsRepository } from "../../products/repositories/drizzle-products-repository.js";
@@ -20,7 +19,6 @@ export async function createOrderController(
   const body = createOrderBodySchema.parse(request.body);
 
   const restaurantsRepository = new DrizzleRestaurantsRepository();
-  const customersRepository = new DrizzleCustomersRepository();
   const productsRepository = new DrizzleProductsRepository();
   const addonsRepository = new DrizzleAddonsRepository();
   const productAddonsRepository = new DrizzleProductAddonsRepository();
@@ -28,7 +26,6 @@ export async function createOrderController(
 
   const useCase = new CreateOrderUseCase(
     restaurantsRepository,
-    customersRepository,
     productsRepository,
     addonsRepository,
     productAddonsRepository,

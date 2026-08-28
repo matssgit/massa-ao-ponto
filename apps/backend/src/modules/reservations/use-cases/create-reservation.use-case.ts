@@ -1,6 +1,7 @@
 import { CapacityExceededError } from "../errors/capacity-exceeded-error.js";
 import { InvalidTimeRangeError } from "../errors/invalid-time-range-error.js";
 import { ReservationConflictError } from "../errors/reservation-conflict-error.js";
+import { ResolveCustomerUseCase } from "../../customers/use-cases/resolve-customer.use-case.js";
 import { ReservationTransactionManager } from "../repositories/reservation-transaction-manager.js";
 import { TableInactiveError } from "../errors/table-inactive-error.js";
 import { TableNotFoundError } from "../errors/table-not-found-error.js";
@@ -41,6 +42,10 @@ export class CreateReservationUseCase {
 
       if (request.people > table.capacity) throw new CapacityExceededError();
 
+      const customer = await new ResolveCustomerUseCase(
+        repos.customers,
+      ).execute(request.customer);
+
       const conflict = await repos.reservations.findConflictingReservation(
         request.tableId,
         request.startsAt,
@@ -48,16 +53,6 @@ export class CreateReservationUseCase {
       );
 
       if (conflict) throw new ReservationConflictError();
-
-      let customer = await repos.customers.findByPhone(request.customer.phone);
-
-      if (!customer) {
-        customer = await repos.customers.create({
-          name: request.customer.name,
-          phone: request.customer.phone,
-          email: request.customer.email,
-        });
-      }
 
       const reservation = await repos.reservations.create({
         restaurantId: request.restaurantId,

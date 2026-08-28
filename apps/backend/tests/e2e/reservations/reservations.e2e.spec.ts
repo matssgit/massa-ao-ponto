@@ -119,7 +119,7 @@ describe("Reservations (E2E)", () => {
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
         tableId: table.id,
-        customer: { name: "Maria Silva", phone: "11977777777" },
+        customer: { name: "Maria Silva", phone: "(11) 97777-7777" },
         people: 2,
         startsAt: "2026-08-21T19:00:00.000Z",
         endsAt: "2026-08-21T21:00:00.000Z",
@@ -132,6 +132,110 @@ describe("Reservations (E2E)", () => {
 
     const allCustomers = await db.select().from(customers);
     expect(allCustomers).toHaveLength(1);
+    expect(allCustomers[0]).toMatchObject({
+      name: "Maria",
+      phone: "11977777777",
+    });
+  });
+
+  it("should converge concurrent reservations to one canonical customer", async () => {
+    const { restaurant, table } = await setupBase();
+    const secondTable = (
+      await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/tables`,
+        payload: { number: 2, capacity: 4, type: "table" },
+      })
+    ).json();
+
+    const responses = await Promise.all([
+      app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/reservations`,
+        payload: {
+          tableId: table.id,
+          customer: { name: "Concorrente", phone: "(11) 96666-5555" },
+          people: 2,
+          startsAt: "2026-08-20T19:00:00.000Z",
+          endsAt: "2026-08-20T21:00:00.000Z",
+        },
+      }),
+      app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/reservations`,
+        payload: {
+          tableId: secondTable.id,
+          customer: { name: "Outro nome", phone: "11 96666.5555" },
+          people: 2,
+          startsAt: "2026-08-20T19:00:00.000Z",
+          endsAt: "2026-08-20T21:00:00.000Z",
+        },
+      }),
+    ]);
+
+    expect(responses.map((response) => response.statusCode)).toEqual([
+      201, 201,
+    ]);
+    expect(responses[0].json().customerId).toBe(
+      responses[1].json().customerId,
+    );
+    const matchingCustomers = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.phone, "11966665555"));
+    expect(matchingCustomers).toHaveLength(1);
+  });
+
+  it("should reject a phone shorter than ten digits after normalization", async () => {
+    const { restaurant, table } = await setupBase();
+    const response = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "Inválido", phone: "(11) 9999-999" },
+        people: 2,
+        startsAt: "2026-08-20T19:00:00.000Z",
+        endsAt: "2026-08-20T21:00:00.000Z",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("should rollback a new customer when a later reservation conflict occurs", async () => {
+    const { restaurant, table } = await setupBase();
+    const existingReservation = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "Existente", phone: "11911112222" },
+        people: 2,
+        startsAt: "2026-08-20T19:00:00.000Z",
+        endsAt: "2026-08-20T21:00:00.000Z",
+      },
+    });
+    const rejected = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurant.id}/reservations`,
+      payload: {
+        tableId: table.id,
+        customer: { name: "Rollback", phone: "(11) 92222-3333" },
+        people: 2,
+        startsAt: "2026-08-20T20:00:00.000Z",
+        endsAt: "2026-08-20T22:00:00.000Z",
+      },
+    });
+
+    expect(existingReservation.statusCode).toBe(201);
+    expect(rejected.statusCode).toBe(409);
+    const rolledBackCustomers = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.phone, "11922223333"));
+    expect(rolledBackCustomers).toHaveLength(0);
+    expect(await db.select().from(reservations)).toHaveLength(1);
   });
 
   it("should return 400 for invalid restaurantId", async () => {

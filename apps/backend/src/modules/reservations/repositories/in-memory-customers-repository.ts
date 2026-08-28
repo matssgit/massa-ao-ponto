@@ -35,6 +35,13 @@ export class InMemoryCustomersRepository implements CustomersRepository {
     return this.items.find((item) => item.id === id) || null;
   }
 
+  async createIfNotExists(
+    data: CreateCustomerData,
+  ): Promise<Customer | null> {
+    if (await this.findByPhone(data.phone)) return null;
+    return this.create(data);
+  }
+
   async findByIdAndRestaurantId(
     customerId: string,
     restaurantId: string,

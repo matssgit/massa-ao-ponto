@@ -33,6 +33,18 @@ export class DrizzleCustomersRepository implements CustomersRepository {
     return result[0] || null;
   }
 
+  async createIfNotExists(
+    data: CreateCustomerData,
+  ): Promise<Customer | null> {
+    const [customer] = await this.client
+      .insert(customers)
+      .values(data)
+      .onConflictDoNothing({ target: customers.phone })
+      .returning();
+
+    return customer || null;
+  }
+
   async findByIdAndRestaurantId(
     customerId: string,
     restaurantId: string,

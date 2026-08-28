@@ -44,7 +44,7 @@ describe("Dine-In Orders (E2E)", () => {
       .returning();
     const [customer] = await db
       .insert(customers)
-      .values({ name: "Cli", phone: "2" })
+      .values({ name: "Cli", phone: "11900000000" })
       .returning();
     const [table] = await db
       .insert(tables)
@@ -83,7 +83,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DINE_IN",
           tableId: table.id,
           items: [{ productId: product.id, quantity: 1 }],
@@ -101,7 +101,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DINE_IN",
           items: [{ productId: product.id, quantity: 1 }],
         },
@@ -112,7 +112,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DELIVERY",
           tableId: table.id,
           items: [{ productId: product.id, quantity: 1 }],
@@ -142,7 +142,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DINE_IN",
           tableId: otherTable.id,
           items: [{ productId: product.id, quantity: 1 }],
@@ -156,7 +156,7 @@ describe("Dine-In Orders (E2E)", () => {
       const { restaurant, customer, table, product } = await setupDineIn();
 
       const payload = {
-        customerId: customer.id,
+        customer: { name: customer.name, phone: customer.phone },
         type: "DINE_IN",
         tableId: table.id,
         items: [{ productId: product.id, quantity: 1 }],
@@ -187,7 +187,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DINE_IN",
           tableId: table.id,
           items: [{ productId: product.id, quantity: 1 }],
@@ -204,7 +204,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DINE_IN",
           tableId: table.id,
           items: [{ productId: product.id, quantity: 1 }],
@@ -221,7 +221,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DINE_IN",
           tableId: table.id,
           items: [{ productId: product.id, quantity: 1 }],
@@ -257,7 +257,7 @@ describe("Dine-In Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: customer.phone },
           type: "DINE_IN",
           tableId: table.id,
           items: [{ productId: product.id, quantity: 1 }],

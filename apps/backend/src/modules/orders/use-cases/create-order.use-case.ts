@@ -8,7 +8,11 @@ import { AddonNotFoundError } from "../../products/errors/addon-not-found-error.
 import { AddonRestaurantMismatchError } from "../../products/errors/addon-restaurant-mismatch-error.js";
 import { AddonsRepository } from "../../products/repositories/addons-repository.js";
 import { CustomerNotFoundError } from "../../customers/errors/customer-not-found-error.js";
-import { CustomersRepository } from "../../reservations/repositories/customers-repository.js";
+import { Customer } from "../../reservations/repositories/customers-repository.js";
+import {
+  ResolveCustomerRequest,
+  ResolveCustomerUseCase,
+} from "../../customers/use-cases/resolve-customer.use-case.js";
 import { DuplicateProductInOrderError } from "../errors/duplicate-product-in-order-error.js";
 import { InvalidDeliveryFeeError } from "../errors/invalid-delivery-fee-error.js";
 import { InvalidItemQuantityError } from "../errors/invalid-item-quantity-error.js";
@@ -37,9 +41,8 @@ interface CreateOrderRequestItem {
   }[];
 }
 
-export interface CreateOrderRequest {
+interface CreateOrderBaseRequest {
   restaurantId: string;
-  customerId: string;
   type: "DELIVERY" | "PICKUP" | "DINE_IN";
   tableId?: string;
   items: CreateOrderRequestItem[];
@@ -56,10 +59,16 @@ export interface CreateOrderRequest {
   observation?: string;
 }
 
+type CreateOrderCustomerRequest =
+  | { customerId: string; customer?: never }
+  | { customer: ResolveCustomerRequest; customerId?: never };
+
+export type CreateOrderRequest = CreateOrderBaseRequest &
+  CreateOrderCustomerRequest;
+
 export class CreateOrderUseCase {
   constructor(
     private readonly restaurantsRepository: RestaurantsRepository,
-    private readonly customersRepository: CustomersRepository,
     private readonly productsRepository: ProductsRepository,
     private readonly addonsRepository: AddonsRepository,
     private readonly productAddonsRepository: ProductAddonsRepository,
@@ -80,11 +89,6 @@ export class CreateOrderUseCase {
       request.restaurantId,
     );
     if (!restaurant) throw new RestaurantNotFoundError();
-
-    const customer = await this.customersRepository.findById(
-      request.customerId,
-    );
-    if (!customer) throw new CustomerNotFoundError();
 
     const productIds = request.items.map((i) => i.productId);
     const uniqueProductIds = new Set(productIds);
@@ -170,7 +174,26 @@ export class CreateOrderUseCase {
         orderItemsRepository,
         orderHistoryRepository,
         tablesRepository,
+        customersRepository,
       }) => {
+        let customer: Customer;
+
+        if (request.customerId) {
+          const relatedCustomer =
+            await customersRepository.findByIdAndRestaurantId(
+              request.customerId,
+              request.restaurantId,
+            );
+          if (!relatedCustomer) throw new CustomerNotFoundError();
+          customer = relatedCustomer;
+        } else if (request.customer) {
+          customer = await new ResolveCustomerUseCase(
+            customersRepository,
+          ).execute(request.customer);
+        } else {
+          throw new Error("Order customer selection invariant violated.");
+        }
+
         if (request.type === "DINE_IN" && request.tableId) {
           const table = await tablesRepository.findByIdForUpdate(
             request.tableId,
@@ -190,7 +213,7 @@ export class CreateOrderUseCase {
 
         const order = await ordersRepository.create({
           restaurantId: request.restaurantId,
-          customerId: request.customerId,
+          customerId: customer.id,
           tableId: request.tableId ?? null,
           type: request.type,
           status: "PENDING",

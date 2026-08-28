@@ -17,6 +17,8 @@ import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 describe("Delivery Flow (E2E)", () => {
+  let customerSequence = 0;
+
   beforeAll(async () => await app.ready());
   afterAll(async () => await app.close());
 
@@ -40,7 +42,10 @@ describe("Delivery Flow (E2E)", () => {
       .returning();
     const [customer] = await db
       .insert(customers)
-      .values({ name: "Cli", phone: "2" })
+      .values({
+        name: "Cli",
+        phone: `1190000${String(customerSequence++).padStart(4, "0")}`,
+      })
       .returning();
     const [order] = await db
       .insert(orders)

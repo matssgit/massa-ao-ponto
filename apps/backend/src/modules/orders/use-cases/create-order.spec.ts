@@ -39,13 +39,16 @@ describe("CreateOrderUseCase", () => {
   beforeEach(() => {
     const tablesRepository = new InMemoryTablesRepository();
     restaurantsRepository = new InMemoryRestaurantsRepository();
-    customersRepository = new InMemoryCustomersRepository();
+    ordersRepository = new InMemoryOrdersRepository();
+    customersRepository = new InMemoryCustomersRepository(
+      [],
+      ordersRepository.items,
+    );
     productsRepository = new InMemoryProductsRepository();
     addonsRepository = new InMemoryAddonsRepository();
     productAddonsRepository = new InMemoryProductAddonsRepository(
       addonsRepository,
     );
-    ordersRepository = new InMemoryOrdersRepository();
     orderItemsRepository = new InMemoryOrderItemsRepository();
     orderHistoryRepository = new InMemoryOrderHistoryRepository();
 
@@ -54,11 +57,11 @@ describe("CreateOrderUseCase", () => {
       orderItemsRepository,
       orderHistoryRepository,
       tablesRepository,
+      customersRepository,
     );
 
     useCase = new CreateOrderUseCase(
       restaurantsRepository,
-      customersRepository,
       productsRepository,
       addonsRepository,
       productAddonsRepository,
@@ -82,7 +85,7 @@ describe("CreateOrderUseCase", () => {
     customersRepository.items.push({
       id: customerId,
       name: "João",
-      phone: "1199",
+      phone: "11900000000",
       email: null,
     });
 
@@ -144,13 +147,94 @@ describe("CreateOrderUseCase", () => {
     /* ... Preservado ... */
   });
 
+  it("deve criar customer por objeto e preservar o snapshot canônico", async () => {
+    const { restaurantId, p1 } = await createDeps();
+
+    const order = await useCase.execute({
+      restaurantId,
+      customer: { name: "Cliente Novo", phone: "(11) 98888-7777" },
+      type: "PICKUP",
+      items: [{ productId: p1.id, quantity: 1 }],
+      deliveryFee: 0,
+    });
+
+    expect(order.customerPhone).toBe("11988887777");
+    expect(customersRepository.items).toContainEqual(
+      expect.objectContaining({
+        id: order.customerId,
+        name: "Cliente Novo",
+        phone: "11988887777",
+      }),
+    );
+  });
+
+  it("deve reutilizar customer por telefone sem sobrescrever os dados", async () => {
+    const { restaurantId, p1 } = await createDeps();
+    const existing = await customersRepository.create({
+      name: "Nome original",
+      phone: "11988887777",
+      email: "original@example.com",
+    });
+
+    const order = await useCase.execute({
+      restaurantId,
+      customer: {
+        name: "Nome recebido",
+        phone: "11 98888-7777",
+        email: "novo@example.com",
+      },
+      type: "PICKUP",
+      items: [{ productId: p1.id, quantity: 1 }],
+      deliveryFee: 0,
+    });
+
+    expect(order.customerId).toBe(existing.id);
+    expect(order.customerName).toBe("Nome original");
+    expect(existing.email).toBe("original@example.com");
+  });
+
+  it("deve aceitar customerId apenas após relação com o restaurante", async () => {
+    const { restaurantId, p1 } = await createDeps();
+    const firstOrder = await useCase.execute({
+      restaurantId,
+      customer: { name: "Cliente", phone: "11988887777" },
+      type: "PICKUP",
+      items: [{ productId: p1.id, quantity: 1 }],
+      deliveryFee: 0,
+    });
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customerId: firstOrder.customerId,
+        type: "PICKUP",
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 0,
+      }),
+    ).resolves.toMatchObject({ customerId: firstOrder.customerId });
+  });
+
+  it("deve ocultar customerId sem relação com o restaurante", async () => {
+    const { restaurantId, customerId, p1 } = await createDeps();
+
+    await expect(
+      useCase.execute({
+        restaurantId,
+        customerId,
+        type: "PICKUP",
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 0,
+      }),
+    ).rejects.toBeInstanceOf(CustomerNotFoundError);
+  });
+
   // --- Novos Testes de Addons (Fase 3A) ---
   describe("Order Addons Validations", () => {
     it("deve calcular o subtotal corretamente para um pedido sem addons", async () => {
-      const { restaurantId, customerId, p1 } = await createDeps();
+      const { restaurantId, p1 } = await createDeps();
       const order = await useCase.execute({
         restaurantId,
-        customerId,
+        customer: { name: "João", phone: "(11) 99999-9999" },
         type: "PICKUP",
         items: [{ productId: p1.id, quantity: 2 }], // 3990 * 2
         deliveryFee: 0,
@@ -162,10 +246,10 @@ describe("CreateOrderUseCase", () => {
     });
 
     it("deve calcular corretamente com um addon", async () => {
-      const { restaurantId, customerId, p1, a1 } = await createDeps();
+      const { restaurantId, p1, a1 } = await createDeps();
       const order = await useCase.execute({
         restaurantId,
-        customerId,
+        customer: { name: "João", phone: "(11) 99999-9999" },
         type: "PICKUP",
         items: [
           {
@@ -187,10 +271,10 @@ describe("CreateOrderUseCase", () => {
     });
 
     it("deve calcular corretamente com múltiplos addons e múltiplas unidades", async () => {
-      const { restaurantId, customerId, p1, a1, a2 } = await createDeps();
+      const { restaurantId, p1, a1, a2 } = await createDeps();
       const order = await useCase.execute({
         restaurantId,
-        customerId,
+        customer: { name: "João", phone: "(11) 99999-9999" },
         type: "PICKUP",
         items: [
           {
@@ -212,10 +296,10 @@ describe("CreateOrderUseCase", () => {
     });
 
     it("deve calcular corretamente para múltiplos produtos com seus próprios addons", async () => {
-      const { restaurantId, customerId, p1, p2, a2, a3 } = await createDeps();
+      const { restaurantId, p1, p2, a2, a3 } = await createDeps();
       const order = await useCase.execute({
         restaurantId,
-        customerId,
+        customer: { name: "João", phone: "(11) 99999-9999" },
         type: "PICKUP",
         items: [
           {
@@ -236,11 +320,11 @@ describe("CreateOrderUseCase", () => {
     });
 
     it("deve lançar AddonNotFoundError se o addon não existir", async () => {
-      const { restaurantId, customerId, p1 } = await createDeps();
+      const { restaurantId, p1 } = await createDeps();
       await expect(
         useCase.execute({
           restaurantId,
-          customerId,
+          customer: { name: "João", phone: "(11) 99999-9999" },
           type: "PICKUP",
           deliveryFee: 0,
           items: [
@@ -255,13 +339,13 @@ describe("CreateOrderUseCase", () => {
     });
 
     it("deve lançar AddonInactiveError se o addon estiver inativo", async () => {
-      const { restaurantId, customerId, p1, a1 } = await createDeps();
+      const { restaurantId, p1, a1 } = await createDeps();
       await addonsRepository.update(a1.id, { active: false });
 
       await expect(
         useCase.execute({
           restaurantId,
-          customerId,
+          customer: { name: "João", phone: "(11) 99999-9999" },
           type: "PICKUP",
           deliveryFee: 0,
           items: [
@@ -276,14 +360,14 @@ describe("CreateOrderUseCase", () => {
     });
 
     it("deve lançar AddonRestaurantMismatchError se addon for de outro restaurante", async () => {
-      const { restaurantId, customerId, p1, a1 } = await createDeps();
+      const { restaurantId, p1, a1 } = await createDeps();
       const anotherRestId = randomUUID();
       a1.restaurantId = anotherRestId; // Alterando mock diretamente para simular erro
 
       await expect(
         useCase.execute({
           restaurantId,
-          customerId,
+          customer: { name: "João", phone: "(11) 99999-9999" },
           type: "PICKUP",
           deliveryFee: 0,
           items: [
@@ -298,13 +382,13 @@ describe("CreateOrderUseCase", () => {
     });
 
     it("deve lançar ProductAddonNotFoundError se addon não estiver associado ao produto", async () => {
-      const { restaurantId, customerId, p1, a3 } = await createDeps();
+      const { restaurantId, p1, a3 } = await createDeps();
       // a3 (Gelo) está associado apenas ao p2 (Guaraná) na base de dados (createDeps)
 
       await expect(
         useCase.execute({
           restaurantId,
-          customerId,
+          customer: { name: "João", phone: "(11) 99999-9999" },
           type: "PICKUP",
           deliveryFee: 0,
           items: [

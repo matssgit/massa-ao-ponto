@@ -153,7 +153,7 @@ A criação contempla:
 - validação de capacidade;
 - validação de mesa ativa;
 - validação de pertencimento da mesa ao restaurante;
-- reutilização/criação do cliente através do telefone;
+- normalização do telefone para somente dígitos e reutilização/criação do cliente;
 - validação de intervalo de horário;
 - prevenção de conflitos;
 - transação atômica;
@@ -375,6 +375,13 @@ A criação contempla:
 - snapshot do cliente;
 - snapshot do endereço de entrega;
 - criação atômica do pedido, itens e histórico.
+
+O body deve identificar o cliente de exatamente uma forma:
+
+- `customerId`, quando o cliente já possui relação com o restaurante;
+- `customer` com `name`, `phone` e `email` opcional, para onboarding ou resolução pelo telefone.
+
+No fluxo por `customer`, o telefone é normalizado para somente dígitos antes da resolução.
 
 O backend nunca confia nos totalizadores enviados pelo cliente.
 

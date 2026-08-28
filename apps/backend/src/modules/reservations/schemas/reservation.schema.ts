@@ -1,4 +1,5 @@
 import { reservationStatusEnum } from "../../../db/schema/reservation-status.js";
+import { customerInputSchema } from "../../customers/schemas/customer.schema.js";
 import { z } from "zod";
 
 export const createReservationParamsSchema = z.object({
@@ -7,11 +8,7 @@ export const createReservationParamsSchema = z.object({
 
 export const createReservationBodySchema = z.object({
   tableId: z.string().uuid("Invalid table ID format."),
-  customer: z.object({
-    name: z.string().min(2),
-    phone: z.string().min(10),
-    email: z.string().email().optional().nullable(),
-  }),
+  customer: customerInputSchema,
   people: z.number().int().positive(),
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),

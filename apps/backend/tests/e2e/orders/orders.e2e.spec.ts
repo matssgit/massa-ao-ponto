@@ -11,6 +11,7 @@ import {
   productCategories,
   products,
   restaurants,
+  tables,
 } from "../../../src/db/schema/index.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -40,6 +41,7 @@ describe("Orders (E2E)", () => {
     await db.delete(addons);
     await db.delete(productCategories);
     await db.delete(customers);
+    await db.delete(tables);
     await db.delete(restaurants);
   });
 
@@ -79,7 +81,7 @@ describe("Orders (E2E)", () => {
 
     const [customer] = await db
       .insert(customers)
-      .values({ name: "Maria", phone: "11999", email: "a@a.com" })
+      .values({ name: "Maria", phone: "11900000000", email: "a@a.com" })
       .returning();
 
     return { restaurant, category, product, addon, customer };
@@ -133,7 +135,11 @@ describe("Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: {
+            name: customer.name,
+            phone: "(11) 90000-0000",
+            email: customer.email,
+          },
           type: "DELIVERY",
           items: [{ productId: product.id, quantity: 2 }],
           deliveryFee: 500,
@@ -165,7 +171,7 @@ describe("Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: "11 90000-0000" },
           type: "PICKUP",
           items: [{ productId: product.id, quantity: 1 }],
           deliveryFee: 0,
@@ -195,7 +201,7 @@ describe("Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: "11 90000-0000" },
           type: "PICKUP",
           items: [
             {
@@ -254,7 +260,7 @@ describe("Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: "11 90000-0000" },
           type: "DELIVERY",
           items: [{ productId: product.id, quantity: 1 }],
           deliveryFee: 500,
@@ -288,7 +294,7 @@ describe("Orders (E2E)", () => {
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
-          customerId: customer.id,
+          customer: { name: customer.name, phone: "11 90000-0000" },
           type: "PICKUP",
           items: [{ productId: product.id, quantity: -5 }],
           deliveryFee: 0,
@@ -296,6 +302,211 @@ describe("Orders (E2E)", () => {
       });
 
       expect(response.statusCode).toBe(400);
+    });
+
+    it("deve exigir exatamente customerId ou customer (400)", async () => {
+      const { restaurant, product, customer } = await createDeps();
+      const basePayload = {
+        type: "PICKUP",
+        items: [{ productId: product.id, quantity: 1 }],
+        deliveryFee: 0,
+      };
+
+      const withoutCustomer = await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/orders`,
+        payload: basePayload,
+      });
+      const withBoth = await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/orders`,
+        payload: {
+          ...basePayload,
+          customerId: customer.id,
+          customer: { name: "Maria", phone: "11900000000" },
+        },
+      });
+
+      expect(withoutCustomer.statusCode).toBe(400);
+      expect(withBoth.statusCode).toBe(400);
+    });
+
+    it("deve reutilizar customer global entre restaurantes e ocultar customerId cross-tenant", async () => {
+      const first = await createDeps();
+      const firstOrder = await app.inject({
+        method: "POST",
+        url: `/restaurants/${first.restaurant.id}/orders`,
+        payload: {
+          customer: { name: "Original", phone: "(11) 98888-7777" },
+          type: "PICKUP",
+          items: [{ productId: first.product.id, quantity: 1 }],
+          deliveryFee: 0,
+        },
+      });
+      const secondRestaurant = (
+        await app.inject({
+          method: "POST",
+          url: "/restaurants",
+          payload: {
+            name: "Outro",
+            address: "Rua",
+            phone: "22",
+            timezone: "UTC",
+          },
+        })
+      ).json();
+      const secondCategory = (
+        await app.inject({
+          method: "POST",
+          url: `/restaurants/${secondRestaurant.id}/product-categories`,
+          payload: { name: "Pizza" },
+        })
+      ).json();
+      const secondProduct = (
+        await app.inject({
+          method: "POST",
+          url: `/restaurants/${secondRestaurant.id}/products`,
+          payload: {
+            categoryId: secondCategory.id,
+            name: "Mussarela",
+            price: 3500,
+          },
+        })
+      ).json();
+
+      const crossTenantId = await app.inject({
+        method: "POST",
+        url: `/restaurants/${secondRestaurant.id}/orders`,
+        payload: {
+          customerId: firstOrder.json().customerId,
+          type: "PICKUP",
+          items: [{ productId: secondProduct.id, quantity: 1 }],
+          deliveryFee: 0,
+        },
+      });
+      const globalReuse = await app.inject({
+        method: "POST",
+        url: `/restaurants/${secondRestaurant.id}/orders`,
+        payload: {
+          customer: {
+            name: "Nome não deve substituir",
+            phone: "11 98888.7777",
+          },
+          type: "PICKUP",
+          items: [{ productId: secondProduct.id, quantity: 1 }],
+          deliveryFee: 0,
+        },
+      });
+      const relatedId = await app.inject({
+        method: "POST",
+        url: `/restaurants/${secondRestaurant.id}/orders`,
+        payload: {
+          customerId: firstOrder.json().customerId,
+          type: "PICKUP",
+          items: [{ productId: secondProduct.id, quantity: 1 }],
+          deliveryFee: 0,
+        },
+      });
+      const tenantAwareCustomer = await app.inject({
+        method: "GET",
+        url: `/restaurants/${first.restaurant.id}/customers/${firstOrder.json().customerId}`,
+      });
+
+      expect(firstOrder.statusCode).toBe(201);
+      expect(crossTenantId.statusCode).toBe(404);
+      expect(globalReuse.statusCode).toBe(201);
+      expect(relatedId.statusCode).toBe(201);
+      expect(tenantAwareCustomer.statusCode).toBe(200);
+      expect(globalReuse.json()).toMatchObject({
+        customerId: firstOrder.json().customerId,
+        customerName: "Original",
+        customerPhone: "11988887777",
+      });
+      const canonicalCustomers = await db
+        .select()
+        .from(customers)
+        .where(eq(customers.phone, "11988887777"));
+      expect(canonicalCustomers).toHaveLength(1);
+      expect(canonicalCustomers[0].name).toBe("Original");
+      expect(globalReuse.json()).not.toHaveProperty("created");
+      expect(globalReuse.json()).not.toHaveProperty("reused");
+    });
+
+    it("deve convergir criações concorrentes para um único customer", async () => {
+      const { restaurant, product } = await createDeps();
+      const payload = {
+        customer: { name: "Concorrente", phone: "(11) 97777-6666" },
+        type: "PICKUP",
+        items: [{ productId: product.id, quantity: 1 }],
+        deliveryFee: 0,
+      };
+
+      const responses = await Promise.all([
+        app.inject({
+          method: "POST",
+          url: `/restaurants/${restaurant.id}/orders`,
+          payload,
+        }),
+        app.inject({
+          method: "POST",
+          url: `/restaurants/${restaurant.id}/orders`,
+          payload,
+        }),
+      ]);
+
+      expect(responses.map((response) => response.statusCode)).toEqual([
+        201, 201,
+      ]);
+      expect(responses[0].json().customerId).toBe(
+        responses[1].json().customerId,
+      );
+      const matchingCustomers = await db
+        .select()
+        .from(customers)
+        .where(eq(customers.phone, "11977776666"));
+      expect(matchingCustomers).toHaveLength(1);
+    });
+
+    it("deve reverter customer novo quando uma falha posterior aborta o pedido", async () => {
+      const { restaurant, product } = await createDeps();
+      const table = (
+        await app.inject({
+          method: "POST",
+          url: `/restaurants/${restaurant.id}/tables`,
+          payload: { number: 1, capacity: 4, type: "table" },
+        })
+      ).json();
+      const first = await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/orders`,
+        payload: {
+          customer: { name: "Primeiro", phone: "11911112222" },
+          type: "DINE_IN",
+          tableId: table.id,
+          items: [{ productId: product.id, quantity: 1 }],
+          deliveryFee: 0,
+        },
+      });
+      const rejected = await app.inject({
+        method: "POST",
+        url: `/restaurants/${restaurant.id}/orders`,
+        payload: {
+          customer: { name: "Rollback", phone: "(11) 92222-3333" },
+          type: "DINE_IN",
+          tableId: table.id,
+          items: [{ productId: product.id, quantity: 1 }],
+          deliveryFee: 0,
+        },
+      });
+
+      expect(first.statusCode).toBe(201);
+      expect(rejected.statusCode).toBe(409);
+      const rolledBackCustomers = await db
+        .select()
+        .from(customers)
+        .where(eq(customers.phone, "11922223333"));
+      expect(rolledBackCustomers).toHaveLength(0);
+      expect(await db.select().from(orders)).toHaveLength(1);
     });
   });
 

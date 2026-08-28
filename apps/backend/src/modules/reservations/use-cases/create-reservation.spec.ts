@@ -78,7 +78,11 @@ describe("CreateReservationUseCase", () => {
     const reservation = await useCase.execute({
       restaurantId: "rest-1",
       tableId: "table-1",
-      customer: { name: "Maria Silva", phone: "11999999999" },
+      customer: {
+        name: "Maria Silva",
+        phone: "(11) 99999-9999",
+        email: "novo@example.com",
+      },
       people: 2,
       startsAt: new Date("2026-06-12T19:00:00Z"),
       endsAt: new Date("2026-06-12T21:00:00Z"),
@@ -86,6 +90,10 @@ describe("CreateReservationUseCase", () => {
 
     expect(reservation.customerId).toEqual(existingCustomer.id);
     expect(customersRepository.items).toHaveLength(1);
+    expect(customersRepository.items[0]).toMatchObject({
+      name: "Maria",
+      email: null,
+    });
   });
 
   it("deve criar um novo customer quando telefone ainda nao existe", async () => {
@@ -100,6 +108,7 @@ describe("CreateReservationUseCase", () => {
 
     expect(reservation.customerId).toEqual(expect.any(String));
     expect(customersRepository.items).toHaveLength(1);
+    expect(customersRepository.items[0].phone).toBe("11988888888");
   });
 
   it("deve impedir reserva em mesa inexistente", async () => {
