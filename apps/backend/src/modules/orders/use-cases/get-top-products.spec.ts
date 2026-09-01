@@ -159,15 +159,15 @@ describe("GetTopProductsUseCase", () => {
 
     expect(result).toHaveLength(2);
 
-    expect(result[0].productId).toBe(productB);
-    expect(result[0].revenue).toBe(8000);
-    expect(result[0].quantitySold).toBe(4);
-    expect(result[0].orderCount).toBe(2);
+    expect(result[0].productId).toBe(productA);
+    expect(result[0].revenue).toBe(4000);
+    expect(result[0].quantitySold).toBe(2);
+    expect(result[0].orderCount).toBe(1);
 
-    expect(result[1].productId).toBe(productA);
-    expect(result[1].revenue).toBe(4000);
-    expect(result[1].quantitySold).toBe(2);
-    expect(result[1].orderCount).toBe(1);
+    expect(result[1].productId).toBe(productB);
+    expect(result[1].revenue).toBe(2000);
+    expect(result[1].quantitySold).toBe(4);
+    expect(result[1].orderCount).toBe(2);
   });
 
   it("deve respeitar o limite", async () => {

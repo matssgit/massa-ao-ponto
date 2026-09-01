@@ -15,9 +15,9 @@ O objetivo não é construir apenas uma API CRUD, mas demonstrar como decisões 
 | Módulo               | Status                                     |
 | -------------------- | ------------------------------------------ |
 | Infraestrutura       | ✅ Concluído                               |
-| Restaurantes         | ✅ CRUD de leitura e criação               |
-| Mesas                | ✅ Criação e listagem                      |
-| Clientes             | ✅ Consulta e histórico                    |
+| Restaurantes         | ✅ Criação, leitura e atualização          |
+| Mesas                | ✅ Criação, listagem e atualização         |
+| Clientes             | ✅ Listagem, consulta e histórico          |
 | Reservas             | ✅ Milestone 1 concluído                   |
 | Disponibilidade      | ✅ Concluído                               |
 | Catálogo de Produtos | ✅ Gestão completa                         |
@@ -94,8 +94,15 @@ O módulo de restaurantes fornece a base de isolamento dos demais domínios.
 - criação de restaurantes;
 - listagem;
 - consulta individual;
+- atualização administrativa de `name`, `address`, `phone` e `timezone`;
 - identificação do restaurante através de `restaurantId`;
 - utilização do restaurante como tenant dos módulos relacionados.
+
+```http
+PATCH /restaurants/:restaurantId
+```
+
+Sem autenticação/autorização, essa mutação permanece restrita ao contexto local/de desenvolvimento.
 
 Os demais recursos que pertencem a uma pizzaria carregam o `restaurantId` quando a regra de negócio exige isolamento explícito.
 
@@ -109,9 +116,16 @@ O módulo de mesas representa os recursos físicos disponíveis no restaurante.
 
 - criação de mesas;
 - listagem por restaurante;
+- atualização tenant-aware de `number`, `capacity`, `type` e `active`;
 - capacidade de pessoas;
 - controle de mesa ativa/inativa;
 - prevenção de números de mesa duplicados dentro do restaurante.
+
+```http
+PATCH /restaurants/:restaurantId/tables/:tableId
+```
+
+A listagem usa ordenação determinística por `number ASC, id ASC`.
 
 A ocupação não é armazenada diretamente como uma flag.
 
@@ -125,12 +139,21 @@ Clientes são entidades independentes utilizadas principalmente pelo domínio de
 
 ### Funcionalidades
 
+- listagem administrativa por restaurante;
 - consulta individual;
 - histórico de reservas;
 - reutilização de clientes através do telefone;
 - relacionamento com reservas e pedidos.
 
 O cliente é criado ou reutilizado durante determinados fluxos, evitando duplicação desnecessária de registros.
+
+A listagem administrativa expõe somente clientes relacionados ao restaurante por Reservation ou Order:
+
+```text
+GET /restaurants/:restaurantId/customers?page=1&limit=20&search=termo
+```
+
+Ela retorna `{ data, meta }`, aceita busca por nome, telefone canônico ou e-mail e usa ordenação determinística por `name ASC, id ASC`.
 
 ---
 
@@ -630,6 +653,10 @@ O dashboard administrativo utiliza uma camada analítica separada dos repositori
 
 As agregações são executadas diretamente no PostgreSQL para evitar transportar grandes volumes de dados para o Node.js apenas para realizar cálculos em memória.
 
+Nos quatro endpoints, valores de receita consideram somente pedidos `PAID` e não `CANCELLED`. Quantidades e contagens operacionais dos rankings consideram pedidos não cancelados, mesmo quando o pagamento ainda está pendente. Os rankings aceitam `limit` entre 1 e 100 e retornam `[]` quando não há resultados.
+
+Erros de domínio preservam `message` e expõem um `code` estável. Erros de validação retornam `code: "VALIDATION_ERROR"`, `message` e `issues`.
+
 ## Resumo de vendas
 
 ```text
@@ -638,12 +665,12 @@ GET /restaurants/:restaurantId/dashboard/sales-summary
 
 Fornece métricas como:
 
-- receita bruta;
-- receita paga;
+- receita confirmada por pagamento;
 - quantidade de pedidos;
-- ticket médio.
+- quantidade de pedidos pagos;
+- ticket médio dos pedidos pagos.
 
-Pedidos cancelados são excluídos das métricas apropriadas.
+O contrato expõe `revenue` como valor inteiro em centavos e não expõe estimativa de receita pendente.
 
 ---
 
@@ -653,7 +680,7 @@ Pedidos cancelados são excluídos das métricas apropriadas.
 GET /restaurants/:restaurantId/dashboard/top-products
 ```
 
-Permite identificar os produtos com maior movimentação de vendas.
+Permite identificar os produtos com maior movimentação operacional e receita paga.
 
 A agregação ocorre diretamente no PostgreSQL.
 
@@ -665,7 +692,9 @@ A agregação ocorre diretamente no PostgreSQL.
 GET /restaurants/:restaurantId/dashboard/category-performance
 ```
 
-Permite analisar o desempenho das categorias do catálogo.
+Permite analisar o desempenho operacional e a receita paga das categorias do catálogo.
+
+A categoria é resolvida pelo vínculo atual do Product. Se um Product mudar de Category, o histórico anterior será reatribuído no relatório; não existe snapshot histórico de Category no estado atual.
 
 ---
 
@@ -675,7 +704,7 @@ Permite analisar o desempenho das categorias do catálogo.
 GET /restaurants/:restaurantId/dashboard/top-customers
 ```
 
-Permite identificar os clientes com maior movimentação no restaurante.
+Permite identificar os clientes com maior movimentação no restaurante. `totalSpent`, `paidOrdersCount` e `averageTicket` consideram somente pedidos pagos; `ordersCount` permanece uma contagem operacional de pedidos não cancelados.
 
 A ordenação do ranking utiliza critérios determinísticos para evitar resultados instáveis em empates.
 

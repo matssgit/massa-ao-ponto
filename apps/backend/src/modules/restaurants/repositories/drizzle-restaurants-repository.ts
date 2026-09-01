@@ -2,6 +2,7 @@ import {
   CreateRestaurantInput,
   Restaurant,
   RestaurantsRepository,
+  UpdateRestaurantInput,
 } from "./restaurants-repository.js";
 
 import { db } from "../../../db/index.js";
@@ -42,5 +43,23 @@ export class DrizzleRestaurantsRepository implements RestaurantsRepository {
       ...restaurant,
       phone: restaurant.phone ?? "",
     }));
+  }
+
+  async update(
+    id: string,
+    data: UpdateRestaurantInput,
+  ): Promise<Restaurant | null> {
+    const [restaurant] = await db
+      .update(restaurants)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(restaurants.id, id))
+      .returning();
+
+    if (!restaurant) return null;
+
+    return {
+      ...restaurant,
+      phone: restaurant.phone ?? "",
+    };
   }
 }

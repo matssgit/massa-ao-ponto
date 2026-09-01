@@ -203,14 +203,14 @@ describe("Dashboard - Category Performance (E2E)", () => {
 
     expect(data).toHaveLength(2);
 
-    // Pizzas: Order 1 e Order 2. Revenue = 8000, Quantity = 4, OrderCount = 2
+    // O pedido PENDING conta no volume operacional, mas não na receita.
     expect(data[0].categoryId).toBe(catPizza.id);
     expect(data[0].categoryName).toBe("Pizzas");
-    expect(data[0].revenue).toBe(8000);
+    expect(data[0].revenue).toBe(4000);
     expect(data[0].quantitySold).toBe(4);
     expect(data[0].orderCount).toBe(2);
 
-    // Bebidas: Order 1. O Order 3 foi CANCELADO e deve ser ignorado. Revenue = 2000, Quantity = 2, OrderCount = 1
+    // O pedido CANCELLED não conta em receita nem no volume operacional.
     expect(data[1].categoryId).toBe(catDrink.id);
     expect(data[1].categoryName).toBe("Bebidas");
     expect(data[1].revenue).toBe(2000);

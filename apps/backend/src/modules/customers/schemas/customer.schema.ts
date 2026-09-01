@@ -18,3 +18,13 @@ export const getCustomerParamsSchema = z.object({
   restaurantId: z.string().uuid("Invalid restaurant ID format."),
   customerId: z.string().uuid("Invalid customer ID format."),
 });
+
+export const listCustomersParamsSchema = z.object({
+  restaurantId: z.string().uuid("Invalid restaurant ID format."),
+});
+
+export const listCustomersQuerySchema = z.object({
+  search: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});

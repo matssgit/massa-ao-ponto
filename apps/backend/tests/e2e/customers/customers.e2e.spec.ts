@@ -239,6 +239,218 @@ describe("Customers (E2E)", () => {
     }
   });
 
+  it("deve listar Customers relacionados sem duplicação e com paginação tenant-aware", async () => {
+    const first = await createRestaurant("R1", 1);
+    const second = await createRestaurant("R2", 1);
+    const [alice, bruno, carla, delta, shared, global] = await db
+      .insert(customers)
+      .values([
+        { name: "Alice", phone: "11910101010", email: "alice@example.com" },
+        { name: "Bruno", phone: "11920202020", email: null },
+        { name: "Carla", phone: "11930303030", email: "carla@example.com" },
+        { name: "Delta", phone: "11940404040", email: null },
+        { name: "Shared", phone: "11950505050", email: "shared@example.com" },
+        { name: "Global", phone: "11960606060", email: null },
+      ])
+      .returning();
+
+    await db.insert(reservations).values([
+      {
+        restaurantId: first.restaurant.id,
+        tableId: first.table.id,
+        customerId: alice.id,
+        status: "SCHEDULED",
+        people: 2,
+        startsAt: new Date("2026-09-01T17:00:00Z"),
+        endsAt: new Date("2026-09-01T18:00:00Z"),
+      },
+      {
+        restaurantId: first.restaurant.id,
+        tableId: first.table.id,
+        customerId: carla.id,
+        status: "SCHEDULED",
+        people: 2,
+        startsAt: new Date("2026-09-01T18:00:00Z"),
+        endsAt: new Date("2026-09-01T19:00:00Z"),
+      },
+      {
+        restaurantId: first.restaurant.id,
+        tableId: first.table.id,
+        customerId: shared.id,
+        status: "SCHEDULED",
+        people: 2,
+        startsAt: new Date("2026-09-01T19:00:00Z"),
+        endsAt: new Date("2026-09-01T20:00:00Z"),
+      },
+      {
+        restaurantId: second.restaurant.id,
+        tableId: second.table.id,
+        customerId: delta.id,
+        status: "SCHEDULED",
+        people: 2,
+        startsAt: new Date("2026-09-01T17:00:00Z"),
+        endsAt: new Date("2026-09-01T18:00:00Z"),
+      },
+    ]);
+    await createOrder(bruno.id, first.restaurant.id);
+    await createOrder(carla.id, first.restaurant.id);
+    await createOrder(shared.id, second.restaurant.id);
+
+    const firstPageResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${first.restaurant.id}/customers?page=1&limit=2`,
+    });
+    const finalPageResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${first.restaurant.id}/customers?page=2&limit=2`,
+    });
+    const secondTenantResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${second.restaurant.id}/customers`,
+    });
+
+    expect(firstPageResponse.statusCode).toBe(200);
+    expect(firstPageResponse.json()).toEqual({
+      data: [
+        {
+          id: alice.id,
+          name: "Alice",
+          phone: "11910101010",
+          email: "alice@example.com",
+        },
+        { id: bruno.id, name: "Bruno", phone: "11920202020", email: null },
+      ],
+      meta: {
+        page: 1,
+        limit: 2,
+        total: 4,
+        totalPages: 2,
+        hasNext: true,
+        hasPrevious: false,
+      },
+    });
+    expect(finalPageResponse.statusCode).toBe(200);
+    expect(finalPageResponse.json()).toEqual({
+      data: [
+        {
+          id: carla.id,
+          name: "Carla",
+          phone: "11930303030",
+          email: "carla@example.com",
+        },
+        {
+          id: shared.id,
+          name: "Shared",
+          phone: "11950505050",
+          email: "shared@example.com",
+        },
+      ],
+      meta: {
+        page: 2,
+        limit: 2,
+        total: 4,
+        totalPages: 2,
+        hasNext: false,
+        hasPrevious: true,
+      },
+    });
+    expect(secondTenantResponse.statusCode).toBe(200);
+    expect(
+      secondTenantResponse.json().data.map(({ id }: { id: string }) => id),
+    ).toEqual([delta.id, shared.id]);
+    expect(secondTenantResponse.json().meta.total).toBe(2);
+    expect(
+      firstPageResponse
+        .json()
+        .data.some(({ id }: { id: string }) => id === global.id),
+    ).toBe(false);
+  });
+
+  it("deve buscar por name, telefone mascarado e email sem vazar outro tenant", async () => {
+    const first = await createRestaurant("R1", 1);
+    const second = await createRestaurant("R2", 1);
+    const [marina, otherTenant] = await db
+      .insert(customers)
+      .values([
+        {
+          name: "Marina Silva",
+          phone: "11988887777",
+          email: "marina@example.com",
+        },
+        {
+          name: "Marina Outro Tenant",
+          phone: "11977776666",
+          email: "outro@example.com",
+        },
+      ])
+      .returning();
+    await createOrder(marina.id, first.restaurant.id);
+    await createOrder(otherTenant.id, second.restaurant.id);
+
+    const searches = [
+      "marina",
+      "(11) 98888-7777",
+      "MARINA@EXAMPLE.COM",
+    ];
+
+    for (const search of searches) {
+      const response = await app.inject({
+        method: "GET",
+        url: `/restaurants/${first.restaurant.id}/customers?search=${encodeURIComponent(search)}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        data: [
+          {
+            id: marina.id,
+            name: "Marina Silva",
+            phone: "11988887777",
+            email: "marina@example.com",
+          },
+        ],
+        meta: {
+          page: 1,
+          limit: 20,
+          total: 1,
+          totalPages: 1,
+          hasNext: false,
+          hasPrevious: false,
+        },
+      });
+    }
+
+    const emptyResponse = await app.inject({
+      method: "GET",
+      url: `/restaurants/${first.restaurant.id}/customers?search=inexistente`,
+    });
+
+    expect(emptyResponse.statusCode).toBe(200);
+    expect(emptyResponse.json()).toEqual({
+      data: [],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrevious: false,
+      },
+    });
+  });
+
+  it.each(["page=0", "limit=0", "limit=101"])(
+    "deve rejeitar query administrativa inválida %s",
+    async (query) => {
+      const response = await app.inject({
+        method: "GET",
+        url: `/restaurants/${randomUUID()}/customers?${query}`,
+      });
+
+      expect(response.statusCode).toBe(400);
+    },
+  );
+
   it("deve remover rotas globais e validar UUIDs nas rotas tenant-aware", async () => {
     const customerId = randomUUID();
     const restaurantId = randomUUID();

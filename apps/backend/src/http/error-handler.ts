@@ -50,10 +50,20 @@ export const errorHandler = (
 ) => {
   if (error instanceof ZodError) {
     return reply.status(400).send({
+      code: "VALIDATION_ERROR",
       message: "Validation error.",
-      issues: error.format(),
+      issues: error.issues,
     });
   }
+
+  const sendDomainError = (statusCode: 400 | 404 | 409) =>
+    reply.status(statusCode).send({
+      code: error.name
+        .replace(/Error$/, "")
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .toUpperCase(),
+      message: error.message,
+    });
 
   if (
     error instanceof RestaurantNotFoundError ||
@@ -68,7 +78,7 @@ export const errorHandler = (
     error instanceof AddonNotFoundError ||
     error instanceof ProductAddonNotFoundError
   ) {
-    return reply.status(404).send({ message: error.message });
+    return sendDomainError(404);
   }
 
   if (
@@ -82,7 +92,7 @@ export const errorHandler = (
     error instanceof InvalidPeriodFilterError ||
     error instanceof InvalidCustomerPhoneError
   ) {
-    return reply.status(400).send({ message: error.message });
+    return sendDomainError(400);
   }
 
   if (
@@ -108,10 +118,13 @@ export const errorHandler = (
     error instanceof AddonRestaurantMismatchError ||
     error instanceof ProductAddonAlreadyExistsError
   ) {
-    return reply.status(409).send({ message: error.message });
+    return sendDomainError(409);
   }
 
   console.error(error);
 
-  return reply.status(500).send({ message: "Internal server error." });
+  return reply.status(500).send({
+    code: "INTERNAL_SERVER_ERROR",
+    message: "Internal server error.",
+  });
 };

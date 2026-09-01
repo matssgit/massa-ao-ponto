@@ -31,6 +31,7 @@ import { getTopCustomersController } from "../modules/orders/controllers/get-top
 import { getTopProductsController } from "../modules/orders/controllers/get-top-products.js";
 import { listAddonsController } from "../modules/products/controllers/list-addons.js";
 import { listCustomerReservationsController } from "../modules/customers/controllers/list-customer-reservations.js";
+import { listCustomersController } from "../modules/customers/controllers/list-customers.js";
 import { listOrdersController } from "../modules/orders/controllers/list-orders.js";
 import { listProductAddonsController } from "../modules/products/controllers/list-product-addons.js";
 import { listProductCategoriesController } from "../modules/products/controllers/list-product-category.js";
@@ -49,16 +50,23 @@ import { updateOrderStatusController } from "../modules/orders/controllers/updat
 import { updateProductCategoryController } from "../modules/products/controllers/update-product-category.js";
 import { updateProductController } from "../modules/products/controllers/update-product.js";
 import { updateReservationStatusController } from "../modules/reservations/controllers/update-reservation-status.js";
+import { updateRestaurantController } from "../modules/restaurants/controllers/update-restaurant.js";
+import { updateTableController } from "../modules/tables/controllers/update-table.js";
 
 export async function restaurantsRoutes(app: FastifyInstance) {
   // === RESTAURANTS ===
   app.post("/restaurants", createRestaurantController);
   app.get("/restaurants", listRestaurantsController);
   app.get("/restaurants/:restaurantId", getRestaurantController);
+  app.patch("/restaurants/:restaurantId", updateRestaurantController);
 
   // === TABLES ===
   app.post("/restaurants/:restaurantId/tables", createTableController);
   app.get("/restaurants/:restaurantId/tables", listTablesController);
+  app.patch(
+    "/restaurants/:restaurantId/tables/:tableId",
+    updateTableController,
+  );
 
   // === CATALOG ===
   app.post(
@@ -135,6 +143,10 @@ export async function restaurantsRoutes(app: FastifyInstance) {
   );
 
   // === CUSTOMERS ===
+  app.get(
+    "/restaurants/:restaurantId/customers",
+    listCustomersController,
+  );
   app.get(
     "/restaurants/:restaurantId/customers/:customerId",
     getCustomerController,

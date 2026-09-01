@@ -15,8 +15,16 @@ export interface CreateRestaurantInput {
   timezone: string;
 }
 
+export interface UpdateRestaurantInput {
+  name?: string;
+  address?: string;
+  phone?: string;
+  timezone?: string;
+}
+
 export interface RestaurantsRepository {
   create(data: CreateRestaurantInput): Promise<Restaurant>;
   findById(id: string): Promise<Restaurant | null>;
   findAll(): Promise<Restaurant[]>;
+  update(id: string, data: UpdateRestaurantInput): Promise<Restaurant | null>;
 }

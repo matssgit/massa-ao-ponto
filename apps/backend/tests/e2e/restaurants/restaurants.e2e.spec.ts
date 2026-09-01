@@ -166,4 +166,105 @@ describe("Restaurants (E2E)", () => {
     expect(response.statusCode).toBe(404);
     expect(response.json().message).toEqual("Restaurant not found.");
   });
+
+  it("deve atualizar todos os campos administrativos do Restaurant", async () => {
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/restaurants",
+      payload: {
+        name: "Original",
+        address: "Rua A",
+        phone: "111",
+        timezone: "UTC",
+      },
+    });
+    const restaurant = createResponse.json();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}`,
+      payload: {
+        name: "Atualizado",
+        address: "Rua B",
+        phone: "222",
+        timezone: "America/Sao_Paulo",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      id: restaurant.id,
+      name: "Atualizado",
+      address: "Rua B",
+      phone: "222",
+      timezone: "America/Sao_Paulo",
+    });
+  });
+
+  it("deve aplicar atualização parcial do Restaurant", async () => {
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/restaurants",
+      payload: {
+        name: "Original",
+        address: "Rua A",
+        phone: "111",
+        timezone: "UTC",
+      },
+    });
+    const restaurant = createResponse.json();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}`,
+      payload: { name: "Parcial" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      name: "Parcial",
+      address: "Rua A",
+      phone: "111",
+      timezone: "UTC",
+    });
+  });
+
+  it("deve retornar 404 ao atualizar Restaurant inexistente", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/restaurants/c85d7c92-75d3-4e1b-8f3e-52b86ea9a7f3",
+      payload: { name: "Inexistente" },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("deve ignorar campos administrativos não permitidos", async () => {
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/restaurants",
+      payload: {
+        name: "Original",
+        address: "Rua A",
+        phone: "111",
+        timezone: "UTC",
+      },
+    });
+    const restaurant = createResponse.json();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}`,
+      payload: {
+        id: "c85d7c92-75d3-4e1b-8f3e-52b86ea9a7f3",
+        createdAt: "2000-01-01T00:00:00.000Z",
+        name: "Permitido",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().id).toBe(restaurant.id);
+    expect(response.json().createdAt).toBe(restaurant.createdAt);
+    expect(response.json().name).toBe("Permitido");
+  });
 });

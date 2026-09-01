@@ -35,9 +35,10 @@ export class GetSalesSummaryUseCase {
       endsAt: request.endsAt,
     });
 
-    const validOrdersCount = metrics.total - metrics.cancelled;
     const averageTicket =
-      validOrdersCount > 0 ? Math.floor(metrics.gross / validOrdersCount) : 0;
+      metrics.paidOrders > 0
+        ? Math.floor(metrics.revenue / metrics.paidOrders)
+        : 0;
 
     return {
       period: {
@@ -49,11 +50,9 @@ export class GetSalesSummaryUseCase {
         delivered: metrics.delivered,
         cancelled: metrics.cancelled,
         pending: metrics.pending,
+        paid: metrics.paidOrders,
       },
-      revenue: {
-        gross: metrics.gross,
-        paid: metrics.paid,
-      },
+      revenue: metrics.revenue,
       averageTicket,
     };
   }

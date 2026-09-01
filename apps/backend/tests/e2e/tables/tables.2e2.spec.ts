@@ -46,6 +46,22 @@ describe("Tables (E2E)", () => {
     return response.json();
   }
 
+  async function createTableE2E(
+    restaurantId: string,
+    number: number,
+    capacity = 4,
+    type: "table" | "room" = "table",
+  ) {
+    const response = await app.inject({
+      method: "POST",
+      url: `/restaurants/${restaurantId}/tables`,
+      payload: { number, capacity, type },
+    });
+
+    expect(response.statusCode).toBe(201);
+    return response.json();
+  }
+
   it("should be able to create a new table", async () => {
     const restaurant = await createRestaurantE2E();
 
@@ -203,17 +219,9 @@ describe("Tables (E2E)", () => {
   it("should be able to list multiple tables for a restaurant", async () => {
     const restaurant = await createRestaurantE2E();
 
-    await app.inject({
-      method: "POST",
-      url: `/restaurants/${restaurant.id}/tables`,
-      payload: { number: 1, capacity: 2, type: "table" },
-    });
-
-    await app.inject({
-      method: "POST",
-      url: `/restaurants/${restaurant.id}/tables`,
-      payload: { number: 2, capacity: 4, type: "table" },
-    });
+    await createTableE2E(restaurant.id, 3);
+    await createTableE2E(restaurant.id, 1);
+    await createTableE2E(restaurant.id, 2);
 
     const response = await app.inject({
       method: "GET",
@@ -221,7 +229,11 @@ describe("Tables (E2E)", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toHaveLength(2);
+    expect(response.json().map(({ number }: { number: string }) => number)).toEqual([
+      "1",
+      "2",
+      "3",
+    ]);
   });
 
   it("should return 400 if restaurantId is invalid on GET", async () => {
@@ -258,5 +270,117 @@ describe("Tables (E2E)", () => {
     expect(body1).toHaveLength(1);
     expect(body1[0].number).toBe("1");
     expect(body1[0].restaurantId).toBe(restaurant1.id);
+  });
+
+  it("deve atualizar todos os campos mutáveis de uma Table", async () => {
+    const restaurant = await createRestaurantE2E();
+    const table = await createTableE2E(restaurant.id, 1);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}/tables/${table.id}`,
+      payload: { number: 2, capacity: 8, type: "room", active: false },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      id: table.id,
+      restaurantId: restaurant.id,
+      number: "2",
+      capacity: 8,
+      type: "room",
+      active: false,
+    });
+    const [persisted] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, table.id));
+    expect(persisted).toMatchObject({
+      number: "2",
+      capacity: 8,
+      type: "room",
+      active: false,
+    });
+  });
+
+  it("deve aplicar atualização parcial de Table", async () => {
+    const restaurant = await createRestaurantE2E();
+    const table = await createTableE2E(restaurant.id, 1);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}/tables/${table.id}`,
+      payload: { capacity: 6 },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      number: "1",
+      capacity: 6,
+      type: "table",
+      active: true,
+    });
+  });
+
+  it("deve ocultar Table de outro Restaurant", async () => {
+    const first = await createRestaurantE2E();
+    const second = await createRestaurantE2E();
+    const table = await createTableE2E(first.id, 1);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${second.id}/tables/${table.id}`,
+      payload: { active: false },
+    });
+
+    expect(response.statusCode).toBe(404);
+    const [persisted] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, table.id));
+    expect(persisted.active).toBe(true);
+  });
+
+  it("deve retornar 404 para Table inexistente", async () => {
+    const restaurant = await createRestaurantE2E();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}/tables/c85d7c92-75d3-4e1b-8f3e-52b86ea9a7f3`,
+      payload: { active: false },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("deve retornar 409 ao atualizar para número já usado", async () => {
+    const restaurant = await createRestaurantE2E();
+    await createTableE2E(restaurant.id, 1);
+    const second = await createTableE2E(restaurant.id, 2);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}/tables/${second.id}`,
+      payload: { number: 1 },
+    });
+
+    expect(response.statusCode).toBe(409);
+  });
+
+  it.each([
+    { capacity: 0 },
+    { type: "counter" },
+    { number: 0 },
+  ])("deve rejeitar campo mutável inválido: %j", async (payload) => {
+    const restaurant = await createRestaurantE2E();
+    const table = await createTableE2E(restaurant.id, 1);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}/tables/${table.id}`,
+      payload,
+    });
+
+    expect(response.statusCode).toBe(400);
   });
 });

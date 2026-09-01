@@ -91,10 +91,9 @@ describe("GetSalesSummaryUseCase", () => {
     expect(summary.orders.cancelled).toBe(1);
     expect(summary.orders.pending).toBe(1);
 
-    expect(summary.revenue.gross).toBe(10000);
-    expect(summary.revenue.paid).toBe(8000);
-
-    expect(summary.averageTicket).toBe(3333);
+    expect(summary.orders.paid).toBe(2);
+    expect(summary.revenue).toBe(8000);
+    expect(summary.averageTicket).toBe(4000);
   });
 
   it("deve retornar 0 para tudo caso o restaurante não tenha pedidos", async () => {
@@ -107,7 +106,8 @@ describe("GetSalesSummaryUseCase", () => {
     const summary = await useCase.execute({ restaurantId: restaurant.id });
 
     expect(summary.orders.total).toBe(0);
-    expect(summary.revenue.gross).toBe(0);
+    expect(summary.orders.paid).toBe(0);
+    expect(summary.revenue).toBe(0);
     expect(summary.averageTicket).toBe(0);
   });
 
@@ -147,7 +147,7 @@ describe("GetSalesSummaryUseCase", () => {
     });
 
     const summary2 = await useCase.execute({ restaurantId: rest2.id });
-    expect(summary2.revenue.gross).toBe(0);
+    expect(summary2.revenue).toBe(0);
   });
 
   it("deve rejeitar se as datas estiverem invertidas", async () => {

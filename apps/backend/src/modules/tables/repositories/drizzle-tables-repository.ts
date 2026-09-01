@@ -2,23 +2,29 @@ import {
   CreateTableInput,
   Table,
   TablesRepository,
+  UpdateTableInput,
 } from "./tables-repository.js";
-import { and, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { tables } from "../../../db/index.js";
 
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export class DrizzleTablesRepository implements TablesRepository {
+  constructor(private readonly client: typeof db | Transaction = db) {}
+
   async create(data: CreateTableInput): Promise<Table> {
-    const [table] = await db.insert(tables).values(data).returning();
+    const [table] = await this.client.insert(tables).values(data).returning();
     return table;
   }
 
   async findByRestaurantId(restaurantId: string): Promise<Table[]> {
-    return db
+    return this.client
       .select()
       .from(tables)
-      .where(eq(tables.restaurantId, restaurantId));
+      .where(eq(tables.restaurantId, restaurantId))
+      .orderBy(asc(tables.number), asc(tables.id));
   }
 
   async findManyByIdsAndRestaurantId(
@@ -27,7 +33,7 @@ export class DrizzleTablesRepository implements TablesRepository {
   ): Promise<Table[]> {
     if (ids.length === 0) return [];
 
-    return await db
+    return await this.client
       .select()
       .from(tables)
       .where(
@@ -42,7 +48,7 @@ export class DrizzleTablesRepository implements TablesRepository {
     restaurantId: string,
     number: string,
   ): Promise<Table | null> {
-    const [table] = await db
+    const [table] = await this.client
       .select()
       .from(tables)
       .where(
@@ -52,7 +58,41 @@ export class DrizzleTablesRepository implements TablesRepository {
     return table || null;
   }
 
-  constructor(private readonly client: any = db) {}
+  async findByIdAndRestaurantId(
+    tableId: string,
+    restaurantId: string,
+  ): Promise<Table | null> {
+    const [table] = await this.client
+      .select()
+      .from(tables)
+      .where(
+        and(
+          eq(tables.id, tableId),
+          eq(tables.restaurantId, restaurantId),
+        ),
+      );
+
+    return table || null;
+  }
+
+  async updateByIdAndRestaurantId(
+    tableId: string,
+    restaurantId: string,
+    data: UpdateTableInput,
+  ): Promise<Table | null> {
+    const [table] = await this.client
+      .update(tables)
+      .set({ ...data, updatedAt: new Date() })
+      .where(
+        and(
+          eq(tables.id, tableId),
+          eq(tables.restaurantId, restaurantId),
+        ),
+      )
+      .returning();
+
+    return table || null;
+  }
 
   async findByIdForUpdate(id: string): Promise<Table | null> {
     const result = await this.client

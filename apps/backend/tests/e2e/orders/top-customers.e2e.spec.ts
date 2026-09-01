@@ -114,6 +114,26 @@ describe("Dashboard - Top Customers (E2E)", () => {
       },
       {
         restaurantId: rest.id,
+        customerId: customerA.id,
+        type: "PICKUP",
+        status: "PENDING",
+        paymentStatus: "PENDING",
+        subtotal: 7000,
+        deliveryFee: 0,
+        total: 7000,
+        customerName: "A",
+        customerPhone: "1",
+        deliveryStreet: null,
+        deliveryNumber: null,
+        deliveryComplement: null,
+        deliveryNeighborhood: null,
+        deliveryCity: null,
+        deliveryState: null,
+        deliveryZipCode: null,
+        observation: null,
+      },
+      {
+        restaurantId: rest.id,
         customerId: customerB.id,
         type: "DELIVERY",
         status: "CANCELLED",
@@ -148,12 +168,14 @@ describe("Dashboard - Top Customers (E2E)", () => {
     expect(data[0].customerName).toBe("Bob");
     expect(data[0].totalSpent).toBe(10000);
     expect(data[0].ordersCount).toBe(1);
+    expect(data[0].paidOrdersCount).toBe(1);
     expect(data[0].averageTicket).toBe(10000);
 
     expect(data[1].customerId).toBe(customerA.id);
     expect(data[1].customerName).toBe("Alice");
     expect(data[1].totalSpent).toBe(5000);
-    expect(data[1].ordersCount).toBe(2);
+    expect(data[1].ordersCount).toBe(3);
+    expect(data[1].paidOrdersCount).toBe(2);
     expect(data[1].averageTicket).toBe(2500);
   });
 

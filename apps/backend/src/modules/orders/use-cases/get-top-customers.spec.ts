@@ -157,11 +157,13 @@ describe("GetTopCustomersUseCase", () => {
     expect(result[0].customerId).toBe(customerB.id);
     expect(result[0].totalSpent).toBe(10000);
     expect(result[0].ordersCount).toBe(1);
+    expect(result[0].paidOrdersCount).toBe(1);
     expect(result[0].averageTicket).toBe(10000);
 
     expect(result[1].customerId).toBe(customerA.id);
     expect(result[1].totalSpent).toBe(5000);
     expect(result[1].ordersCount).toBe(2);
+    expect(result[1].paidOrdersCount).toBe(2);
     expect(result[1].averageTicket).toBe(2500); // 5000 / 2
   });
 

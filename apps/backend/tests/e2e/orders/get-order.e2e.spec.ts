@@ -378,7 +378,10 @@ describe("Get Order (E2E)", () => {
     });
 
     expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({ message: "Pedido não encontrado." });
+    expect(response.json()).toEqual({
+      code: "ORDER_NOT_FOUND",
+      message: "Pedido não encontrado.",
+    });
   });
 
   it("não deve expor o pedido pela rota global antiga", async () => {

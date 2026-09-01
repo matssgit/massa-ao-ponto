@@ -2,6 +2,7 @@ import {
   CreateRestaurantInput,
   Restaurant,
   RestaurantsRepository,
+  UpdateRestaurantInput,
 } from "./restaurants-repository.js";
 
 import { randomUUID } from "node:crypto";
@@ -31,5 +32,16 @@ export class InMemoryRestaurantsRepository implements RestaurantsRepository {
 
   async findAll(): Promise<Restaurant[]> {
     return this.items;
+  }
+
+  async update(
+    id: string,
+    data: UpdateRestaurantInput,
+  ): Promise<Restaurant | null> {
+    const restaurant = await this.findById(id);
+    if (!restaurant) return null;
+
+    Object.assign(restaurant, data, { updatedAt: new Date() });
+    return restaurant;
   }
 }

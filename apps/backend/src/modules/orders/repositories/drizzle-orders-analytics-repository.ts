@@ -21,7 +21,7 @@ import {
 import { db } from "../../../db/index.js";
 
 export class DrizzleOrdersAnalyticsRepository implements OrdersAnalyticsRepository {
-  constructor(private readonly client: any = db) {}
+  constructor(private readonly client: typeof db = db) {}
 
   async getSalesSummary(
     filters: GetSalesSummaryFilters,
@@ -38,8 +38,8 @@ export class DrizzleOrdersAnalyticsRepository implements OrdersAnalyticsReposito
         delivered: sql<number>`cast(count(${orders.id}) filter (where ${orders.status} = 'DELIVERED') as integer)`,
         cancelled: sql<number>`cast(count(${orders.id}) filter (where ${orders.status} = 'CANCELLED') as integer)`,
         pending: sql<number>`cast(count(${orders.id}) filter (where ${orders.status} = 'PENDING') as integer)`,
-        gross: sql<number>`cast(coalesce(sum(${orders.total}) filter (where ${orders.status} != 'CANCELLED'), 0) as integer)`,
-        paid: sql<number>`cast(coalesce(sum(${orders.total}) filter (where ${orders.status} != 'CANCELLED' and ${orders.paymentStatus} = 'PAID'), 0) as integer)`,
+        paidOrders: sql<number>`cast(count(${orders.id}) filter (where ${orders.status} != 'CANCELLED' and ${orders.paymentStatus} = 'PAID') as integer)`,
+        revenue: sql<number>`cast(coalesce(sum(${orders.total}) filter (where ${orders.status} != 'CANCELLED' and ${orders.paymentStatus} = 'PAID'), 0) as integer)`,
       })
       .from(orders)
       .where(and(...conditions));
@@ -64,7 +64,7 @@ export class DrizzleOrdersAnalyticsRepository implements OrdersAnalyticsReposito
         productId: orderItems.productId,
         productName: orderItems.productName,
         quantitySold: sql<number>`cast(sum(${orderItems.quantity}) as integer)`,
-        revenue: sql<number>`cast(sum(${orderItems.subtotal}) as integer)`,
+        revenue: sql<number>`cast(coalesce(sum(${orderItems.subtotal}) filter (where ${orders.paymentStatus} = 'PAID'), 0) as integer)`,
         orderCount: sql<number>`cast(count(distinct ${orders.id}) as integer)`,
       })
       .from(orderItems)
@@ -72,7 +72,9 @@ export class DrizzleOrdersAnalyticsRepository implements OrdersAnalyticsReposito
       .where(and(...conditions))
       .groupBy(orderItems.productId, orderItems.productName)
       .orderBy(
-        desc(sql<number>`sum(${orderItems.subtotal})`),
+        desc(
+          sql<number>`coalesce(sum(${orderItems.subtotal}) filter (where ${orders.paymentStatus} = 'PAID'), 0)`,
+        ),
         desc(sql<number>`sum(${orderItems.quantity})`),
         asc(orderItems.productId),
       )
@@ -97,7 +99,7 @@ export class DrizzleOrdersAnalyticsRepository implements OrdersAnalyticsReposito
         categoryId: productCategories.id,
         categoryName: productCategories.name,
         quantitySold: sql<number>`cast(coalesce(sum(${orderItems.quantity}), 0) as integer)`,
-        revenue: sql<number>`cast(coalesce(sum(${orderItems.subtotal}), 0) as integer)`,
+        revenue: sql<number>`cast(coalesce(sum(${orderItems.subtotal}) filter (where ${orders.paymentStatus} = 'PAID'), 0) as integer)`,
         orderCount: sql<number>`cast(count(distinct ${orders.id}) as integer)`,
       })
       .from(productCategories)
@@ -107,7 +109,9 @@ export class DrizzleOrdersAnalyticsRepository implements OrdersAnalyticsReposito
       .where(and(...conditions))
       .groupBy(productCategories.id, productCategories.name)
       .orderBy(
-        desc(sql<number>`sum(${orderItems.subtotal})`),
+        desc(
+          sql<number>`coalesce(sum(${orderItems.subtotal}) filter (where ${orders.paymentStatus} = 'PAID'), 0)`,
+        ),
         desc(sql<number>`sum(${orderItems.quantity})`),
         asc(productCategories.id),
       )
@@ -131,22 +135,28 @@ export class DrizzleOrdersAnalyticsRepository implements OrdersAnalyticsReposito
         customerId: orders.customerId,
         customerName: customers.name,
         ordersCount: sql<number>`cast(count(${orders.id}) as integer)`,
-        totalSpent: sql<number>`cast(coalesce(sum(${orders.total}), 0) as integer)`,
+        paidOrdersCount: sql<number>`cast(count(${orders.id}) filter (where ${orders.paymentStatus} = 'PAID') as integer)`,
+        totalSpent: sql<number>`cast(coalesce(sum(${orders.total}) filter (where ${orders.paymentStatus} = 'PAID'), 0) as integer)`,
       })
       .from(orders)
       .innerJoin(customers, eq(orders.customerId, customers.id))
       .where(and(...conditions))
       .groupBy(orders.customerId, customers.name)
       .orderBy(
-        desc(sql<number>`sum(${orders.total})`),
+        desc(
+          sql<number>`coalesce(sum(${orders.total}) filter (where ${orders.paymentStatus} = 'PAID'), 0)`,
+        ),
         desc(sql<number>`count(${orders.id})`),
         asc(orders.customerId),
       )
       .limit(filters.limit);
 
-    return result.map((row: any) => ({
+    return result.map((row) => ({
       ...row,
-      averageTicket: Math.floor(row.totalSpent / row.ordersCount),
+      averageTicket:
+        row.paidOrdersCount > 0
+          ? Math.floor(row.totalSpent / row.paidOrdersCount)
+          : 0,
     }));
   }
 }

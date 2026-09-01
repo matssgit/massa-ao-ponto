@@ -15,14 +15,14 @@ describe("List Tables Use Case", () => {
   it("should be able to list tables for a restaurant", async () => {
     await tablesRepository.create({
       restaurantId: "rest-1",
-      number: "01",
-      capacity: 2,
+      number: "02",
+      capacity: 4,
       type: "table",
     });
     await tablesRepository.create({
       restaurantId: "rest-1",
-      number: "02",
-      capacity: 4,
+      number: "01",
+      capacity: 2,
       type: "table",
     });
     await tablesRepository.create({

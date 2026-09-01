@@ -2,6 +2,7 @@ import {
   CreateTableInput,
   Table,
   TablesRepository,
+  UpdateTableInput,
 } from "./tables-repository.js";
 
 import { randomUUID } from "node:crypto";
@@ -26,7 +27,13 @@ export class InMemoryTablesRepository implements TablesRepository {
   }
 
   async findByRestaurantId(restaurantId: string): Promise<Table[]> {
-    return this.items.filter((item) => item.restaurantId === restaurantId);
+    return this.items
+      .filter((item) => item.restaurantId === restaurantId)
+      .sort((a, b) => {
+        const numberComparison = a.number.localeCompare(b.number);
+        if (numberComparison !== 0) return numberComparison;
+        return a.id.localeCompare(b.id);
+      });
   }
 
   async findManyByIdsAndRestaurantId(
@@ -47,6 +54,30 @@ export class InMemoryTablesRepository implements TablesRepository {
       (item) => item.restaurantId === restaurantId && item.number === number,
     );
     return table || null;
+  }
+
+  async findByIdAndRestaurantId(
+    tableId: string,
+    restaurantId: string,
+  ): Promise<Table | null> {
+    return (
+      this.items.find(
+        (item) =>
+          item.id === tableId && item.restaurantId === restaurantId,
+      ) || null
+    );
+  }
+
+  async updateByIdAndRestaurantId(
+    tableId: string,
+    restaurantId: string,
+    data: UpdateTableInput,
+  ): Promise<Table | null> {
+    const table = await this.findByIdAndRestaurantId(tableId, restaurantId);
+    if (!table) return null;
+
+    Object.assign(table, data, { updatedAt: new Date() });
+    return table;
   }
 
   async findByIdForUpdate(id: string): Promise<Table | null> {

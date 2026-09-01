@@ -42,13 +42,23 @@ export class InMemoryOrdersAnalyticsRepository implements OrdersAnalyticsReposit
         if (order.status === "CANCELLED") acc.cancelled += 1;
         if (order.status === "PENDING") acc.pending += 1;
 
-        if (order.status !== "CANCELLED") {
-          acc.gross += order.total;
-          if (order.paymentStatus === "PAID") acc.paid += order.total;
+        if (
+          order.status !== "CANCELLED" &&
+          order.paymentStatus === "PAID"
+        ) {
+          acc.paidOrders += 1;
+          acc.revenue += order.total;
         }
         return acc;
       },
-      { total: 0, delivered: 0, cancelled: 0, pending: 0, gross: 0, paid: 0 },
+      {
+        total: 0,
+        delivered: 0,
+        cancelled: 0,
+        pending: 0,
+        paidOrders: 0,
+        revenue: 0,
+      },
     );
   }
 
@@ -64,6 +74,11 @@ export class InMemoryOrdersAnalyticsRepository implements OrdersAnalyticsReposit
     });
 
     const validOrderIds = new Set(validOrders.map((o) => o.id));
+    const paidOrderIds = new Set(
+      validOrders
+        .filter((order) => order.paymentStatus === "PAID")
+        .map((order) => order.id),
+    );
     const itemsMap = new Map<string, TopProductMetrics>();
 
     for (const item of this.orderItemsRepository.items) {
@@ -81,7 +96,7 @@ export class InMemoryOrdersAnalyticsRepository implements OrdersAnalyticsReposit
 
       const metric = itemsMap.get(item.productId)!;
       metric.quantitySold += item.quantity;
-      metric.revenue += item.subtotal;
+      if (paidOrderIds.has(item.orderId)) metric.revenue += item.subtotal;
     }
 
     for (const metric of itemsMap.values()) {
@@ -116,6 +131,11 @@ export class InMemoryOrdersAnalyticsRepository implements OrdersAnalyticsReposit
     });
 
     const validOrderIds = new Set(validOrders.map((o) => o.id));
+    const paidOrderIds = new Set(
+      validOrders
+        .filter((order) => order.paymentStatus === "PAID")
+        .map((order) => order.id),
+    );
     const categoriesMap = new Map<string, CategoryPerformanceMetrics>();
 
     for (const item of this.orderItemsRepository.items) {
@@ -143,7 +163,7 @@ export class InMemoryOrdersAnalyticsRepository implements OrdersAnalyticsReposit
 
       const metric = categoriesMap.get(category.id)!;
       metric.quantitySold += item.quantity;
-      metric.revenue += item.subtotal;
+      if (paidOrderIds.has(item.orderId)) metric.revenue += item.subtotal;
     }
 
     for (const metric of categoriesMap.values()) {
@@ -192,6 +212,7 @@ export class InMemoryOrdersAnalyticsRepository implements OrdersAnalyticsReposit
           customerId: order.customerId,
           customerName: customer?.name ?? "Desconhecido",
           ordersCount: 0,
+          paidOrdersCount: 0,
           totalSpent: 0,
           averageTicket: 0,
         });
@@ -199,11 +220,17 @@ export class InMemoryOrdersAnalyticsRepository implements OrdersAnalyticsReposit
 
       const metric = customerMap.get(order.customerId)!;
       metric.ordersCount += 1;
-      metric.totalSpent += order.total;
+      if (order.paymentStatus === "PAID") {
+        metric.paidOrdersCount += 1;
+        metric.totalSpent += order.total;
+      }
     }
 
     for (const metric of customerMap.values()) {
-      metric.averageTicket = Math.floor(metric.totalSpent / metric.ordersCount);
+      metric.averageTicket =
+        metric.paidOrdersCount > 0
+          ? Math.floor(metric.totalSpent / metric.paidOrdersCount)
+          : 0;
     }
 
     return Array.from(customerMap.values())

@@ -7,4 +7,10 @@ export const createRestaurantSchema = z.object({
   timezone: z.string().min(1, "Timezone is required"),
 });
 
+export const updateRestaurantParamsSchema = z.object({
+  restaurantId: z.string().uuid("Invalid restaurant ID format."),
+});
+
+export const updateRestaurantBodySchema = createRestaurantSchema.partial();
+
 export type CreateRestaurantBody = z.infer<typeof createRestaurantSchema>;

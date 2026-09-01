@@ -99,9 +99,9 @@ describe("Dashboard - Sales Summary (E2E)", () => {
       expect(data.orders.cancelled).toBe(1);
       expect(data.orders.pending).toBe(1);
 
-      expect(data.revenue.gross).toBe(7000); // 5000 + 2000
-      expect(data.revenue.paid).toBe(5000);
-      expect(data.averageTicket).toBe(3500); // 7000 / 2
+      expect(data.orders.paid).toBe(1);
+      expect(data.revenue).toBe(5000);
+      expect(data.averageTicket).toBe(5000);
     });
 
     it("deve filtrar corretamente pelo período", async () => {
@@ -126,7 +126,7 @@ describe("Dashboard - Sales Summary (E2E)", () => {
       });
 
       expect(response.json().orders.total).toBe(1);
-      expect(response.json().revenue.gross).toBe(3000);
+      expect(response.json().revenue).toBe(3000);
     });
 
     it("deve isolar métricas entre restaurantes", async () => {
@@ -151,7 +151,7 @@ describe("Dashboard - Sales Summary (E2E)", () => {
       });
 
       expect(response.json().orders.total).toBe(0);
-      expect(response.json().revenue.gross).toBe(0);
+      expect(response.json().revenue).toBe(0);
     });
 
     it("deve retornar 400 para datas invertidas", async () => {
@@ -160,6 +160,10 @@ describe("Dashboard - Sales Summary (E2E)", () => {
         url: `/restaurants/${randomUUID()}/dashboard/sales-summary?startsAt=2026-08-25&endsAt=2026-08-24`,
       });
       expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        code: "INVALID_PERIOD_FILTER",
+        message: "A data de início deve ser anterior ou igual à data de fim.",
+      });
     });
   });
 });

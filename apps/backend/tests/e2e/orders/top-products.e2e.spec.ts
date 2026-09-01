@@ -205,19 +205,17 @@ describe("Dashboard - Top Products (E2E)", () => {
 
     expect(data).toHaveLength(2);
 
-    // P2: Vendeu 1 (Order1) + 3 (Order2) = 4 quantity. Revenue = 8000. Count = 2 orders.
-    expect(data[0].productId).toBe(p2);
-    expect(data[0].productName).toBe("P2");
-    expect(data[0].revenue).toBe(8000);
-    expect(data[0].quantitySold).toBe(4);
-    expect(data[0].orderCount).toBe(2);
+    expect(data[0].productId).toBe(p1);
+    expect(data[0].productName).toBe("P1");
+    expect(data[0].revenue).toBe(4000);
+    expect(data[0].quantitySold).toBe(2);
+    expect(data[0].orderCount).toBe(1);
 
-    // P1: Vendeu 2 (Order1). Order 3 cancelado não conta. Revenue = 4000. Count = 1 order.
-    expect(data[1].productId).toBe(p1);
-    expect(data[1].productName).toBe("P1");
-    expect(data[1].revenue).toBe(4000);
-    expect(data[1].quantitySold).toBe(2);
-    expect(data[1].orderCount).toBe(1);
+    expect(data[1].productId).toBe(p2);
+    expect(data[1].productName).toBe("P2");
+    expect(data[1].revenue).toBe(2000);
+    expect(data[1].quantitySold).toBe(4);
+    expect(data[1].orderCount).toBe(2);
   });
 
   it("deve retornar 400 para período invertido", async () => {
@@ -227,4 +225,39 @@ describe("Dashboard - Top Products (E2E)", () => {
     });
     expect(response.statusCode).toBe(400);
   });
+
+  it.each(["top-products", "category-performance", "top-customers"])(
+    "aceita limit 100 em %s",
+    async (endpoint) => {
+      const [rest] = await db
+        .insert(restaurants)
+        .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
+        .returning();
+
+      const response = await app.inject({
+        method: "GET",
+        url: `/restaurants/${rest.id}/dashboard/${endpoint}?limit=100`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual([]);
+    },
+  );
+
+  it.each(["top-products", "category-performance", "top-customers"])(
+    "rejeita limit acima de 100 em %s",
+    async (endpoint) => {
+      const response = await app.inject({
+        method: "GET",
+        url: `/restaurants/${randomUUID()}/dashboard/${endpoint}?limit=101`,
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: "Validation error.",
+        issues: expect.any(Array),
+      });
+    },
+  );
 });
