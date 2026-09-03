@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import fastify, { FastifyInstance } from "fastify";
 import { z } from "zod";
 
@@ -10,6 +10,7 @@ describe("errorHandler", () => {
 
   afterEach(async () => {
     await testApp?.close();
+    vi.restoreAllMocks();
   });
 
   it("retorna código estável e issues para erro de validação", async () => {
@@ -27,6 +28,22 @@ describe("errorHandler", () => {
       message: "Validation error.",
       issues: expect.any(Array),
     });
+  });
+
+  it("não registra nem devolve credenciais em falhas inesperadas de auth", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    testApp = fastify();
+    testApp.setErrorHandler(errorHandler);
+    testApp.post("/auth/login", async () => {
+      throw new Error("query with sensitive-password-and-token");
+    });
+    const response = await testApp.inject({ method: "POST", url: "/auth/login" });
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      code: "INTERNAL_SERVER_ERROR", message: "Internal server error.",
+    });
+    expect(log).toHaveBeenCalledExactlyOnceWith("Authentication request failed.");
+    expect(response.body).not.toContain("sensitive-password-and-token");
   });
 
   it("retorna código estável sem alterar a mensagem de domínio", async () => {

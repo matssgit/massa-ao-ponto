@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import {
   addons,
   customers,
@@ -19,6 +20,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Orders (E2E)", () => {
   beforeAll(async () => {
@@ -46,14 +49,10 @@ describe("Orders (E2E)", () => {
   });
 
   async function createDeps() {
-    const restRes = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: { name: "Rest", address: "Rua", phone: "11", timezone: "UTC" },
-    });
-    const restaurant = restRes.json();
+    const restaurant = await auth.createRestaurant({ name: "Rest", address: "Rua", phone: "11", timezone: "UTC" });
 
     const catRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/product-categories`,
       payload: { name: "Pizza" },
@@ -61,6 +60,7 @@ describe("Orders (E2E)", () => {
     const category = catRes.json();
 
     const prodRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/products`,
       payload: { categoryId: category.id, name: "Calabresa", price: 4000 },
@@ -68,6 +68,7 @@ describe("Orders (E2E)", () => {
     const product = prodRes.json();
 
     const addonRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/addons`,
       payload: { name: "Borda Recheada", price: 1000 },
@@ -75,6 +76,7 @@ describe("Orders (E2E)", () => {
     const addon = addonRes.json();
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/products/${product.id}/addons/${addon.id}`,
     });
@@ -132,6 +134,7 @@ describe("Orders (E2E)", () => {
       const { restaurant, product, customer } = await createDeps();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -168,6 +171,7 @@ describe("Orders (E2E)", () => {
       const { restaurant, product, customer } = await createDeps();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -186,6 +190,7 @@ describe("Orders (E2E)", () => {
       const { restaurant, product, addon, customer } = await createDeps();
       
       const addon2Res = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/addons`,
         payload: { name: "Bacon", price: 500 },
@@ -193,11 +198,13 @@ describe("Orders (E2E)", () => {
       const addon2 = addon2Res.json();
 
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/products/${product.id}/addons/${addon2.id}`,
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -257,6 +264,7 @@ describe("Orders (E2E)", () => {
       const { restaurant, product, customer } = await createDeps();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -274,6 +282,7 @@ describe("Orders (E2E)", () => {
       const { restaurant, product } = await createDeps();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -291,6 +300,7 @@ describe("Orders (E2E)", () => {
       const { restaurant, product, customer } = await createDeps();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -313,11 +323,13 @@ describe("Orders (E2E)", () => {
       };
 
       const withoutCustomer = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: basePayload,
       });
       const withBoth = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -334,6 +346,7 @@ describe("Orders (E2E)", () => {
     it("deve reutilizar customer global entre restaurantes e ocultar customerId cross-tenant", async () => {
       const first = await createDeps();
       const firstOrder = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${first.restaurant.id}/orders`,
         payload: {
@@ -343,20 +356,15 @@ describe("Orders (E2E)", () => {
           deliveryFee: 0,
         },
       });
-      const secondRestaurant = (
-        await app.inject({
-          method: "POST",
-          url: "/restaurants",
-          payload: {
+      const secondRestaurant = await auth.createRestaurant({
             name: "Outro",
             address: "Rua",
             phone: "22",
             timezone: "UTC",
-          },
-        })
-      ).json();
+      });
       const secondCategory = (
         await app.inject({
+          headers: auth.headers,
           method: "POST",
           url: `/restaurants/${secondRestaurant.id}/product-categories`,
           payload: { name: "Pizza" },
@@ -364,6 +372,7 @@ describe("Orders (E2E)", () => {
       ).json();
       const secondProduct = (
         await app.inject({
+          headers: auth.headers,
           method: "POST",
           url: `/restaurants/${secondRestaurant.id}/products`,
           payload: {
@@ -375,6 +384,7 @@ describe("Orders (E2E)", () => {
       ).json();
 
       const crossTenantId = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${secondRestaurant.id}/orders`,
         payload: {
@@ -385,6 +395,7 @@ describe("Orders (E2E)", () => {
         },
       });
       const globalReuse = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${secondRestaurant.id}/orders`,
         payload: {
@@ -398,6 +409,7 @@ describe("Orders (E2E)", () => {
         },
       });
       const relatedId = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${secondRestaurant.id}/orders`,
         payload: {
@@ -408,6 +420,7 @@ describe("Orders (E2E)", () => {
         },
       });
       const tenantAwareCustomer = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${first.restaurant.id}/customers/${firstOrder.json().customerId}`,
       });
@@ -443,11 +456,13 @@ describe("Orders (E2E)", () => {
 
       const responses = await Promise.all([
         app.inject({
+          headers: auth.headers,
           method: "POST",
           url: `/restaurants/${restaurant.id}/orders`,
           payload,
         }),
         app.inject({
+          headers: auth.headers,
           method: "POST",
           url: `/restaurants/${restaurant.id}/orders`,
           payload,
@@ -471,12 +486,14 @@ describe("Orders (E2E)", () => {
       const { restaurant, product } = await createDeps();
       const table = (
         await app.inject({
+          headers: auth.headers,
           method: "POST",
           url: `/restaurants/${restaurant.id}/tables`,
           payload: { number: 1, capacity: 4, type: "table" },
         })
       ).json();
       const first = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -488,6 +505,7 @@ describe("Orders (E2E)", () => {
         },
       });
       const rejected = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -515,6 +533,7 @@ describe("Orders (E2E)", () => {
       const { restaurant, createdOrders } = await createListFixtures(21);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/orders`,
       });
@@ -550,6 +569,7 @@ describe("Orders (E2E)", () => {
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/orders?page=2&limit=2`,
       });
@@ -581,6 +601,7 @@ describe("Orders (E2E)", () => {
       const { restaurant } = await createListFixtures(3);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/orders?page=3&limit=2`,
       });
@@ -603,6 +624,7 @@ describe("Orders (E2E)", () => {
       const { restaurant } = await createDeps();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/orders`,
       });
@@ -628,6 +650,7 @@ describe("Orders (E2E)", () => {
       );
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/orders?status=CONFIRMED&page=2&limit=2`,
       });
@@ -651,8 +674,9 @@ describe("Orders (E2E)", () => {
       "deve rejeitar a query inválida %s",
       async (query) => {
         const response = await app.inject({
+          headers: auth.headers,
           method: "GET",
-          url: `/restaurants/${randomUUID()}/orders?${query}`,
+          url: `/restaurants/${(await auth.createRestaurant()).id}/orders?${query}`,
         });
 
         expect(response.statusCode).toBe(400);

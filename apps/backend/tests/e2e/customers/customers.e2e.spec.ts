@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -15,6 +16,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Customers (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -34,13 +37,9 @@ describe("Customers (E2E)", () => {
   });
 
   async function createRestaurant(name: string, tableNumber: number) {
-    const restaurantResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: { name, address: "Rua", phone: "11", timezone: "UTC" },
-    });
-    const restaurant = restaurantResponse.json();
+    const restaurant = await auth.createRestaurant({ name, address: "Rua", phone: "11", timezone: "UTC" });
     const tableResponse = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: tableNumber, capacity: 4, type: "table" },
@@ -56,6 +55,7 @@ describe("Customers (E2E)", () => {
     startsAt: string,
   ) {
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurantId}/reservations`,
       payload: {
@@ -96,6 +96,7 @@ describe("Customers (E2E)", () => {
     );
 
     const ownerResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${first.restaurant.id}/customers/${reservation.customerId}`,
     });
@@ -103,6 +104,7 @@ describe("Customers (E2E)", () => {
     expect(ownerResponse.json().id).toBe(reservation.customerId);
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${second.restaurant.id}/customers/${reservation.customerId}`,
     });
@@ -118,12 +120,14 @@ describe("Customers (E2E)", () => {
     await createOrder(customer.id, restaurant.id);
 
     const customerResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/customers/${customer.id}`,
     });
     expect(customerResponse.statusCode).toBe(200);
 
     const reservationsResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/customers/${customer.id}/reservations`,
     });
@@ -143,10 +147,12 @@ describe("Customers (E2E)", () => {
     await createOrder(reservation.customerId, second.restaurant.id);
 
     const firstResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${first.restaurant.id}/customers/${reservation.customerId}`,
     });
     const secondResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${second.restaurant.id}/customers/${reservation.customerId}`,
     });
@@ -172,10 +178,12 @@ describe("Customers (E2E)", () => {
     );
 
     const firstResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${first.restaurant.id}/customers/${firstReservation.customerId}/reservations`,
     });
     const secondResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${second.restaurant.id}/customers/${firstReservation.customerId}/reservations`,
     });
@@ -206,6 +214,7 @@ describe("Customers (E2E)", () => {
     );
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/customers/${first.customerId}/reservations`,
     });
@@ -226,10 +235,12 @@ describe("Customers (E2E)", () => {
 
     for (const customerId of [customer.id, randomUUID()]) {
       const customerResponse = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/customers/${customerId}`,
       });
       const reservationsResponse = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/customers/${customerId}/reservations`,
       });
@@ -297,14 +308,17 @@ describe("Customers (E2E)", () => {
     await createOrder(shared.id, second.restaurant.id);
 
     const firstPageResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${first.restaurant.id}/customers?page=1&limit=2`,
     });
     const finalPageResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${first.restaurant.id}/customers?page=2&limit=2`,
     });
     const secondTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${second.restaurant.id}/customers`,
     });
@@ -395,6 +409,7 @@ describe("Customers (E2E)", () => {
 
     for (const search of searches) {
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${first.restaurant.id}/customers?search=${encodeURIComponent(search)}`,
       });
@@ -421,6 +436,7 @@ describe("Customers (E2E)", () => {
     }
 
     const emptyResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${first.restaurant.id}/customers?search=inexistente`,
     });
@@ -443,8 +459,9 @@ describe("Customers (E2E)", () => {
     "deve rejeitar query administrativa inválida %s",
     async (query) => {
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
-        url: `/restaurants/${randomUUID()}/customers?${query}`,
+        url: `/restaurants/${(await auth.createRestaurant()).id}/customers?${query}`,
       });
 
       expect(response.statusCode).toBe(400);
@@ -453,21 +470,25 @@ describe("Customers (E2E)", () => {
 
   it("deve remover rotas globais e validar UUIDs nas rotas tenant-aware", async () => {
     const customerId = randomUUID();
-    const restaurantId = randomUUID();
+    const restaurantId = (await auth.createRestaurant()).id;
 
     const oldCustomerResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/customers/${customerId}`,
     });
     const oldReservationsResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/customers/${customerId}/reservations`,
     });
     const invalidCustomerResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurantId}/customers/invalid-uuid`,
     });
     const invalidRestaurantResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/invalid-uuid/customers/${customerId}`,
     });

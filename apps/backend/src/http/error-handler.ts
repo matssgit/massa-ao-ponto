@@ -42,6 +42,7 @@ import { TableNumberAlreadyExistsError } from "../modules/tables/errors/table-nu
 import { TableOccupiedError } from "../modules/orders/errors/table-occupied-error.js";
 import { TableRestaurantMismatchError } from "../modules/reservations/errors/table-restaurant-mismatch-error.js";
 import { ZodError } from "zod";
+import { AuthRateLimitError, ForbiddenError, InvalidCredentialsError, InvalidCsrfError, UnauthenticatedError } from "../modules/auth/errors/auth-errors.js";
 
 export const errorHandler = (
   error: FastifyError,
@@ -56,7 +57,7 @@ export const errorHandler = (
     });
   }
 
-  const sendDomainError = (statusCode: 400 | 404 | 409) =>
+  const sendDomainError = (statusCode: 400 | 401 | 403 | 404 | 409 | 429) =>
     reply.status(statusCode).send({
       code: error.name
         .replace(/Error$/, "")
@@ -64,6 +65,12 @@ export const errorHandler = (
         .toUpperCase(),
       message: error.message,
     });
+
+  if (error instanceof InvalidCredentialsError || error instanceof UnauthenticatedError) {
+    return sendDomainError(401);
+  }
+  if (error instanceof InvalidCsrfError || error instanceof ForbiddenError) return sendDomainError(403);
+  if (error instanceof AuthRateLimitError) return sendDomainError(429);
 
   if (
     error instanceof RestaurantNotFoundError ||
@@ -121,7 +128,18 @@ export const errorHandler = (
     return sendDomainError(409);
   }
 
-  console.error(error);
+  if (request.routeOptions.url?.startsWith("/auth/")) {
+    // Parser/DB errors may carry credentials or query parameters: never log their payload.
+    if (error.statusCode === 400 || error.statusCode === 413 || error.statusCode === 415) {
+      return reply.status(error.statusCode).send({
+        code: "INVALID_AUTH_REQUEST",
+        message: "Invalid authentication request.",
+      });
+    }
+    console.error("Authentication request failed.");
+  } else {
+    console.error(error);
+  }
 
   return reply.status(500).send({
     code: "INTERNAL_SERVER_ERROR",

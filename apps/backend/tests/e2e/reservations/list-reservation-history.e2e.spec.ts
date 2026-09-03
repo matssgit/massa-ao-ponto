@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -17,6 +18,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("List Reservation History (E2E)", () => {
   beforeAll(async () => {
@@ -43,19 +46,15 @@ describe("List Reservation History (E2E)", () => {
   });
 
   async function setupBase() {
-    const restaurantRes = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Restaurante Teste",
         address: "Rua",
         phone: "11",
         timezone: "UTC",
-      },
-    });
-    const restaurant = restaurantRes.json();
+      });
 
     const tableRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 1, capacity: 4, type: "table" },
@@ -66,18 +65,14 @@ describe("List Reservation History (E2E)", () => {
 
   it("deve retornar 200 com evento inicial de criação", async () => {
     const { restaurant, table } = await setupBase();
-    const otherRestaurantResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const otherRestaurant = await auth.createRestaurant({
         name: "Outro Restaurante",
         address: "Rua",
         phone: "22",
         timezone: "UTC",
-      },
-    });
-    const otherRestaurant = otherRestaurantResponse.json();
+      });
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -91,6 +86,7 @@ describe("List Reservation History (E2E)", () => {
     const reservation = createRes.json();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/history`,
     });
@@ -102,6 +98,7 @@ describe("List Reservation History (E2E)", () => {
     expect(history[0].newStatus).toBe("SCHEDULED");
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${otherRestaurant.id}/reservations/${reservation.id}/history`,
     });
@@ -109,6 +106,7 @@ describe("List Reservation History (E2E)", () => {
     expect(crossTenantResponse.json()).not.toBeInstanceOf(Array);
 
     const oldRouteResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/reservations/${reservation.id}/history`,
     });
@@ -118,6 +116,7 @@ describe("List Reservation History (E2E)", () => {
   it("deve retornar eventos ordenados após alteração de status", async () => {
     const { restaurant, table } = await setupBase();
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -131,12 +130,14 @@ describe("List Reservation History (E2E)", () => {
     const reservation = createRes.json();
 
     await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
       payload: { status: "CONFIRMED" },
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/history`,
     });
@@ -155,6 +156,7 @@ describe("List Reservation History (E2E)", () => {
     const endsAt = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString();
 
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -168,11 +170,13 @@ describe("List Reservation History (E2E)", () => {
     const reservation = createRes.json();
 
     await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/history`,
     });
@@ -187,6 +191,7 @@ describe("List Reservation History (E2E)", () => {
     const { restaurant, table } = await setupBase();
 
     const res1 = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -198,6 +203,7 @@ describe("List Reservation History (E2E)", () => {
       },
     });
     const res2 = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -210,12 +216,14 @@ describe("List Reservation History (E2E)", () => {
     });
 
     await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${res1.json().id}/status`,
       payload: { status: "CONFIRMED" },
     });
 
     const historyRes2 = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations/${res2.json().id}/history`,
     });
@@ -225,6 +233,7 @@ describe("List Reservation History (E2E)", () => {
 
   it("deve retornar 404 para reserva inexistente", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}/history`,
     });
@@ -233,8 +242,9 @@ describe("List Reservation History (E2E)", () => {
 
   it("deve retornar 400 para UUID inválido", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
-      url: `/restaurants/${randomUUID()}/reservations/invalid-id/history`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations/invalid-id/history`,
     });
     expect(response.statusCode).toBe(400);
   });

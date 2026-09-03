@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -17,6 +18,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Get Reservation (E2E)", () => {
   beforeAll(async () => {
@@ -41,19 +44,15 @@ describe("Get Reservation (E2E)", () => {
   });
 
   async function setupBase() {
-    const restaurantRes = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Restaurante Teste",
         address: "Rua",
         phone: "11",
         timezone: "UTC",
-      },
-    });
-    const restaurant = restaurantRes.json();
+      });
 
     const tableRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 1, capacity: 4, type: "table" },
@@ -65,19 +64,15 @@ describe("Get Reservation (E2E)", () => {
 
   it("deve retornar 200 com os dados corretos de uma reserva existente", async () => {
     const { restaurant, table } = await setupBase();
-    const otherRestaurantResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const otherRestaurant = await auth.createRestaurant({
         name: "Outro Restaurante",
         address: "Rua",
         phone: "22",
         timezone: "UTC",
-      },
-    });
-    const otherRestaurant = otherRestaurantResponse.json();
+      });
 
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -91,6 +86,7 @@ describe("Get Reservation (E2E)", () => {
     const createdReservation = createRes.json();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}`,
     });
@@ -101,12 +97,14 @@ describe("Get Reservation (E2E)", () => {
     expect(fetchedReservation.status).toBe("SCHEDULED");
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${otherRestaurant.id}/reservations/${createdReservation.id}`,
     });
     expect(crossTenantResponse.statusCode).toBe(404);
 
     const oldRouteResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/reservations/${createdReservation.id}`,
     });
@@ -115,6 +113,7 @@ describe("Get Reservation (E2E)", () => {
 
   it("deve retornar 404 ao buscar uma reserva inexistente", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}`,
     });
@@ -123,8 +122,9 @@ describe("Get Reservation (E2E)", () => {
 
   it("deve retornar 400 ao buscar utilizando um UUID inválido", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
-      url: `/restaurants/${randomUUID()}/reservations/invalid-uuid`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations/invalid-uuid`,
     });
     expect(response.statusCode).toBe(400);
   });
@@ -135,6 +135,7 @@ describe("Get Reservation (E2E)", () => {
     const endsAt = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString();
 
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -148,12 +149,14 @@ describe("Get Reservation (E2E)", () => {
     const createdReservation = createRes.json();
 
     const cancelResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}/cancel`,
     });
     expect(cancelResponse.statusCode).toBe(200);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations/${createdReservation.id}`,
     });

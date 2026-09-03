@@ -3,4 +3,5 @@ packages:
   - "packages/*"
   - "automation"
 allowBuilds:
+  argon2: true
   esbuild: false

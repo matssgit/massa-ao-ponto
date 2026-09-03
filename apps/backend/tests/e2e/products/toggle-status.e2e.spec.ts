@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   productCategories,
@@ -7,6 +8,8 @@ import {
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
+
+const auth = useTestAuth(app);
 
 describe("Toggle Product Status (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -23,6 +26,7 @@ describe("Toggle Product Status (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest.id, name: "C", displayOrder: 1 })
@@ -41,6 +45,7 @@ describe("Toggle Product Status (E2E)", () => {
       .returning();
 
     const response1 = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/products/${prod.id}/toggle-status`,
     });
@@ -48,6 +53,7 @@ describe("Toggle Product Status (E2E)", () => {
     expect(response1.json().active).toBe(false);
 
     const response2 = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/products/${prod.id}/toggle-status`,
     });

@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -16,6 +17,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Cancel Reservation (E2E)", () => {
   beforeAll(async () => {
@@ -40,19 +43,15 @@ describe("Cancel Reservation (E2E)", () => {
   });
 
   async function setupBase() {
-    const restaurantRes = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Restaurante Teste",
         address: "Rua",
         phone: "11",
         timezone: "UTC",
-      },
-    });
-    const restaurant = restaurantRes.json();
+      });
 
     const tableRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 1, capacity: 4, type: "table" },
@@ -64,21 +63,17 @@ describe("Cancel Reservation (E2E)", () => {
 
   it("deve cancelar com sucesso uma reserva distante (SCHEDULED) e liberar disponibilidade", async () => {
     const { restaurant, table } = await setupBase();
-    const otherRestaurantResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const otherRestaurant = await auth.createRestaurant({
         name: "Outro Restaurante",
         address: "Rua",
         phone: "22",
         timezone: "UTC",
-      },
-    });
-    const otherRestaurant = otherRestaurantResponse.json();
+      });
     const startsAt = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
     const endsAt = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString();
 
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -92,12 +87,14 @@ describe("Cancel Reservation (E2E)", () => {
     const reservation = createRes.json();
 
     const checkAvailabilityOccupied = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/availability?startsAt=${startsAt}&endsAt=${endsAt}`,
     });
     expect(checkAvailabilityOccupied.json()).toHaveLength(0);
 
     const bypassResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
       payload: { status: "CANCELLED" },
@@ -117,6 +114,7 @@ describe("Cancel Reservation (E2E)", () => {
     expect(historyBeforeCancel).toHaveLength(1);
 
     const cancelRes = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
@@ -125,6 +123,7 @@ describe("Cancel Reservation (E2E)", () => {
     expect(cancelRes.json().status).toBe("CANCELLED");
 
     const checkAvailabilityFree = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/availability?startsAt=${startsAt}&endsAt=${endsAt}`,
     });
@@ -139,6 +138,7 @@ describe("Cancel Reservation (E2E)", () => {
     expect(history[1].newStatus).toBe("CANCELLED");
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${otherRestaurant.id}/reservations/${reservation.id}/cancel`,
     });
@@ -151,6 +151,7 @@ describe("Cancel Reservation (E2E)", () => {
     expect(preservedHistory).toHaveLength(2);
 
     const oldRouteResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/reservations/${reservation.id}/cancel`,
     });
@@ -163,6 +164,7 @@ describe("Cancel Reservation (E2E)", () => {
     const endsAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
 
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -176,6 +178,7 @@ describe("Cancel Reservation (E2E)", () => {
     const reservation = createRes.json();
 
     const cancelRes = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
@@ -183,6 +186,7 @@ describe("Cancel Reservation (E2E)", () => {
     expect(cancelRes.statusCode).toBe(409);
 
     const bypassResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
       payload: { status: "CANCELLED" },
@@ -208,6 +212,7 @@ describe("Cancel Reservation (E2E)", () => {
     const endsAt = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString();
 
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -221,11 +226,13 @@ describe("Cancel Reservation (E2E)", () => {
     const reservation = createRes.json();
 
     await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
 
     const secondCancelRes = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/cancel`,
     });
@@ -234,6 +241,7 @@ describe("Cancel Reservation (E2E)", () => {
 
   it("deve retornar 404 para reserva inexistente", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}/cancel`,
     });
@@ -242,8 +250,9 @@ describe("Cancel Reservation (E2E)", () => {
 
   it("deve retornar 400 para UUID inválido", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
-      url: `/restaurants/${randomUUID()}/reservations/invalid-id/cancel`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations/invalid-id/cancel`,
     });
     expect(response.statusCode).toBe(400);
   });

@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -11,6 +12,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Delete Product (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -30,6 +33,7 @@ describe("Delete Product (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest.id, name: "Doces", displayOrder: 1 })
@@ -46,6 +50,7 @@ describe("Delete Product (E2E)", () => {
       .returning();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "DELETE",
       url: `/restaurants/${rest.id}/products/${prod.id}`,
     });
@@ -57,6 +62,7 @@ describe("Delete Product (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [customer] = await db
       .insert(customers)
       .values({ name: "C", phone: "11" })
@@ -99,6 +105,7 @@ describe("Delete Product (E2E)", () => {
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "DELETE",
       url: `/restaurants/${rest.id}/products/${prod.id}`,
     });
@@ -110,10 +117,12 @@ describe("Delete Product (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest1.id);
     const [rest2] = await db
       .insert(restaurants)
       .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest2.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest1.id, name: "Doces", displayOrder: 1 })
@@ -130,6 +139,7 @@ describe("Delete Product (E2E)", () => {
       .returning();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "DELETE",
       url: `/restaurants/${rest2.id}/products/${prod.id}`,
     });

@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -15,6 +16,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Delivery Flow (E2E)", () => {
   let customerSequence = 0;
@@ -40,6 +43,7 @@ describe("Delivery Flow (E2E)", () => {
       .insert(restaurants)
       .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
       .returning();
+    await auth.grant(restaurant.id);
     const [customer] = await db
       .insert(customers)
       .values({
@@ -76,6 +80,7 @@ describe("Delivery Flow (E2E)", () => {
       const order = await createOrder("DELIVERY", "PREPARING");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
@@ -94,6 +99,7 @@ describe("Delivery Flow (E2E)", () => {
       const order = await createOrder("DELIVERY", "READY");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
@@ -112,6 +118,7 @@ describe("Delivery Flow (E2E)", () => {
       const order = await createOrder("DELIVERY", status);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
@@ -128,6 +135,7 @@ describe("Delivery Flow (E2E)", () => {
     it("deve rejeitar delivery para pedido PICKUP (409)", async () => {
       const order = await createOrder("PICKUP", "PENDING");
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
@@ -139,6 +147,7 @@ describe("Delivery Flow (E2E)", () => {
       const otherTenantOrder = await createOrder("DELIVERY", "PREPARING");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/delivery`,
       });
@@ -171,11 +180,13 @@ describe("Delivery Flow (E2E)", () => {
       // Pedido pronto na cozinha
       const order = await createOrder("DELIVERY", "READY");
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
       });
@@ -231,11 +242,13 @@ describe("Delivery Flow (E2E)", () => {
       // Pedido ainda está sendo preparado
       const order = await createOrder("DELIVERY", "PREPARING");
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
       });
@@ -247,11 +260,13 @@ describe("Delivery Flow (E2E)", () => {
       const order = await createOrder("DELIVERY", "READY");
       const otherTenantOrder = await createOrder("DELIVERY", "READY");
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/delivery/start`,
       });
@@ -289,15 +304,18 @@ describe("Delivery Flow (E2E)", () => {
     it("deve concluir a entrega e alterar status do pedido e do delivery (204)", async () => {
       const order = await createOrder("DELIVERY", "READY");
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
       await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/complete`,
       });
@@ -359,15 +377,18 @@ describe("Delivery Flow (E2E)", () => {
       const order = await createOrder("DELIVERY", "READY");
       const otherTenantOrder = await createOrder("DELIVERY", "READY");
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery`,
       });
       await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/delivery/start`,
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/delivery/complete`,
       });
@@ -404,12 +425,15 @@ describe("Delivery Flow (E2E)", () => {
     const order = await createOrder("DELIVERY", "READY");
 
     const responses = await Promise.all([
-      app.inject({ method: "POST", url: `/orders/${order.id}/delivery` }),
       app.inject({
+        headers: auth.headers, method: "POST", url: `/orders/${order.id}/delivery` }),
+      app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/orders/${order.id}/delivery/start`,
       }),
       app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/orders/${order.id}/delivery/complete`,
       }),

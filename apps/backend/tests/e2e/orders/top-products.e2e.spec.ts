@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -17,6 +18,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Dashboard - Top Products (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -42,6 +45,7 @@ describe("Dashboard - Top Products (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cust] = await db
       .insert(customers)
       .values({ name: "C1", phone: "1" })
@@ -196,6 +200,7 @@ describe("Dashboard - Top Products (E2E)", () => {
 
     // 3. Consultar o Analytics
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/dashboard/top-products`,
     });
@@ -220,8 +225,9 @@ describe("Dashboard - Top Products (E2E)", () => {
 
   it("deve retornar 400 para período invertido", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
-      url: `/restaurants/${randomUUID()}/dashboard/top-products?startsAt=2026-08-25&endsAt=2026-08-24`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/dashboard/top-products?startsAt=2026-08-25&endsAt=2026-08-24`,
     });
     expect(response.statusCode).toBe(400);
   });
@@ -233,8 +239,10 @@ describe("Dashboard - Top Products (E2E)", () => {
         .insert(restaurants)
         .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
         .returning();
+    await auth.grant(rest.id);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${rest.id}/dashboard/${endpoint}?limit=100`,
       });
@@ -248,8 +256,9 @@ describe("Dashboard - Top Products (E2E)", () => {
     "rejeita limit acima de 100 em %s",
     async (endpoint) => {
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
-        url: `/restaurants/${randomUUID()}/dashboard/${endpoint}?limit=101`,
+        url: `/restaurants/${(await auth.createRestaurant()).id}/dashboard/${endpoint}?limit=101`,
       });
 
       expect(response.statusCode).toBe(400);

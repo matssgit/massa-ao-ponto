@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import {
   addons,
   deliveries,
@@ -15,6 +16,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Addons Management (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -44,9 +47,11 @@ describe("Addons Management (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
 
     // 1. CREATE
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${rest.id}/addons`,
       payload: { name: "Bacon", price: 400 },
@@ -59,6 +64,7 @@ describe("Addons Management (E2E)", () => {
       .insert(addons)
       .values({ restaurantId: rest.id, name: "Alho", price: 100 });
     const listRes = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/addons`,
     });
@@ -67,18 +73,21 @@ describe("Addons Management (E2E)", () => {
 
     // 3. GET
     const getRes = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/addons/${addonId}`,
     });
     expect(getRes.statusCode).toBe(200);
 
     const oldRouteRes = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/addons/${addonId}`,
     });
     expect(oldRouteRes.statusCode).toBe(404);
 
     const invalidIdRes = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/addons/invalid-id`,
     });
@@ -86,6 +95,7 @@ describe("Addons Management (E2E)", () => {
 
     // 4. UPDATE
     const updateRes = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/addons/${addonId}`,
       payload: { price: 450 },
@@ -95,6 +105,7 @@ describe("Addons Management (E2E)", () => {
 
     // 5. TOGGLE
     const toggleRes = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/addons/${addonId}/toggle-status`,
     });
@@ -103,6 +114,7 @@ describe("Addons Management (E2E)", () => {
 
     // 6. DELETE
     const deleteRes = await app.inject({
+      headers: auth.headers,
       method: "DELETE",
       url: `/restaurants/${rest.id}/addons/${addonId}`,
     });
@@ -114,22 +126,26 @@ describe("Addons Management (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest1.id);
     const [rest2] = await db
       .insert(restaurants)
       .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest2.id);
     const [addon] = await db
       .insert(addons)
       .values({ restaurantId: rest1.id, name: "Ovo", price: 200 })
       .returning();
 
     const getRes = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest2.id}/addons/${addon.id}`,
     });
     expect(getRes.statusCode).toBe(404);
 
     const updateRes = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest2.id}/addons/${addon.id}`,
       payload: { price: 300 },
@@ -137,12 +153,14 @@ describe("Addons Management (E2E)", () => {
     expect(updateRes.statusCode).toBe(404);
 
     const toggleRes = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest2.id}/addons/${addon.id}/toggle-status`,
     });
     expect(toggleRes.statusCode).toBe(404);
 
     const deleteRes = await app.inject({
+      headers: auth.headers,
       method: "DELETE",
       url: `/restaurants/${rest2.id}/addons/${addon.id}`,
     });

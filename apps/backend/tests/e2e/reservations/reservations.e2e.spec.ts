@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -16,6 +17,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Reservations (E2E)", () => {
   beforeAll(async () => {
@@ -40,19 +43,15 @@ describe("Reservations (E2E)", () => {
   });
 
   async function setupBase() {
-    const restaurantRes = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Restaurante Teste",
         address: "Rua Teste",
         phone: "11999999999",
         timezone: "UTC",
-      },
-    });
-    const restaurant = restaurantRes.json();
+      });
 
     const tableRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: {
@@ -70,6 +69,7 @@ describe("Reservations (E2E)", () => {
     const { restaurant, table } = await setupBase();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -103,6 +103,7 @@ describe("Reservations (E2E)", () => {
     const { restaurant, table } = await setupBase();
 
     const res1 = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -115,6 +116,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const res2 = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -142,6 +144,7 @@ describe("Reservations (E2E)", () => {
     const { restaurant, table } = await setupBase();
     const secondTable = (
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/tables`,
         payload: { number: 2, capacity: 4, type: "table" },
@@ -150,6 +153,7 @@ describe("Reservations (E2E)", () => {
 
     const responses = await Promise.all([
       app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/reservations`,
         payload: {
@@ -161,6 +165,7 @@ describe("Reservations (E2E)", () => {
         },
       }),
       app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/reservations`,
         payload: {
@@ -189,6 +194,7 @@ describe("Reservations (E2E)", () => {
   it("should reject a phone shorter than ten digits after normalization", async () => {
     const { restaurant, table } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -206,6 +212,7 @@ describe("Reservations (E2E)", () => {
   it("should rollback a new customer when a later reservation conflict occurs", async () => {
     const { restaurant, table } = await setupBase();
     const existingReservation = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -217,6 +224,7 @@ describe("Reservations (E2E)", () => {
       },
     });
     const rejected = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -240,6 +248,7 @@ describe("Reservations (E2E)", () => {
 
   it("should return 400 for invalid restaurantId", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/invalid-uuid/reservations`,
       payload: {
@@ -255,8 +264,9 @@ describe("Reservations (E2E)", () => {
 
   it("should return 400 for invalid tableId", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
-      url: `/restaurants/${randomUUID()}/reservations`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations`,
       payload: {
         tableId: "invalid-uuid",
         customer: { name: "João", phone: "11988888888" },
@@ -270,8 +280,9 @@ describe("Reservations (E2E)", () => {
 
   it("should return 400 for invalid payload (missing customer name)", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
-      url: `/restaurants/${randomUUID()}/reservations`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations`,
       payload: {
         tableId: randomUUID(),
         customer: { phone: "11988888888" },
@@ -286,6 +297,7 @@ describe("Reservations (E2E)", () => {
   it("should return 404 for non-existent table", async () => {
     const { restaurant } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -302,8 +314,9 @@ describe("Reservations (E2E)", () => {
   it("should return 400 if table belongs to another restaurant", async () => {
     const { table } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
-      url: `/restaurants/${randomUUID()}/reservations`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations`,
       payload: {
         tableId: table.id,
         customer: { name: "João", phone: "11988888888" },
@@ -323,6 +336,7 @@ describe("Reservations (E2E)", () => {
       .where(eq(tables.id, table.id));
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -339,6 +353,7 @@ describe("Reservations (E2E)", () => {
   it("should return 409 if people exceed table capacity", async () => {
     const { restaurant, table } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -355,6 +370,7 @@ describe("Reservations (E2E)", () => {
   it("should return 400 for invalid time range (startsAt >= endsAt)", async () => {
     const { restaurant, table } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -371,6 +387,7 @@ describe("Reservations (E2E)", () => {
   it("should return 409 for conflict with SCHEDULED reservation", async () => {
     const { restaurant, table } = await setupBase();
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -383,6 +400,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -414,6 +432,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -455,6 +474,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -472,6 +492,7 @@ describe("Reservations (E2E)", () => {
     const { restaurant, table } = await setupBase();
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -484,6 +505,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -499,19 +521,15 @@ describe("Reservations (E2E)", () => {
 
   it("should be able to update reservation status to CONFIRMED (200)", async () => {
     const { restaurant, table } = await setupBase();
-    const otherRestaurantResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const otherRestaurant = await auth.createRestaurant({
         name: "Outro Restaurante",
         address: "Rua",
         phone: "22",
         timezone: "UTC",
-      },
-    });
-    const otherRestaurant = otherRestaurantResponse.json();
+      });
 
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -526,6 +544,7 @@ describe("Reservations (E2E)", () => {
     const reservation = createRes.json();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
       payload: {
@@ -550,6 +569,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${otherRestaurant.id}/reservations/${reservation.id}/status`,
       payload: { status: "FINISHED" },
@@ -568,6 +588,7 @@ describe("Reservations (E2E)", () => {
     expect(preservedHistory).toHaveLength(2);
 
     const oldRouteResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/reservations/${reservation.id}/status`,
       payload: { status: "FINISHED" },
@@ -578,6 +599,7 @@ describe("Reservations (E2E)", () => {
   it("should serialize concurrent status updates with a row-level lock", async () => {
     const { restaurant, table } = await setupBase();
     const createResponse = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -592,11 +614,13 @@ describe("Reservations (E2E)", () => {
 
     const responses = await Promise.all([
       app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
         payload: { status: "CONFIRMED" },
       }),
       app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
         payload: { status: "CONFIRMED" },
@@ -621,6 +645,7 @@ describe("Reservations (E2E)", () => {
   it("should return 409 when applying an invalid status transition", async () => {
     const { restaurant, table } = await setupBase();
     const createRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -635,6 +660,7 @@ describe("Reservations (E2E)", () => {
     const reservation = createRes.json();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${reservation.id}/status`,
       payload: { status: "FINISHED" },
@@ -645,6 +671,7 @@ describe("Reservations (E2E)", () => {
 
   it("should return 404 for non-existent reservation status update", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}/status`,
       payload: { status: "CONFIRMED" },
@@ -654,8 +681,9 @@ describe("Reservations (E2E)", () => {
 
   it("should return 400 for invalid UUID in params", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
-      url: `/restaurants/${randomUUID()}/reservations/invalid-id/status`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations/invalid-id/status`,
       payload: { status: "CONFIRMED" },
     });
     expect(response.statusCode).toBe(400);
@@ -663,8 +691,9 @@ describe("Reservations (E2E)", () => {
 
   it("should return 400 for invalid body payload", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
-      url: `/restaurants/${randomUUID()}/reservations/${randomUUID()}/status`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/reservations/${randomUUID()}/status`,
       payload: { status: "INVALID_STATUS" },
     });
     expect(response.statusCode).toBe(400);
@@ -674,6 +703,7 @@ describe("Reservations (E2E)", () => {
     const { restaurant, table } = await setupBase();
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -686,6 +716,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const res2 = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -699,12 +730,14 @@ describe("Reservations (E2E)", () => {
 
     const secondReservationId = res2.json().id;
     await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/reservations/${secondReservationId}/status`,
       payload: { status: "CONFIRMED" },
     });
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -718,6 +751,7 @@ describe("Reservations (E2E)", () => {
 
     const otherTenant = await setupBase();
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${otherTenant.restaurant.id}/reservations`,
       payload: {
@@ -730,6 +764,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const listAllResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations?page=1&limit=2`,
     });
@@ -760,6 +795,7 @@ describe("Reservations (E2E)", () => {
     });
 
     const finalPageResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations?page=2&limit=2`,
     });
@@ -776,6 +812,7 @@ describe("Reservations (E2E)", () => {
     expect(finalPageResponse.json().data).toHaveLength(1);
 
     const listFilteredResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations?status=CONFIRMED`,
     });
@@ -795,11 +832,13 @@ describe("Reservations (E2E)", () => {
   it("should list reservations using schedule overlap semantics", async () => {
     const { restaurant, table } = await setupBase();
     const secondTableResponse = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 2, capacity: 4, type: "table" },
     });
     const thirdTableResponse = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 3, capacity: 4, type: "table" },
@@ -831,6 +870,7 @@ describe("Reservations (E2E)", () => {
 
     for (const payload of scenarios) {
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/reservations`,
         payload,
@@ -839,6 +879,7 @@ describe("Reservations (E2E)", () => {
     }
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations?startsAt=2026-08-20T19:00:00.000Z&endsAt=2026-08-20T21:00:00.000Z`,
     });
@@ -860,6 +901,7 @@ describe("Reservations (E2E)", () => {
   it("should return 400 for inverted date range filter (startsAt > endsAt)", async () => {
     const { restaurant } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/reservations?startsAt=2026-08-20T21:00:00.000Z&endsAt=2026-08-20T19:00:00.000Z`,
     });

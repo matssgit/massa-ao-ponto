@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -17,6 +18,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Dashboard - Category Performance (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -42,6 +45,7 @@ describe("Dashboard - Category Performance (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cust] = await db
       .insert(customers)
       .values({ name: "C1", phone: "1" })
@@ -194,6 +198,7 @@ describe("Dashboard - Category Performance (E2E)", () => {
       ]);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/dashboard/category-performance`,
     });
@@ -223,7 +228,9 @@ describe("Dashboard - Category Performance (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/dashboard/category-performance`,
     });
@@ -233,8 +240,9 @@ describe("Dashboard - Category Performance (E2E)", () => {
 
   it("deve retornar HTTP 400 se o período informado for invertido", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
-      url: `/restaurants/${randomUUID()}/dashboard/category-performance?startsAt=2026-08-25&endsAt=2026-08-24`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/dashboard/category-performance?startsAt=2026-08-25&endsAt=2026-08-24`,
     });
     expect(response.statusCode).toBe(400);
   });

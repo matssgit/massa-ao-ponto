@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import {
   addons,
   productAddons,
@@ -10,6 +11,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Product Addons Association (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -28,6 +31,7 @@ describe("Product Addons Association (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest.id, name: "Pizzas", displayOrder: 1 })
@@ -48,12 +52,14 @@ describe("Product Addons Association (E2E)", () => {
       .returning();
 
     const postRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${rest.id}/products/${prod.id}/addons/${addon.id}`,
     });
     expect(postRes.statusCode).toBe(201);
 
     const getRes = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/products/${prod.id}/addons`,
     });
@@ -62,12 +68,14 @@ describe("Product Addons Association (E2E)", () => {
     expect(getRes.json()[0].id).toBe(addon.id);
 
     const delRes = await app.inject({
+      headers: auth.headers,
       method: "DELETE",
       url: `/restaurants/${rest.id}/products/${prod.id}/addons/${addon.id}`,
     });
     expect(delRes.statusCode).toBe(204);
 
     const getAfterDel = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/products/${prod.id}/addons`,
     });
@@ -79,10 +87,12 @@ describe("Product Addons Association (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest1.id);
     const [rest2] = await db
       .insert(restaurants)
       .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest2.id);
 
     const [cat] = await db
       .insert(productCategories)
@@ -104,6 +114,7 @@ describe("Product Addons Association (E2E)", () => {
       .returning();
 
     const postRes = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${rest1.id}/products/${prod.id}/addons/${addon.id}`,
     });

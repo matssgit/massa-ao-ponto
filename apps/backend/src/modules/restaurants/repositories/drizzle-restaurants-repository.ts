@@ -10,8 +10,12 @@ import { eq } from "drizzle-orm";
 import { restaurants } from "../../../db/schema/index.js";
 
 export class DrizzleRestaurantsRepository implements RestaurantsRepository {
+  constructor(
+    private readonly client: Pick<typeof db, "insert" | "select" | "update"> = db,
+  ) {}
+
   async create(data: CreateRestaurantInput): Promise<Restaurant> {
-    const [restaurant] = await db.insert(restaurants).values(data).returning();
+    const [restaurant] = await this.client.insert(restaurants).values(data).returning();
 
     return {
       ...restaurant,
@@ -21,7 +25,7 @@ export class DrizzleRestaurantsRepository implements RestaurantsRepository {
   }
 
   async findById(id: string): Promise<Restaurant | null> {
-    const [restaurant] = await db
+    const [restaurant] = await this.client
       .select()
       .from(restaurants)
       .where(eq(restaurants.id, id));
@@ -37,7 +41,7 @@ export class DrizzleRestaurantsRepository implements RestaurantsRepository {
   }
 
   async findAll(): Promise<Restaurant[]> {
-    const results = await db.select().from(restaurants);
+    const results = await this.client.select().from(restaurants);
 
     return results.map((restaurant) => ({
       ...restaurant,
@@ -49,7 +53,7 @@ export class DrizzleRestaurantsRepository implements RestaurantsRepository {
     id: string,
     data: UpdateRestaurantInput,
   ): Promise<Restaurant | null> {
-    const [restaurant] = await db
+    const [restaurant] = await this.client
       .update(restaurants)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(restaurants.id, id))

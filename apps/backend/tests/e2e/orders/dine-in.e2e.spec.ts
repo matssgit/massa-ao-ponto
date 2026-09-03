@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -17,6 +18,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Dine-In Orders (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -42,6 +45,7 @@ describe("Dine-In Orders (E2E)", () => {
       .insert(restaurants)
       .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
       .returning();
+    await auth.grant(restaurant.id);
     const [customer] = await db
       .insert(customers)
       .values({ name: "Cli", phone: "11900000000" })
@@ -80,6 +84,7 @@ describe("Dine-In Orders (E2E)", () => {
       const { restaurant, customer, table, product } = await setupDineIn();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -98,6 +103,7 @@ describe("Dine-In Orders (E2E)", () => {
       const { restaurant, customer, table, product } = await setupDineIn();
 
       const resDineInNoTable = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -109,6 +115,7 @@ describe("Dine-In Orders (E2E)", () => {
       expect(resDineInNoTable.statusCode).toBe(400);
 
       const resDeliveryWithTable = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -127,6 +134,7 @@ describe("Dine-In Orders (E2E)", () => {
         .insert(restaurants)
         .values({ name: "Other", address: "Rua", phone: "3", timezone: "UTC" })
         .returning();
+    await auth.grant(otherRest.id);
       const [otherTable] = await db
         .insert(tables)
         .values({
@@ -139,6 +147,7 @@ describe("Dine-In Orders (E2E)", () => {
         .returning();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -164,11 +173,13 @@ describe("Dine-In Orders (E2E)", () => {
 
       const [res1, res2] = await Promise.all([
         app.inject({
+          headers: auth.headers,
           method: "POST",
           url: `/restaurants/${restaurant.id}/orders`,
           payload,
         }),
         app.inject({
+          headers: auth.headers,
           method: "POST",
           url: `/restaurants/${restaurant.id}/orders`,
           payload,
@@ -184,6 +195,7 @@ describe("Dine-In Orders (E2E)", () => {
       const { restaurant, customer, table, product } = await setupDineIn();
 
       const res1 = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -196,11 +208,13 @@ describe("Dine-In Orders (E2E)", () => {
       const orderId = res1.json().id;
 
       await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${restaurant.id}/orders/${orderId}/cancel`,
       });
 
       const res2 = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -218,6 +232,7 @@ describe("Dine-In Orders (E2E)", () => {
       const { restaurant, customer, table, product } = await setupDineIn();
 
       const firstOrderResponse = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {
@@ -232,6 +247,7 @@ describe("Dine-In Orders (E2E)", () => {
 
       for (const status of ["CONFIRMED", "PREPARING", "READY"] as const) {
         const response = await app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${restaurant.id}/orders/${orderId}/status`,
           payload: { status },
@@ -240,6 +256,7 @@ describe("Dine-In Orders (E2E)", () => {
       }
 
       const logisticsResponse = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${restaurant.id}/orders/${orderId}/status`,
         payload: { status: "OUT_FOR_DELIVERY" },
@@ -247,6 +264,7 @@ describe("Dine-In Orders (E2E)", () => {
       expect(logisticsResponse.statusCode).toBe(409);
 
       const completeResponse = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${restaurant.id}/orders/${orderId}/status`,
         payload: { status: "DELIVERED" },
@@ -254,6 +272,7 @@ describe("Dine-In Orders (E2E)", () => {
       expect(completeResponse.statusCode).toBe(204);
 
       const nextOrderResponse = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/orders`,
         payload: {

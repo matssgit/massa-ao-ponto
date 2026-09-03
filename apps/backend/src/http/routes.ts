@@ -13,7 +13,7 @@ import { createOrderController } from "../modules/orders/controllers/create-orde
 import { createProductCategoryController } from "../modules/products/controllers/create-product-category.js";
 import { createProductController } from "../modules/products/controllers/create-product.js";
 import { createReservationController } from "../modules/reservations/controllers/create-reservation.js";
-import { createRestaurantController } from "../modules/restaurants/controllers/create-restaurant.js";
+import { ForbiddenError } from "../modules/auth/errors/auth-errors.js";
 import { createTableController } from "../modules/tables/controllers/create-table.js";
 import { deleteAddonController } from "../modules/products/controllers/delete-addon.js";
 import { deleteProductCategoryController } from "../modules/products/controllers/delete-product-category.js";
@@ -55,179 +55,268 @@ import { updateTableController } from "../modules/tables/controllers/update-tabl
 
 export async function restaurantsRoutes(app: FastifyInstance) {
   // === RESTAURANTS ===
-  app.post("/restaurants", createRestaurantController);
-  app.get("/restaurants", listRestaurantsController);
-  app.get("/restaurants/:restaurantId", getRestaurantController);
-  app.patch("/restaurants/:restaurantId", updateRestaurantController);
+  app.post(
+    "/restaurants",
+    { config: { access: "disabled" } },
+    async () => { throw new ForbiddenError(); },
+  );
+  app.get(
+    "/restaurants",
+    { config: { access: "user" } },
+    listRestaurantsController,
+  );
+  app.get(
+    "/restaurants/:restaurantId",
+    { config: { access: "tenant" } },
+    getRestaurantController,
+  );
+  app.patch(
+    "/restaurants/:restaurantId",
+    { config: { access: "owner" } },
+    updateRestaurantController,
+  );
 
   // === TABLES ===
-  app.post("/restaurants/:restaurantId/tables", createTableController);
-  app.get("/restaurants/:restaurantId/tables", listTablesController);
+  app.post(
+    "/restaurants/:restaurantId/tables",
+    { config: { access: "owner" } },
+    createTableController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/tables",
+    { config: { access: "tenant" } },
+    listTablesController,
+  );
   app.patch(
     "/restaurants/:restaurantId/tables/:tableId",
+    { config: { access: "owner" } },
     updateTableController,
   );
 
   // === CATALOG ===
   app.post(
     "/restaurants/:restaurantId/product-categories",
+    { config: { access: "owner" } },
     createProductCategoryController,
   );
   app.get(
     "/restaurants/:restaurantId/product-categories",
+    { config: { access: "tenant" } },
     listProductCategoriesController,
   );
-  app.post("/restaurants/:restaurantId/products", createProductController);
-  app.get("/restaurants/:restaurantId/products", listProductsController);
+  app.post(
+    "/restaurants/:restaurantId/products",
+    { config: { access: "owner" } },
+    createProductController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/products",
+    { config: { access: "tenant" } },
+    listProductsController,
+  );
   app.patch(
     "/restaurants/:restaurantId/products/:productId",
+    { config: { access: "owner" } },
     updateProductController,
   );
   app.patch(
     "/restaurants/:restaurantId/products/:productId/toggle-status",
+    { config: { access: "owner" } },
     toggleProductStatusController,
   );
   app.get(
     "/restaurants/:restaurantId/product-categories/:categoryId",
+    { config: { access: "tenant" } },
     getProductCategoryController,
   );
   app.patch(
     "/restaurants/:restaurantId/product-categories/:categoryId",
+    { config: { access: "owner" } },
     updateProductCategoryController,
   );
   app.patch(
     "/restaurants/:restaurantId/product-categories/:categoryId/toggle-status",
+    { config: { access: "owner" } },
     toggleProductCategoryStatusController,
   );
   app.delete(
     "/restaurants/:restaurantId/product-categories/:categoryId",
+    { config: { access: "owner" } },
     deleteProductCategoryController,
   );
   app.delete(
     "/restaurants/:restaurantId/products/:productId",
+    { config: { access: "owner" } },
     deleteProductController,
   );
 
   // === ADDONS ===
-  app.post("/restaurants/:restaurantId/addons", createAddonController);
-  app.get("/restaurants/:restaurantId/addons", listAddonsController);
+  app.post(
+    "/restaurants/:restaurantId/addons",
+    { config: { access: "owner" } },
+    createAddonController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/addons",
+    { config: { access: "tenant" } },
+    listAddonsController,
+  );
   app.get(
     "/restaurants/:restaurantId/addons/:addonId",
+    { config: { access: "tenant" } },
     getAddonController,
   );
   app.patch(
     "/restaurants/:restaurantId/addons/:addonId",
+    { config: { access: "owner" } },
     updateAddonController,
   );
   app.patch(
     "/restaurants/:restaurantId/addons/:addonId/toggle-status",
+    { config: { access: "owner" } },
     toggleAddonStatusController,
   );
   app.delete(
     "/restaurants/:restaurantId/addons/:addonId",
+    { config: { access: "owner" } },
     deleteAddonController,
   );
 
   // === PRODUCT ADDONS ASSOCIATION ===
   app.post(
     "/restaurants/:restaurantId/products/:productId/addons/:addonId",
+    { config: { access: "owner" } },
     addAddonToProductController,
   );
   app.delete(
     "/restaurants/:restaurantId/products/:productId/addons/:addonId",
+    { config: { access: "owner" } },
     removeAddonFromProductController,
   );
   app.get(
     "/restaurants/:restaurantId/products/:productId/addons",
+    { config: { access: "tenant" } },
     listProductAddonsController,
   );
 
   // === CUSTOMERS ===
   app.get(
     "/restaurants/:restaurantId/customers",
+    { config: { access: "tenant" } },
     listCustomersController,
   );
   app.get(
     "/restaurants/:restaurantId/customers/:customerId",
+    { config: { access: "tenant" } },
     getCustomerController,
   );
   app.get(
     "/restaurants/:restaurantId/customers/:customerId/reservations",
+    { config: { access: "tenant" } },
     listCustomerReservationsController,
   );
 
   // === RESERVATIONS ===
   app.post(
     "/restaurants/:restaurantId/reservations",
+    { config: { access: "tenant" } },
     createReservationController,
   );
   app.get(
     "/restaurants/:restaurantId/reservations",
+    { config: { access: "tenant" } },
     listReservationsController,
   );
-  app.get("/restaurants/:restaurantId/availability", getAvailabilityController);
+  app.get(
+    "/restaurants/:restaurantId/availability",
+    { config: { access: "tenant" } },
+    getAvailabilityController,
+  );
   app.get(
     "/restaurants/:restaurantId/reservations/:reservationId",
+    { config: { access: "tenant" } },
     getReservationController,
   );
   app.get(
     "/restaurants/:restaurantId/reservations/:reservationId/history",
+    { config: { access: "tenant" } },
     listReservationHistoryController,
   );
   app.patch(
     "/restaurants/:restaurantId/reservations/:reservationId/status",
+    { config: { access: "tenant" } },
     updateReservationStatusController,
   );
   app.patch(
     "/restaurants/:restaurantId/reservations/:reservationId/cancel",
+    { config: { access: "tenant" } },
     cancelReservationController,
   );
 
   // === ORDERS ===
-  app.post("/restaurants/:restaurantId/orders", createOrderController);
-  app.get("/restaurants/:restaurantId/orders", listOrdersController);
+  app.post(
+    "/restaurants/:restaurantId/orders",
+    { config: { access: "tenant" } },
+    createOrderController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/orders",
+    { config: { access: "tenant" } },
+    listOrdersController,
+  );
   app.get(
     "/restaurants/:restaurantId/orders/:orderId",
+    { config: { access: "tenant" } },
     getOrderController,
   );
   app.patch(
     "/restaurants/:restaurantId/orders/:orderId/status",
+    { config: { access: "tenant" } },
     updateOrderStatusController,
   );
   app.patch(
     "/restaurants/:restaurantId/orders/:orderId/cancel",
+    { config: { access: "tenant" } },
     cancelOrderController,
   );
   app.patch(
     "/restaurants/:restaurantId/orders/:orderId/payment",
+    { config: { access: "owner" } },
     payOrderController,
   );
   app.post(
     "/restaurants/:restaurantId/orders/:orderId/delivery",
+    { config: { access: "tenant" } },
     createDeliveryController,
   );
   app.patch(
     "/restaurants/:restaurantId/orders/:orderId/delivery/start",
+    { config: { access: "tenant" } },
     startDeliveryController,
   );
   app.patch(
     "/restaurants/:restaurantId/orders/:orderId/delivery/complete",
+    { config: { access: "tenant" } },
     completeDeliveryController,
   );
   app.get(
     "/restaurants/:restaurantId/dashboard/sales-summary",
+    { config: { access: "owner" } },
     getSalesSummaryController,
   );
   app.get(
     "/restaurants/:restaurantId/dashboard/top-products",
+    { config: { access: "owner" } },
     getTopProductsController,
   );
   app.get(
     "/restaurants/:restaurantId/dashboard/category-performance",
+    { config: { access: "owner" } },
     getCategoryPerformanceController,
   );
   app.get(
     "/restaurants/:restaurantId/dashboard/top-customers",
+    { config: { access: "owner" } },
     getTopCustomersController,
   );
 }

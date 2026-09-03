@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import {
   addons,
   customers,
@@ -20,6 +21,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Get Order (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -50,6 +53,8 @@ describe("Get Order (E2E)", () => {
         { name: "Restaurante B", address: "", phone: "2", timezone: "UTC" },
       ])
       .returning();
+    await auth.grant(restaurantA.id);
+    await auth.grant(restaurantB.id);
     const [customer] = await db
       .insert(customers)
       .values({ name: "Cliente", phone: "11999" })
@@ -78,6 +83,7 @@ describe("Get Order (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cust] = await db
       .insert(customers)
       .values({ name: "Matheus", phone: "11999" })
@@ -162,11 +168,13 @@ describe("Get Order (E2E)", () => {
       .where(eq(products.id, prod.id));
 
     const statusResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/orders/${order.id}/status`,
       payload: { status: "CONFIRMED" },
     });
     const paymentResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/orders/${order.id}/payment`,
     });
@@ -194,6 +202,7 @@ describe("Get Order (E2E)", () => {
       );
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/orders/${order.id}`,
     });
@@ -243,6 +252,7 @@ describe("Get Order (E2E)", () => {
       const { restaurantA, order } = await createTenantOrder(type);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurantA.id}/orders/${order.id}`,
       });
@@ -258,6 +268,7 @@ describe("Get Order (E2E)", () => {
       .insert(restaurants)
       .values({ name: "Delivery Rest", address: "", phone: "1", timezone: "UTC" })
       .returning();
+    await auth.grant(restaurant.id);
     const [customer] = await db
       .insert(customers)
       .values({ name: "Cliente Delivery", phone: "11888" })
@@ -286,6 +297,7 @@ describe("Get Order (E2E)", () => {
 
     const getOrder = () =>
       app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${restaurant.id}/orders/${order.id}`,
       });
@@ -295,6 +307,7 @@ describe("Get Order (E2E)", () => {
     expect(withoutDeliveryResponse.json().delivery).toBeNull();
 
     const createResponse = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/orders/${order.id}/delivery`,
     });
@@ -319,6 +332,7 @@ describe("Get Order (E2E)", () => {
     ).toEqual(["DELIVERY_CREATED"]);
 
     const startResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/orders/${order.id}/delivery/start`,
     });
@@ -338,6 +352,7 @@ describe("Get Order (E2E)", () => {
     ).toEqual(["DELIVERY_CREATED", "DELIVERY_STARTED"]);
 
     const completeResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/orders/${order.id}/delivery/complete`,
     });
@@ -363,6 +378,7 @@ describe("Get Order (E2E)", () => {
 
   it("deve retornar 404 para pedido inexistente", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${randomUUID()}/orders/${randomUUID()}`,
     });
@@ -373,6 +389,7 @@ describe("Get Order (E2E)", () => {
     const { restaurantB, order } = await createTenantOrder();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurantB.id}/orders/${order.id}`,
     });
@@ -388,6 +405,7 @@ describe("Get Order (E2E)", () => {
     const { order } = await createTenantOrder();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/orders/${order.id}`,
     });
@@ -397,6 +415,7 @@ describe("Get Order (E2E)", () => {
 
   it("deve retornar 400 para restaurantId inválido", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/invalid-uuid/orders/${randomUUID()}`,
     });
@@ -406,8 +425,9 @@ describe("Get Order (E2E)", () => {
 
   it("deve retornar 400 para orderId inválido", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
-      url: `/restaurants/${randomUUID()}/orders/invalid-uuid-123`,
+      url: `/restaurants/${(await auth.createRestaurant()).id}/orders/invalid-uuid-123`,
     });
     expect(response.statusCode).toBe(400);
   });

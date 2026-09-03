@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   deliveries,
@@ -12,6 +13,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
+
+const auth = useTestAuth(app);
 
 describe("Tables (E2E)", () => {
   beforeAll(async () => {
@@ -33,17 +36,12 @@ describe("Tables (E2E)", () => {
   });
 
   async function createRestaurantE2E() {
-    const response = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    return await auth.createRestaurant({
         name: "Restaurant E2E",
         address: "Table Street, 123",
         phone: "123456789",
         timezone: "America/Sao_Paulo",
-      },
-    });
-    return response.json();
+      });
   }
 
   async function createTableE2E(
@@ -53,6 +51,7 @@ describe("Tables (E2E)", () => {
     type: "table" | "room" = "table",
   ) {
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurantId}/tables`,
       payload: { number, capacity, type },
@@ -66,6 +65,7 @@ describe("Tables (E2E)", () => {
     const restaurant = await createRestaurantE2E();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: {
@@ -99,6 +99,7 @@ describe("Tables (E2E)", () => {
     const randomUuid = "c85d7c92-75d3-4e1b-8f3e-52b86ea9a7f3";
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${randomUuid}/tables`,
       payload: {
@@ -113,6 +114,7 @@ describe("Tables (E2E)", () => {
 
   it("should return 400 if restaurantId is invalid", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/invalid-uuid/tables`,
       payload: {
@@ -129,6 +131,7 @@ describe("Tables (E2E)", () => {
     const restaurant = await createRestaurantE2E();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: {
@@ -143,6 +146,7 @@ describe("Tables (E2E)", () => {
     const restaurant = await createRestaurantE2E();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: {
@@ -159,6 +163,7 @@ describe("Tables (E2E)", () => {
     const restaurant = await createRestaurantE2E();
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: {
@@ -169,6 +174,7 @@ describe("Tables (E2E)", () => {
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: {
@@ -185,6 +191,7 @@ describe("Tables (E2E)", () => {
     const restaurant = await createRestaurantE2E();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/tables`,
     });
@@ -197,12 +204,14 @@ describe("Tables (E2E)", () => {
     const restaurant = await createRestaurantE2E();
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 1, capacity: 2, type: "table" },
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/tables`,
     });
@@ -224,6 +233,7 @@ describe("Tables (E2E)", () => {
     await createTableE2E(restaurant.id, 2);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/tables`,
     });
@@ -238,6 +248,7 @@ describe("Tables (E2E)", () => {
 
   it("should return 400 if restaurantId is invalid on GET", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/invalid-uuid/tables`,
     });
@@ -250,18 +261,21 @@ describe("Tables (E2E)", () => {
     const restaurant2 = await createRestaurantE2E();
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant1.id}/tables`,
       payload: { number: 1, capacity: 2, type: "table" },
     });
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant2.id}/tables`,
       payload: { number: 2, capacity: 4, type: "table" },
     });
 
     const response1 = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant1.id}/tables`,
     });
@@ -277,6 +291,7 @@ describe("Tables (E2E)", () => {
     const table = await createTableE2E(restaurant.id, 1);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/tables/${table.id}`,
       payload: { number: 2, capacity: 8, type: "room", active: false },
@@ -308,6 +323,7 @@ describe("Tables (E2E)", () => {
     const table = await createTableE2E(restaurant.id, 1);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/tables/${table.id}`,
       payload: { capacity: 6 },
@@ -328,6 +344,7 @@ describe("Tables (E2E)", () => {
     const table = await createTableE2E(first.id, 1);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${second.id}/tables/${table.id}`,
       payload: { active: false },
@@ -345,6 +362,7 @@ describe("Tables (E2E)", () => {
     const restaurant = await createRestaurantE2E();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/tables/c85d7c92-75d3-4e1b-8f3e-52b86ea9a7f3`,
       payload: { active: false },
@@ -359,6 +377,7 @@ describe("Tables (E2E)", () => {
     const second = await createTableE2E(restaurant.id, 2);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/tables/${second.id}`,
       payload: { number: 1 },
@@ -376,6 +395,7 @@ describe("Tables (E2E)", () => {
     const table = await createTableE2E(restaurant.id, 1);
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}/tables/${table.id}`,
       payload,

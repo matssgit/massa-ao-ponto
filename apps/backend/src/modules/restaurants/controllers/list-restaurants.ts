@@ -1,16 +1,18 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 
-import { DrizzleRestaurantsRepository } from "../repositories/drizzle-restaurants-repository.js";
+import { DrizzleAuthRepository } from "../../auth/repositories/drizzle-auth-repository.js";
+import { UnauthenticatedError } from "../../auth/errors/auth-errors.js";
 import { ListRestaurantsUseCase } from "../use-cases/list-restaurants.use-case.js";
 
 export async function listRestaurantsController(
-  _request: FastifyRequest,
+  request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const repository = new DrizzleRestaurantsRepository();
+  if (!request.authenticatedUserId) throw new UnauthenticatedError();
+  const repository = new DrizzleAuthRepository();
   const useCase = new ListRestaurantsUseCase(repository);
 
-  const restaurants = await useCase.execute();
+  const restaurants = await useCase.execute(request.authenticatedUserId);
 
   return reply.status(200).send(restaurants);
 }

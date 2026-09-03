@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -15,6 +16,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Pay Order (E2E)", () => {
   let customerSequence = 0;
@@ -39,6 +42,7 @@ describe("Pay Order (E2E)", () => {
       .insert(restaurants)
       .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
       .returning();
+    await auth.grant(restaurant.id);
     const [customer] = await db
       .insert(customers)
       .values({
@@ -69,6 +73,7 @@ describe("Pay Order (E2E)", () => {
       const order = await createOrder("PENDING", "PENDING");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
       });
@@ -95,6 +100,7 @@ describe("Pay Order (E2E)", () => {
     it("deve retornar 409 se o pedido já estiver pago", async () => {
       const order = await createOrder("PENDING", "PAID");
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
       });
@@ -104,6 +110,7 @@ describe("Pay Order (E2E)", () => {
     it("deve rejeitar o pagamento de um pedido DELIVERED (409)", async () => {
       const order = await createOrder("DELIVERED", "PENDING");
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
       });
@@ -112,6 +119,7 @@ describe("Pay Order (E2E)", () => {
 
     it("deve retornar 404 para pedido inexistente", async () => {
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${randomUUID()}/orders/${randomUUID()}/payment`,
       });
@@ -120,8 +128,9 @@ describe("Pay Order (E2E)", () => {
 
     it("deve retornar 400 para UUID inválido", async () => {
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
-        url: `/restaurants/${randomUUID()}/orders/invalid-uuid/payment`,
+        url: `/restaurants/${(await auth.createRestaurant()).id}/orders/invalid-uuid/payment`,
       });
       expect(response.statusCode).toBe(400);
     });
@@ -131,10 +140,12 @@ describe("Pay Order (E2E)", () => {
 
       const responses = await Promise.all([
         app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
         }),
         app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
         }),
@@ -150,6 +161,7 @@ describe("Pay Order (E2E)", () => {
       const otherTenantOrder = await createOrder("PENDING", "PENDING");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/payment`,
       });
@@ -173,6 +185,7 @@ describe("Pay Order (E2E)", () => {
     it("deve remover a rota global antiga", async () => {
       const order = await createOrder("PENDING", "PENDING");
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/orders/${order.id}/payment`,
       });

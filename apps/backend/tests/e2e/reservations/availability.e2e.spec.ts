@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -15,6 +16,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Availability (E2E)", () => {
   beforeAll(async () => {
@@ -39,25 +42,22 @@ describe("Availability (E2E)", () => {
   });
 
   async function setupBase() {
-    const restaurantRes = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Restaurante Teste",
         address: "Rua",
         phone: "11",
         timezone: "UTC",
-      },
-    });
-    const restaurant = restaurantRes.json();
+      });
 
     const table1Res = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 1, capacity: 2, type: "table" },
     });
 
     const table2Res = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/tables`,
       payload: { number: 2, capacity: 4, type: "table" },
@@ -69,6 +69,7 @@ describe("Availability (E2E)", () => {
   it("should return 200 with available tables", async () => {
     const { restaurant } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/availability?startsAt=2026-08-20T19:00:00Z&endsAt=2026-08-20T21:00:00Z`,
     });
@@ -80,6 +81,7 @@ describe("Availability (E2E)", () => {
     const { restaurant, table1, table2 } = await setupBase();
 
     await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurant.id}/reservations`,
       payload: {
@@ -92,6 +94,7 @@ describe("Availability (E2E)", () => {
     });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/availability?startsAt=2026-08-20T20:00:00Z&endsAt=2026-08-20T22:00:00Z`,
     });
@@ -104,6 +107,7 @@ describe("Availability (E2E)", () => {
   it("should filter by people capacity", async () => {
     const { restaurant, table2 } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/availability?startsAt=2026-08-20T19:00:00Z&endsAt=2026-08-20T21:00:00Z&people=3`,
     });
@@ -115,6 +119,7 @@ describe("Availability (E2E)", () => {
   it("should return empty array if no tables fit the capacity", async () => {
     const { restaurant } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/availability?startsAt=2026-08-20T19:00:00Z&endsAt=2026-08-20T21:00:00Z&people=10`,
     });
@@ -124,6 +129,7 @@ describe("Availability (E2E)", () => {
   it("should return 400 for inverted date range", async () => {
     const { restaurant } = await setupBase();
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${restaurant.id}/availability?startsAt=2026-08-20T21:00:00Z&endsAt=2026-08-20T19:00:00Z`,
     });
@@ -132,6 +138,7 @@ describe("Availability (E2E)", () => {
 
   it("should return 404 for non-existent restaurant", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${randomUUID()}/availability?startsAt=2026-08-20T19:00:00Z&endsAt=2026-08-20T21:00:00Z`,
     });
@@ -140,6 +147,7 @@ describe("Availability (E2E)", () => {
 
   it("should return 400 for invalid UUID", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/invalid/availability?startsAt=2026-08-20T19:00:00Z&endsAt=2026-08-20T21:00:00Z`,
     });

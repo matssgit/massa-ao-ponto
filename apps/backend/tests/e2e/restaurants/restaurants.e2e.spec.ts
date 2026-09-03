@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   deliveries,
@@ -9,8 +10,9 @@ import {
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
-import { eq } from "drizzle-orm";
 import { restaurants } from "../../../src/db/schema/index.js";
+
+const auth = useTestAuth(app);
 
 describe("Restaurants (E2E)", () => {
   beforeAll(async () => {
@@ -31,55 +33,28 @@ describe("Restaurants (E2E)", () => {
     await db.delete(restaurants);
   });
 
-  it("should be able to create a new restaurant", async () => {
+  it("blocks common Restaurant creation even for authenticated users", async () => {
     const response = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
-        name: "Massa ao Ponto E2E",
-        address: "Rua de Teste, 123",
-        phone: "11999999999",
-        timezone: "America/Sao_Paulo",
-      },
+      method: "POST", url: "/restaurants", headers: auth.headers,
+      payload: { name: "Blocked", address: "Street", phone: "123", timezone: "UTC" },
     });
-
-    expect(response.statusCode).toBe(201);
-
-    const responseBody = response.json();
-    expect(responseBody).toEqual(
-      expect.objectContaining({
-        id: expect.any(String),
-        name: "Massa ao Ponto E2E",
-      }),
-    );
-
-    const [restaurantInDb] = await db
-      .select()
-      .from(restaurants)
-      .where(eq(restaurants.id, responseBody.id));
-
-    expect(restaurantInDb).toBeTruthy();
-    expect(restaurantInDb.name).toBe("Massa ao Ponto E2E");
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ code: "FORBIDDEN", message: "Access denied." });
+    expect(await db.select().from(restaurants)).toEqual([]);
   });
 
-  it("should not create a restaurant with invalid payload", async () => {
+  it("requires a session for Restaurant creation", async () => {
     const response = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
-        name: "",
-        address: "Rua de Teste, 123",
-      },
+      method: "POST", url: "/restaurants",
+      payload: { name: "Blocked", address: "Street" },
     });
-
-    expect(response.statusCode).toBe(400);
-
-    const responseBody = response.json();
-    expect(responseBody.message).toBe("Validation error.");
+    expect(response.statusCode).toBe(401);
+    expect(await db.select().from(restaurants)).toEqual([]);
   });
 
   it("should return an empty list when there are no restaurants", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: "/restaurants",
     });
@@ -89,29 +64,22 @@ describe("Restaurants (E2E)", () => {
   });
 
   it("should be able to list existing restaurants", async () => {
-    await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    await auth.createRestaurant({
         name: "Restaurant 1",
         address: "Address 1",
         phone: "123",
         timezone: "UTC",
-      },
-    });
+      });
 
-    await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    await auth.createRestaurant({
         name: "Restaurant 2",
         address: "Address 2",
         phone: "456",
         timezone: "UTC",
-      },
-    });
+      });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: "/restaurants",
     });
@@ -129,20 +97,15 @@ describe("Restaurants (E2E)", () => {
   });
 
   it("should be able to get a restaurant by id", async () => {
-    const createResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const createdRestaurant = await auth.createRestaurant({
         name: "Get Restaurant E2E",
         address: "Rua Principal",
         phone: "123456789",
         timezone: "UTC",
-      },
-    });
-
-    const createdRestaurant = createResponse.json();
+      });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${createdRestaurant.id}`,
     });
@@ -159,6 +122,7 @@ describe("Restaurants (E2E)", () => {
   it("should not be able to get a restaurant with a non-existing id", async () => {
     const randomUuid = "c85d7c92-75d3-4e1b-8f3e-52b86ea9a7f3";
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${randomUuid}`,
     });
@@ -168,19 +132,15 @@ describe("Restaurants (E2E)", () => {
   });
 
   it("deve atualizar todos os campos administrativos do Restaurant", async () => {
-    const createResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Original",
         address: "Rua A",
         phone: "111",
         timezone: "UTC",
-      },
-    });
-    const restaurant = createResponse.json();
+      });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}`,
       payload: {
@@ -202,19 +162,15 @@ describe("Restaurants (E2E)", () => {
   });
 
   it("deve aplicar atualização parcial do Restaurant", async () => {
-    const createResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Original",
         address: "Rua A",
         phone: "111",
         timezone: "UTC",
-      },
-    });
-    const restaurant = createResponse.json();
+      });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}`,
       payload: { name: "Parcial" },
@@ -231,6 +187,7 @@ describe("Restaurants (E2E)", () => {
 
   it("deve retornar 404 ao atualizar Restaurant inexistente", async () => {
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: "/restaurants/c85d7c92-75d3-4e1b-8f3e-52b86ea9a7f3",
       payload: { name: "Inexistente" },
@@ -240,19 +197,15 @@ describe("Restaurants (E2E)", () => {
   });
 
   it("deve ignorar campos administrativos não permitidos", async () => {
-    const createResponse = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: {
+    const restaurant = await auth.createRestaurant({
         name: "Original",
         address: "Rua A",
         phone: "111",
         timezone: "UTC",
-      },
-    });
-    const restaurant = createResponse.json();
+      });
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${restaurant.id}`,
       payload: {
@@ -264,7 +217,7 @@ describe("Restaurants (E2E)", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().id).toBe(restaurant.id);
-    expect(response.json().createdAt).toBe(restaurant.createdAt);
+    expect(response.json().createdAt).toBe(restaurant.createdAt.toISOString());
     expect(response.json().name).toBe("Permitido");
   });
 });

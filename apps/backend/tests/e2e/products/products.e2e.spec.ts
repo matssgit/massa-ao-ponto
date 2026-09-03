@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -17,6 +18,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Products (E2E)", () => {
   beforeAll(async () => {
@@ -43,16 +46,12 @@ describe("Products (E2E)", () => {
   });
 
   async function createRestaurant(name = "Restaurante Teste") {
-    const response = await app.inject({
-      method: "POST",
-      url: "/restaurants",
-      payload: { name, address: "Rua", phone: "11", timezone: "UTC" },
-    });
-    return response.json();
+    return await auth.createRestaurant({ name, address: "Rua", phone: "11", timezone: "UTC" });
   }
 
   async function createCategory(restaurantId: string, name = "Categoria") {
     const response = await app.inject({
+      headers: auth.headers,
       method: "POST",
       url: `/restaurants/${restaurantId}/product-categories`,
       payload: { name, displayOrder: 1 },
@@ -66,6 +65,7 @@ describe("Products (E2E)", () => {
       const category = await createCategory(restaurant.id);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/products`,
         payload: {
@@ -86,6 +86,7 @@ describe("Products (E2E)", () => {
       const category = await createCategory(restaurant.id);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${randomUUID()}/products`,
         payload: {
@@ -102,6 +103,7 @@ describe("Products (E2E)", () => {
       const restaurant = await createRestaurant();
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/products`,
         payload: {
@@ -120,6 +122,7 @@ describe("Products (E2E)", () => {
       const r2 = await createRestaurant("R2");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${r2.id}/products`,
         payload: {
@@ -137,6 +140,7 @@ describe("Products (E2E)", () => {
       const category = await createCategory(restaurant.id);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${restaurant.id}/products`,
         payload: {
@@ -159,22 +163,26 @@ describe("Products (E2E)", () => {
       const c2 = await createCategory(r2.id);
 
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${r1.id}/products`,
         payload: { categoryId: c1.id, name: "B", price: 10, displayOrder: 2 },
       });
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${r1.id}/products`,
         payload: { categoryId: c1.id, name: "A", price: 10, displayOrder: 1 },
       });
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${r2.id}/products`,
         payload: { categoryId: c2.id, name: "Z", price: 10, displayOrder: 1 },
       });
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${r1.id}/products`,
       });
@@ -191,17 +199,20 @@ describe("Products (E2E)", () => {
       const c2 = await createCategory(r1.id);
 
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${r1.id}/products`,
         payload: { categoryId: c1.id, name: "P1", price: 10 },
       });
       await app.inject({
+        headers: auth.headers,
         method: "POST",
         url: `/restaurants/${r1.id}/products`,
         payload: { categoryId: c2.id, name: "P2", price: 10 },
       });
 
       const responseCategory = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${r1.id}/products?categoryId=${c2.id}`,
       });
@@ -209,6 +220,7 @@ describe("Products (E2E)", () => {
       expect(responseCategory.json()[0].name).toBe("P2");
 
       const responseInactive = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${r1.id}/products?active=false`,
       });

@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import {
   addons,
   deliveries,
@@ -13,6 +14,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
+
+const auth = useTestAuth(app);
 
 describe("Update Product (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -42,6 +45,7 @@ describe("Update Product (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest.id, name: "C", displayOrder: 1 })
@@ -59,6 +63,7 @@ describe("Update Product (E2E)", () => {
       .returning();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/products/${prod.id}`,
       payload: { name: "P Atualizado", price: 2000 },

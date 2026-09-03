@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import {
   addons,
   deliveries,
@@ -13,6 +14,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
+
+const auth = useTestAuth(app);
 
 describe("Products Sorting (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -42,6 +45,7 @@ describe("Products Sorting (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest.id, name: "Pizzas", displayOrder: 1 })
@@ -79,6 +83,7 @@ describe("Products Sorting (E2E)", () => {
       .returning();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/products`,
     });
@@ -102,6 +107,7 @@ describe("Products Sorting (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest.id, name: "Pizzas", displayOrder: 1 })
@@ -129,6 +135,7 @@ describe("Products Sorting (E2E)", () => {
       .returning();
 
     const updateResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/products/${prod2.id}`,
       payload: { displayOrder: 0 },
@@ -137,6 +144,7 @@ describe("Products Sorting (E2E)", () => {
     expect(updateResponse.statusCode).toBe(200);
 
     const listResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/products`,
     });

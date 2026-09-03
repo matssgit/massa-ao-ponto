@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import {
   addons,
   deliveries,
@@ -15,6 +16,8 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Product Categories Management (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -44,16 +47,19 @@ describe("Product Categories Management (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [otherRest] = await db
       .insert(restaurants)
       .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(otherRest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest.id, name: "Sucos", displayOrder: 1 })
       .returning();
 
     const response = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/product-categories/${cat.id}`,
     });
@@ -61,18 +67,21 @@ describe("Product Categories Management (E2E)", () => {
     expect(response.json().name).toBe("Sucos");
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${otherRest.id}/product-categories/${cat.id}`,
     });
     expect(crossTenantResponse.statusCode).toBe(404);
 
     const oldRouteResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/product-categories/${cat.id}`,
     });
     expect(oldRouteResponse.statusCode).toBe(404);
 
     const invalidIdResponse = await app.inject({
+      headers: auth.headers,
       method: "GET",
       url: `/restaurants/${rest.id}/product-categories/invalid-id`,
     });
@@ -84,16 +93,19 @@ describe("Product Categories Management (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest1.id);
     const [rest2] = await db
       .insert(restaurants)
       .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest2.id);
     const [cat] = await db
       .insert(productCategories)
       .values({ restaurantId: rest1.id, name: "Pizzas", displayOrder: 1 })
       .returning();
 
     const updateResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest1.id}/product-categories/${cat.id}`,
       payload: { name: "Pizzas Artesanais" },
@@ -102,6 +114,7 @@ describe("Product Categories Management (E2E)", () => {
     expect(updateResponse.json().name).toBe("Pizzas Artesanais");
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest2.id}/product-categories/${cat.id}`,
       payload: { name: "Hack" },
@@ -120,10 +133,12 @@ describe("Product Categories Management (E2E)", () => {
       .insert(restaurants)
       .values({ name: "R", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(rest.id);
     const [otherRest] = await db
       .insert(restaurants)
       .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
       .returning();
+    await auth.grant(otherRest.id);
     const [cat] = await db
       .insert(productCategories)
       .values({
@@ -135,6 +150,7 @@ describe("Product Categories Management (E2E)", () => {
       .returning();
 
     const res1 = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/product-categories/${cat.id}/toggle-status`,
     });
@@ -142,6 +158,7 @@ describe("Product Categories Management (E2E)", () => {
     expect(res1.json().active).toBe(false);
 
     const res2 = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${rest.id}/product-categories/${cat.id}/toggle-status`,
     });
@@ -149,6 +166,7 @@ describe("Product Categories Management (E2E)", () => {
     expect(res2.json().active).toBe(true);
 
     const crossTenantResponse = await app.inject({
+      headers: auth.headers,
       method: "PATCH",
       url: `/restaurants/${otherRest.id}/product-categories/${cat.id}/toggle-status`,
     });

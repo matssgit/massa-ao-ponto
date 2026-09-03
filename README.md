@@ -85,15 +85,102 @@ A prioridade arquitetural é manter o sistema:
 
 ---
 
+# 🔑 Autenticação por sessão
+
+O runtime de auth usa User separado de Customer e sessão opaca persistida no PostgreSQL. As rotas de negócio exigem sessão válida e, quando vinculadas a um restaurante, membership ativa e role permitida. CORS usa allowlist explícita com credentials, e login possui rate limiting local. O provisionamento inicial é exclusivamente administrativo, pelo comando abaixo. **Proteção distribuída continua pendente; esta etapa não libera exposição pública.**
+
+| Endpoint | Contrato |
+| --- | --- |
+| `POST /auth/login` | Body `{ email, password }`; retorna `200 { user: { id, email } }` e cookie HttpOnly |
+| `GET /auth/session` | Retorna `200 { user: { id, email }, memberships: [{ restaurantId, role }], csrfToken }`; sessão inválida retorna 401 |
+| `POST /auth/logout` | Exige sessão válida e CSRF; revoga a sessão, limpa o cookie e retorna 204; sessão ausente/inválida retorna 401 |
+
+O login normaliza e-mail com trim/lowercase e verifica senha com Argon2id. Credenciais incorretas, e-mail inexistente e User inativo retornam o mesmo `401 { code: "INVALID_CREDENTIALS", message: "Invalid email or password." }`. Não existe signup público nem provisionamento HTTP de usuários nesta etapa.
+
+O cookie contém apenas o identificador aleatório da sessão; o banco guarda somente seu hash SHA-256. A consulta de sessão retorna apenas memberships ativas do User autenticado, ordenadas por `restaurantId`, ou `[]`. O frontend pode selecionar um restaurante, mas o backend consulta novamente a membership a cada request; alterar o `restaurantId` da URL não concede acesso.
+
+Para login e todas as mutações autenticadas, envie `Origin` permitido e `X-Auth-Request: 1`. Após o login, obtenha `csrfToken` em `GET /auth/session` e envie-o em `X-CSRF-Token` no logout e nas mutações de negócio. O token é vinculado à sessão; CSRF ausente/incorreto recebe `403 INVALID_CSRF`, sem mutação. As respostas usam `Cache-Control: no-store`. O frontend deve deixar o cookie sob controle do navegador e manter o token CSRF apenas em memória, nunca o identificador de sessão em localStorage.
+
+Política por restaurante:
+
+| Role | Acesso |
+| --- | --- |
+| `OWNER` | Acesso completo às operações disponíveis do restaurante |
+| `STAFF` | Orders, Reservations, Delivery e leituras operacionais; não pode confirmar pagamento |
+| Somente `OWNER` | Atualização de Restaurant, administração de Tables/Catalog, Analytics e confirmação de pagamento |
+
+Sessão ausente, expirada ou revogada retorna `401 UNAUTHENTICATED`; membership ausente/inativa retorna `404 RESTAURANT_NOT_FOUND`, sem revelar a existência global do restaurante; role insuficiente retorna `403 FORBIDDEN`. Recursos cross-tenant preservam os 404 de seus domínios. As respostas mantêm `{ code, message }`. A autenticação precede a validação dos parâmetros da rota.
+
+Configuração dos endpoints:
+
+- `AUTH_ALLOWED_ORIGINS`: allowlist compartilhada por CORS e CSRF, com origins exatas separadas por vírgula, sem caminho, barra final ou wildcard. Não há URLs implícitas no runtime: em desenvolvimento, ausência deixa a lista vazia e bloqueia login/mutações; em produção, ausência impede o startup. Inclua também a origin da aplicação quando usar proxy de mesma origem.
+- `NODE_ENV=production`: exige origins explícitas HTTPS e cookie `__Host-massa-session; Secure; HttpOnly; SameSite=Lax; Path=/`, sem Domain. Configuração insegura impede o startup.
+- Em HTTP local, o cookie chama-se `massa-session`. `AUTH_COOKIE_SECURE=true` permite usar o cookie seguro também fora de produção; `false` é rejeitado em produção.
+- `AUTH_SESSION_TTL_SECONDS`: prazo absoluto, default 28800 (8 horas); `AUTH_SESSION_IDLE_SECONDS`: inatividade máxima, default 1800 (30 minutos). Ambos aceitam inteiros de 60 a 604800; inatividade não pode exceder o prazo absoluto.
+- Validar uma sessão atualiza `lastActivityAt`, sem estender `expiresAt`. Sessões expiradas, revogadas ou de User inativo recebem `401 UNAUTHENTICATED`.
+- `AUTH_LOGIN_RATE_LIMIT_MAX`: tentativas por IP, default 20, inteiro entre 1 e 100.
+- `AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS`: janela fixa a partir da primeira tentativa, default 300 (5 minutos), inteiro entre 60 e 3600. Valores inválidos impedem o startup; os defaults também valem em produção, sem flag para desativação.
+
+O limiter atua somente em `POST /auth/login`, após a proteção de Origin e antes de parsing/verificação de senha. Tentativas válidas, credenciais inválidas e bodies malformados que chegam ao limiter consomem a mesma cota; sucesso não a reinicia. Excesso retorna `429 { code: "AUTH_RATE_LIMIT", message: "Too many login attempts. Please try again later." }` com `Retry-After` em segundos, exposto via CORS. Requests bloqueados não estendem a janela nem causam ban permanente. Consulta de sessão, logout e OPTIONS não consomem essa cota.
+
+A chave é o IP reconhecido pelo Fastify, sem e-mail ou senha. Não há cota global por e-mail; pessoas no mesmo IP/NAT compartilham a cota. `trustProxy` permanece desabilitado: headers encaminhados não mudam a chave, e um reverse proxy fará seus clientes compartilharem o IP do proxy até existir configuração explícita e confiável. O store em memória do plugin atende somente desenvolvimento/single-instance; reinício/evicção perde contadores, múltiplos processos não compartilham limites e rotação de IPs não é resolvida. Rajadas concorrentes acima da cota podem ser rejeitadas integralmente pelo store local. Antes de deploy distribuído, é necessário store compartilhado e revisão da topologia de proxy; Redis não foi implementado.
+
+A configuração pode ser fornecida pelo ambiente ou pelo `.env` do backend. Exemplos (substitua pelas origins reais):
+
+```dotenv
+# Desenvolvimento HTTP local
+NODE_ENV=development
+AUTH_ALLOWED_ORIGINS=http://localhost:5173
+AUTH_COOKIE_SECURE=false
+```
+
+```dotenv
+# Produção HTTPS
+NODE_ENV=production
+AUTH_ALLOWED_ORIGINS=https://admin.example.com
+AUTH_COOKIE_SECURE=true
+```
+
+CORS responde com `Access-Control-Allow-Credentials: true` e somente a origin exata autorizada, nunca `*`. O frontend deve usar `credentials: "include"` no login, consulta de sessão, logout e demais requests. Preflight `OPTIONS` válido retorna 204 sem sessão/CSRF; os métodos anunciados são GET, HEAD, POST, PATCH, DELETE e OPTIONS, e os headers permitidos são Content-Type, X-Auth-Request e X-CSRF-Token. Origin não autorizada não recebe `Access-Control-Allow-Origin`; isso bloqueia a leitura pelo navegador, não substitui autenticação nem CSRF. Preflight sem Origin ou Access-Control-Request-Method retorna 400.
+
+`SameSite=Lax` é preservado: use frontend/API no mesmo site (por exemplo, subdomínios HTTPS do mesmo domínio, ou localhost com portas diferentes), ou proxy de mesma origem. Sites distintos não recebem o cookie em fetch cross-site apenas por habilitar CORS. Não misture localhost e 127.0.0.1 entre frontend/API. GET não modifica dados de negócio; mantém somente a atualização já existente de atividade da sessão. Rate limiting distribuído continua pendente; `POST /restaurants` permanece bloqueado.
+
+## Provisionamento administrativo inicial
+
+Em terminal local confiável, com acesso administrativo ao PostgreSQL e migrations `0000`–`0010` já aplicadas, forneça as variáveis abaixo **somente no ambiente da execução**. Confirme o banco de destino em `DATABASE_URL` antes de executar; o comando não pede confirmação interativa nem aplica migrations.
+
+| Variável | Entrada obrigatória |
+| --- | --- |
+| `PROVISION_OWNER_EMAIL` | E-mail válido; normalizado com trim/lowercase |
+| `PROVISION_OWNER_PASSWORD` | Senha de 12–1024 caracteres; será armazenada somente como hash Argon2id |
+| `PROVISION_RESTAURANT_NAME` | Nome, 1–255 caracteres |
+| `PROVISION_RESTAURANT_ADDRESS` | Endereço, 1–255 caracteres |
+| `PROVISION_RESTAURANT_PHONE` | Telefone, 1–50 caracteres |
+| `PROVISION_RESTAURANT_TIMEZONE` | Timezone, 1–100 caracteres, conforme o contrato atual de Restaurant |
+
+Execute a partir de `apps/backend`:
+
+```bash
+pnpm auth:provision-owner
+```
+
+`DATABASE_URL` usa a configuração existente do backend (ambiente ou `.env`). As entradas de provisionamento são validadas antes de carregar esse `.env`: não grave senha nem variáveis `PROVISION_*` em arquivos do repositório. Injete o segredo por ferramenta confiável ou prompt mascarado; não digite a senha literalmente em comandos que fiquem no histórico. O comando rejeita argumentos. Remova as variáveis de provisionamento do terminal após a execução; variáveis de ambiente não protegem contra administradores/processos locais privilegiados.
+
+O comando cria um User ativo, um Restaurant novo e uma membership `OWNER` ativa na mesma transação. Reutiliza o Use Case de criação de Restaurant. E-mail já existente, inclusive de User inativo, causa falha sem adoção ou sobrescrita; membership duplicada também falha. O modelo não possui unicidade por nome/endereço de Restaurant: nomes repetidos são permitidos. Qualquer falha durante a transação desfaz os três registros.
+
+Sucesso retorna os identificadores `userId`, `restaurantId` e `membershipId` e código de saída 0; falha retorna mensagem administrativa sanitizada e saída 1. Nenhuma sessão é criada, nenhuma senha/hash/token é impressa e nenhum endpoint HTTP é chamado. Depois, o proprietário usa o login existente. Se a conexão cair durante a confirmação do commit, confira o estado antes de repetir; o comando nunca adota uma conta existente. `POST /restaurants` continua bloqueado; não há signup público.
+
+---
+
 # 🍽️ Restaurantes
 
 O módulo de restaurantes fornece a base de isolamento dos demais domínios.
 
 ### Funcionalidades
 
-- criação de restaurantes;
-- listagem;
-- consulta individual;
+- provisionamento inicial por comando administrativo; criação HTTP de restaurantes permanece bloqueada;
+- listagem somente de restaurantes com membership ativa do User, por `name ASC, id ASC`;
+- consulta individual mediante membership ativa;
 - atualização administrativa de `name`, `address`, `phone` e `timezone`;
 - identificação do restaurante através de `restaurantId`;
 - utilização do restaurante como tenant dos módulos relacionados.
@@ -102,7 +189,7 @@ O módulo de restaurantes fornece a base de isolamento dos demais domínios.
 PATCH /restaurants/:restaurantId
 ```
 
-Sem autenticação/autorização, essa mutação permanece restrita ao contexto local/de desenvolvimento.
+Essa mutação exige membership ativa com role `OWNER`. `GET /restaurants` exige sessão e retorna somente restaurantes autorizados; `GET /restaurants/:restaurantId` exige membership. `POST /restaurants` retorna 403 para usuários autenticados e 401 sem sessão: não há criação global nem fluxo público de provisionamento.
 
 Os demais recursos que pertencem a uma pizzaria carregam o `restaurantId` quando a regra de negócio exige isolamento explícito.
 

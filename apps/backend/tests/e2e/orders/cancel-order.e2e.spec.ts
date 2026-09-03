@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -19,6 +20,8 @@ import {
   OrderStatus,
 } from "../../../src/modules/orders/repositories/orders-repository.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Cancel Order (E2E)", () => {
   let customerSequence = 0;
@@ -46,6 +49,7 @@ describe("Cancel Order (E2E)", () => {
       .insert(restaurants)
       .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
       .returning();
+    await auth.grant(restaurant.id);
     const [customer] = await db
       .insert(customers)
       .values({
@@ -76,6 +80,7 @@ describe("Cancel Order (E2E)", () => {
       const order = await createOrder("PENDING");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
       });
@@ -102,6 +107,7 @@ describe("Cancel Order (E2E)", () => {
     it("deve cancelar um pedido CONFIRMED com sucesso (200)", async () => {
       const order = await createOrder("CONFIRMED");
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
       });
@@ -114,6 +120,7 @@ describe("Cancel Order (E2E)", () => {
         const order = await createOrder(status);
 
         const paymentResponse = await app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
         });
@@ -126,6 +133,7 @@ describe("Cancel Order (E2E)", () => {
         const paidUpdatedAt = paidOrder.updatedAt;
 
         const cancelResponse = await app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
         });
@@ -157,6 +165,7 @@ describe("Cancel Order (E2E)", () => {
       const order = await createOrder("PREPARING", "PAID");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
       });
@@ -170,6 +179,7 @@ describe("Cancel Order (E2E)", () => {
     it("deve rejeitar cancelamento de pedido em PREPARING ou DELIVERED (409)", async () => {
       const preparingOrder = await createOrder("PREPARING");
       const preparingRes = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${preparingOrder.restaurantId}/orders/${preparingOrder.id}/cancel`,
       });
@@ -177,6 +187,7 @@ describe("Cancel Order (E2E)", () => {
 
       const deliveredOrder = await createOrder("DELIVERED");
       const deliveredRes = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${deliveredOrder.restaurantId}/orders/${deliveredOrder.id}/cancel`,
       });
@@ -185,6 +196,7 @@ describe("Cancel Order (E2E)", () => {
 
     it("deve retornar 404 para pedido inexistente", async () => {
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${randomUUID()}/orders/${randomUUID()}/cancel`,
       });
@@ -193,8 +205,9 @@ describe("Cancel Order (E2E)", () => {
 
     it("deve retornar 400 para UUID inválido", async () => {
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
-        url: `/restaurants/${randomUUID()}/orders/invalid-uuid/cancel`,
+        url: `/restaurants/${(await auth.createRestaurant()).id}/orders/invalid-uuid/cancel`,
       });
       expect(response.statusCode).toBe(400);
     });
@@ -204,10 +217,12 @@ describe("Cancel Order (E2E)", () => {
 
       const responses = await Promise.all([
         app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
         }),
         app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
         }),
@@ -223,10 +238,12 @@ describe("Cancel Order (E2E)", () => {
 
       const [paymentResponse, cancelResponse] = await Promise.all([
         app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/payment`,
         }),
         app.inject({
+          headers: auth.headers,
           method: "PATCH",
           url: `/restaurants/${order.restaurantId}/orders/${order.id}/cancel`,
         }),
@@ -267,6 +284,7 @@ describe("Cancel Order (E2E)", () => {
       const otherTenantOrder = await createOrder("PENDING");
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/restaurants/${otherTenantOrder.restaurantId}/orders/${order.id}/cancel`,
       });
@@ -289,6 +307,7 @@ describe("Cancel Order (E2E)", () => {
     it("deve remover a rota global antiga", async () => {
       const order = await createOrder("PENDING");
       const response = await app.inject({
+        headers: auth.headers,
         method: "PATCH",
         url: `/orders/${order.id}/cancel`,
       });

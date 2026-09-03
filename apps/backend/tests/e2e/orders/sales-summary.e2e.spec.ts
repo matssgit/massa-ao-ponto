@@ -1,3 +1,4 @@
+import { useTestAuth } from "../../helpers/auth.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   customers,
@@ -17,6 +18,8 @@ import {
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import { randomUUID } from "node:crypto";
+
+const auth = useTestAuth(app);
 
 describe("Dashboard - Sales Summary (E2E)", () => {
   beforeAll(async () => await app.ready());
@@ -78,6 +81,7 @@ describe("Dashboard - Sales Summary (E2E)", () => {
         .insert(restaurants)
         .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
         .returning();
+    await auth.grant(rest.id);
       const [cust] = await db
         .insert(customers)
         .values({ name: "C1", phone: "1" })
@@ -88,6 +92,7 @@ describe("Dashboard - Sales Summary (E2E)", () => {
       await createOrder(rest.id, cust.id, "CANCELLED", "PAID", 9000); // Cancelado (ignorado na receita e no ticket médio)
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${rest.id}/dashboard/sales-summary`,
       });
@@ -109,6 +114,7 @@ describe("Dashboard - Sales Summary (E2E)", () => {
         .insert(restaurants)
         .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
         .returning();
+    await auth.grant(rest.id);
       const [cust] = await db
         .insert(customers)
         .values({ name: "C1", phone: "1" })
@@ -121,6 +127,7 @@ describe("Dashboard - Sales Summary (E2E)", () => {
       startsAt.setHours(startsAt.getHours() - 24); // Desde ontem
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${rest.id}/dashboard/sales-summary?startsAt=${startsAt.toISOString()}`,
       });
@@ -134,10 +141,12 @@ describe("Dashboard - Sales Summary (E2E)", () => {
         .insert(restaurants)
         .values({ name: "R1", address: "", phone: "", timezone: "UTC" })
         .returning();
+    await auth.grant(r1.id);
       const [r2] = await db
         .insert(restaurants)
         .values({ name: "R2", address: "", phone: "", timezone: "UTC" })
         .returning();
+    await auth.grant(r2.id);
       const [cust] = await db
         .insert(customers)
         .values({ name: "C1", phone: "1" })
@@ -146,6 +155,7 @@ describe("Dashboard - Sales Summary (E2E)", () => {
       await createOrder(r1.id, cust.id, "DELIVERED", "PAID", 5000);
 
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
         url: `/restaurants/${r2.id}/dashboard/sales-summary`,
       });
@@ -156,8 +166,9 @@ describe("Dashboard - Sales Summary (E2E)", () => {
 
     it("deve retornar 400 para datas invertidas", async () => {
       const response = await app.inject({
+        headers: auth.headers,
         method: "GET",
-        url: `/restaurants/${randomUUID()}/dashboard/sales-summary?startsAt=2026-08-25&endsAt=2026-08-24`,
+        url: `/restaurants/${(await auth.createRestaurant()).id}/dashboard/sales-summary?startsAt=2026-08-25&endsAt=2026-08-24`,
       });
       expect(response.statusCode).toBe(400);
       expect(response.json()).toEqual({
