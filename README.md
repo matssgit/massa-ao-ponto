@@ -85,6 +85,42 @@ A prioridade arquitetural é manter o sistema:
 
 ---
 
+# 🖥️ Frontend web — execução local
+
+`apps/web` contém a fundação React + TypeScript + Vite: login, bootstrap de sessão, logout, seleção de restaurante e navegação protegida. As páginas operacionais ainda não exibem dados nem executam CRUD. Não há signup público.
+
+Use Node.js 22.13+ da linha 22 ou 24+ (validado com 24.19.0) e o pnpm do workspace. Na raiz:
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+Crie `apps/web/.env.local` conforme `apps/web/.env.example`, configurando `VITE_API_URL` com a URL HTTP(S) pública do backend. Em desenvolvimento local, o exemplo aponta para `http://localhost:3333`. `VITE_*` é incorporado ao bundle público: nunca coloque senhas, tokens ou credenciais de banco nessas variáveis. Ausência/URL inválida mostra um erro de configuração e não tenta uma API implícita.
+
+No ambiente do backend, configure `AUTH_ALLOWED_ORIGINS` com a origin exata exibida pelo Vite (por exemplo, `http://localhost:5173`) e a política de cookie local descrita abaixo. Em terminais separados, na raiz:
+
+```bash
+pnpm dev:backend
+```
+
+```bash
+pnpm dev:web
+```
+
+O Vite usa porta estrita: se ela estiver ocupada, ajuste explicitamente a porta e a allowlist em conjunto. Use o mesmo hostname nos dois lados; não misture `localhost` e `127.0.0.1`. Para autenticar, use uma conta criada pelo procedimento administrativo abaixo. Nenhuma credencial de demonstração é incluída.
+
+O client envia `credentials: include`, `X-Auth-Request: 1` nas mutações e CSRF nas mutações autenticadas. Login é seguido por `GET /auth/session`. CSRF e restaurante selecionado ficam somente em memória; cookies continuam sob controle do navegador. OWNER vê Relatórios/Configurações; STAFF mantém a navegação operacional. Isso não substitui a autorização do backend.
+
+Validação em `apps/web`:
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+O build gera `apps/web/dist`; configure `VITE_API_URL` para o destino antes do build. Uma futura hospedagem deve encaminhar rotas SPA para `index.html` e respeitar HTTPS/CORS/cookies same-site. A 38A não publica a aplicação. Não há lint configurado. Os testes frontend usam Vitest/Testing Library com transporte HTTP simulado; o fluxo completo com conta real em navegador ainda precisa de validação operacional.
+
 # 🔑 Autenticação por sessão
 
 O runtime de auth usa User separado de Customer e sessão opaca persistida no PostgreSQL. As rotas de negócio exigem sessão válida e, quando vinculadas a um restaurante, membership ativa e role permitida. CORS usa allowlist explícita com credentials, e login possui rate limiting local. O provisionamento inicial é exclusivamente administrativo, pelo comando abaixo. **Proteção distribuída continua pendente; esta etapa não libera exposição pública.**

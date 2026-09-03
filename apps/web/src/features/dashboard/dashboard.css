@@ -1,0 +1,45 @@
+.dashboard-page { padding: 2.5rem; }
+.dashboard-heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.75rem; }
+.dashboard-heading h1 { margin:0; font-size:2.5rem; }
+.dashboard-heading .eyebrow { margin-bottom:.5rem; }
+.period-controls { display:flex; align-items:center; flex-wrap:wrap; gap:.85rem; }
+.period-controls>label { font-size:.875rem; }
+.period-controls form { display:flex; align-items:end; flex-wrap:wrap; gap:.75rem; }
+.period-controls form label { display:grid; gap:.35rem; font-size:.875rem; }
+.period-controls input { color-scheme:dark; }
+.dashboard-period-caption { font-size:.875rem; color:var(--muted); margin:1rem 0 1.75rem; }
+.dashboard-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.3rem; }
+.dashboard-wide { grid-column:1/-1; }
+.dashboard-section { background:var(--surface); border:1px solid var(--line); border-radius:8px; min-width:0; overflow:hidden; }
+.dashboard-section>header { padding:1.5rem 1.5rem 1rem; }
+.dashboard-section h2 { font:600 1.125rem Inter,system-ui,sans-serif; margin:0 0 .5rem; }
+.dashboard-section>header p { font-size:.875rem; color:var(--muted); margin:0; }
+.dashboard-summary { border-top:2px solid var(--accent); }
+.metric-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:0; padding:.5rem 0 1.5rem; }
+.metric-card { padding:.5rem 1.5rem; border-right:1px solid var(--line); min-width:0; }
+.metric-card:last-child { border-right:0; }
+.metric-card dt { color:var(--muted); font-size:.875rem; }
+.metric-card dd { margin:.7rem 0; font-size:clamp(1.4rem,2vw,2rem); letter-spacing:-.04em; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.metric-card:first-child dd { color:#ff967e; }
+.metric-card p { color:var(--muted); font-size:.75rem; margin:0; }
+.dashboard-ranking { list-style:none; padding:0 1.5rem .5rem; margin:0; }
+.dashboard-ranking li { display:grid; grid-template-columns:1.4rem minmax(0,1fr) auto; gap:.65rem; align-items:start; padding:1.15rem 0; border-top:1px solid var(--line); }
+.rank-position { color:#96918b; font-size:.75rem; padding-top:.2rem; }
+.rank-name strong,.rank-money strong { font-size:.95rem; font-weight:500; display:block; overflow-wrap:anywhere; }
+.rank-name span,.rank-money span { display:block; color:var(--muted); font-size:.75rem; margin-top:.4rem; line-height:1.5; }
+.rank-money { text-align:right; font-variant-numeric:tabular-nums; }
+.dashboard-table-scroll { overflow-x:auto; padding:0 1.5rem; }
+.dashboard-table { border-collapse:collapse; width:100%; font-size:.875rem; }
+.dashboard-table th,.dashboard-table td { text-align:right; padding:1rem .8rem; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+.dashboard-table th:first-child { text-align:left; padding-left:0; min-width:150px; }
+.dashboard-table thead th { color:var(--muted); font-weight:400; }
+.dashboard-table tbody th { font-weight:500; }
+.dashboard-table td:last-child { color:#ffb29e; white-space:nowrap; }
+.dashboard-note { font-size:.75rem; color:var(--muted); margin:1.2rem 1.5rem; max-width:900px; }
+.dashboard-loading,.dashboard-feedback,.dashboard-empty { padding:1.25rem 1.5rem 2rem; margin:0; color:var(--muted); font-size:.95rem; }
+.dashboard-loading span { display:block; height:14px; border-radius:3px; background:#333; margin-top:1rem; }
+.dashboard-loading span:last-child { width:65%; }
+.dashboard-feedback p { color:#ffb29e; }
+.dashboard-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+@media(max-width:1150px) { .dashboard-page{padding:2rem 1.5rem} .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:1.25rem}.metric-card:nth-child(2){border-right:0}.dashboard-grid{grid-template-columns:minmax(0,1fr)} }
+@media(max-width:600px) { .dashboard-page{padding:1.75rem 1rem}.dashboard-heading{align-items:start;flex-direction:column}.dashboard-heading h1{font-size:2rem}.period-controls{align-items:start}.period-controls form{width:100%}.period-controls form label{max-width:100%}.metric-card{padding:.5rem 1rem}.dashboard-section>header{padding:1.25rem 1rem}.dashboard-ranking{padding:0 1rem .5rem}.dashboard-ranking li{grid-template-columns:1.25rem minmax(0,1fr)}.rank-money{grid-column:2;text-align:left}.dashboard-table-scroll{padding:0 1rem} }
