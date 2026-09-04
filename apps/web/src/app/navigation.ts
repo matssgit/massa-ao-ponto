@@ -8,33 +8,32 @@ export const navigation = [
   {
     path: "/pedidos",
     label: "Pedidos",
-    detail: "A gestão dos pedidos será disponibilizada em uma próxima etapa.",
+    detail: "Pedidos, preparo, pagamento e entrega do restaurante.",
     ownerOnly: false,
   },
   {
     path: "/reservas",
     label: "Reservas",
-    detail: "A agenda de reservas será disponibilizada em uma próxima etapa.",
+    detail: "Agenda, disponibilidade e operação das reservas.",
     ownerOnly: false,
   },
   {
     path: "/clientes",
     label: "Clientes",
-    detail:
-      "A consulta aos clientes será disponibilizada em uma próxima etapa.",
+    detail: "Consulta dos clientes relacionados ao restaurante.",
     ownerOnly: false,
   },
   {
     path: "/cardapio",
     label: "Cardápio",
-    detail: "Os produtos, categorias e adicionais serão reunidos aqui.",
-    ownerOnly: false,
+    detail: "Produtos, categorias e adicionais do restaurante.",
+    ownerOnly: true,
   },
   {
     path: "/mesas",
     label: "Mesas",
-    detail: "A consulta às mesas será disponibilizada em uma próxima etapa.",
-    ownerOnly: false,
+    detail: "Estrutura, capacidade e disponibilidade administrativa das mesas.",
+    ownerOnly: true,
   },
   {
     path: "/relatorios",

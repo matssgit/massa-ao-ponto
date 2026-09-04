@@ -50,6 +50,17 @@ function fixture(initial: Session | null = session) {
       revenue: 0, averageTicket: 0,
     });
     if (path.includes("/dashboard/")) return Response.json([]);
+    if (path.endsWith("/orders")) return Response.json({
+      data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0, hasNext: false, hasPrevious: false },
+    });
+    if (path.endsWith("/reservations")) return Response.json({
+      data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0, hasNext: false, hasPrevious: false },
+    });
+    if (path.endsWith("/customers")) return Response.json({
+      data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0, hasNext: false, hasPrevious: false },
+    });
+    if (path.endsWith("/products") || path.endsWith("/product-categories") || path.endsWith("/addons")) return Response.json([]);
+    if (path.endsWith("/tables")) return Response.json([]);
     if (path === "/restaurants")
       return Response.json([
         { id: first, name: "Casa Centro" },

@@ -10,6 +10,11 @@ import { SectionPage } from "../pages/section-page";
 import { AppShell } from "./app-shell";
 import { navigation } from "./navigation";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
+import { OrdersPage } from "../features/orders/orders-page";
+import { ReservationsPage } from "../features/reservations/reservations-page";
+import { CustomersPage } from "../features/customers/customers-page";
+import { CatalogPage } from "../features/catalog/catalog-page";
+import { TablesPage } from "../features/tables/tables-page";
 
 function ProtectedRoutes() {
   const { authenticated, user } = useAuth();
@@ -54,8 +59,11 @@ function AuthRoutes() {
       />
       <Route element={<ProtectedRoutes />}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/pedidos" element={<OrdersPage />} />
+        <Route path="/reservas" element={<ReservationsPage />} />
+        <Route path="/clientes" element={<CustomersPage />} />
         {navigation
-          .filter((item) => !item.ownerOnly && item.path !== "/")
+          .filter((item) => !item.ownerOnly && !["/", "/pedidos", "/reservas", "/clientes"].includes(item.path))
           .map((item) => (
             <Route
               key={item.path}
@@ -64,8 +72,10 @@ function AuthRoutes() {
             />
           ))}
         <Route element={<OwnerOnly />}>
+          <Route path="/cardapio" element={<CatalogPage />} />
+          <Route path="/mesas" element={<TablesPage />} />
           {navigation
-            .filter((item) => item.ownerOnly)
+            .filter((item) => item.ownerOnly && !["/cardapio", "/mesas"].includes(item.path))
             .map((item) => (
               <Route
                 key={item.path}

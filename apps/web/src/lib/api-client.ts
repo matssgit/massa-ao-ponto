@@ -42,6 +42,7 @@ type RequestOptions = {
   body?: unknown;
   csrf?: boolean;
   signal?: AbortSignal;
+  allowEmptyResponse?: boolean;
 };
 
 export class ApiClient {
@@ -134,6 +135,7 @@ export class ApiClient {
             "A API não pôde concluir a solicitação.",
           );
     }
+    if (payload === undefined && options.allowEmptyResponse) return undefined;
     if (payload === undefined)
       throw new ApiError(
         response.status,
