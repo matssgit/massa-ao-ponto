@@ -20,3 +20,4 @@ export * from "./users.js";
 export * from "./membership-role.js";
 export * from "./restaurant-memberships.js";
 export * from "./sessions.js";
+export * from "./member-invitations.js";

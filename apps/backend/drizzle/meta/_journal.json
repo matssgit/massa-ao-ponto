@@ -78,6 +78,13 @@
       "when": 1788305705376,
       "tag": "0010_thin_agent_zero",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788544749296,
+      "tag": "0011_amused_smiling_tiger",
+      "breakpoints": true
     }
   ]
 }
