@@ -198,7 +198,8 @@ describe("Orders UI", () => {
     await open();
     await userEvent.click(screen.getByRole("button", { name: "Registrar pagamento" }));
     expect(writes()).toHaveLength(0);
-    await userEvent.click(screen.getByRole("button", { name: "Confirmar pagamento" }));
+    const confirm = screen.getByRole("button", { name: "Confirmar pagamento" }); expect(document.activeElement).toBe(confirm);
+    await userEvent.click(confirm);
     await waitFor(() => expect(summary().getByText("Pago")).toBeTruthy());
     expect(String(writes()[0][0])).toContain("/payment");
     expect(screen.queryByRole("button", { name: "Cancelar pedido" })).toBeNull();

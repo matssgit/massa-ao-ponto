@@ -188,7 +188,8 @@ describe("Reservations UI", () => {
     expect(writes()).toHaveLength(0);
     await userEvent.click(screen.getByRole("button", { name: "Voltar sem confirmar" }));
     await userEvent.click(screen.getByRole("button", { name: "Cancelar reserva" }));
-    await userEvent.click(screen.getByRole("button", { name: "Confirmar cancelamento" }));
+    const confirm = screen.getByRole("button", { name: "Confirmar cancelamento" }); expect(document.activeElement).toBe(confirm);
+    await userEvent.click(confirm);
     await waitFor(() => expect(summary().getByText("Cancelada")).toBeTruthy());
     expect(String(writes()[0][0])).toContain(`/reservations/${reservationId}/cancel`);
     expect(writes()[0][1]?.body).toBeUndefined();

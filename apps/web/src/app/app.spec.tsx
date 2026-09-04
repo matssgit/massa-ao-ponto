@@ -201,10 +201,12 @@ describe("Frontend auth and protected shell", () => {
     await screen.findByRole("heading", { name: "Qual casa vamos acompanhar?" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "RESTAURANTE" }), first);
     await screen.findByRole("heading", { name: "Visão geral" });
-    await userEvent.click(screen.getByRole("link", { name: /Relatórios/ }));
-    await screen.findByRole("heading", { name: "Relatórios" });
+    expect(screen.queryByRole("link", { name: /Relatórios/ })).toBeNull();
+    await userEvent.click(screen.getByRole("link", { name: /Cardápio/ }));
+    await screen.findByRole("heading", { name: "Cardápio" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "RESTAURANTE" }), second);
     await screen.findByRole("heading", { name: "Visão geral" });
+    expect(screen.queryByRole("link", { name: /Cardápio/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /Relatórios/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /Configurações/ })).toBeNull();
   });

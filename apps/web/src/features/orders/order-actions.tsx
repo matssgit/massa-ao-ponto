@@ -52,9 +52,9 @@ export function OrderActions({ detail, owner, busy, onAction }: {
         else onAction(action);
       }}
     >{label}</button>)}</div>
-    {permittedConfirmation && <div className="order-confirmation" role="group" aria-label="Confirmação da ação">
+    {permittedConfirmation && <div className="order-confirmation" role="alertdialog" aria-label="Confirmação da ação">
       <p>{permittedConfirmation.kind === "payment" ? "Confirma que o pagamento foi recebido? Esta ação registra o pedido como pago e impede seu cancelamento." : "Confirma o cancelamento deste pedido? Não será possível retomar seu preparo."}</p>
-      <button className="primary" disabled={busy} onClick={() => onAction(permittedConfirmation)}>{permittedConfirmation.kind === "payment" ? "Confirmar pagamento" : "Confirmar cancelamento"}</button>
+      <button className="primary" disabled={busy} onClick={() => onAction(permittedConfirmation)} autoFocus>{permittedConfirmation.kind === "payment" ? "Confirmar pagamento" : "Confirmar cancelamento"}</button>
       <button className="secondary" disabled={busy} onClick={() => setConfirmation(null)}>Voltar sem confirmar</button>
     </div>}
     {busy && <p role="status">Enviando ação…</p>}

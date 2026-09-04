@@ -87,7 +87,8 @@ describe("Catalog UI", () => {
     expect(catalogRequests().some(([, init]) => init?.method === "DELETE")).toBe(false);
     await userEvent.click(screen.getByRole("button", { name: "Manter item" }));
     await userEvent.click(screen.getByRole("button", { name: "Excluir" }));
-    await userEvent.click(screen.getByRole("button", { name: "Confirmar exclusão" }));
+    const confirm = screen.getByRole("button", { name: "Confirmar exclusão" }); expect(document.activeElement).toBe(confirm);
+    await userEvent.click(confirm);
     await screen.findByText("Categoria excluída.");
   });
 
@@ -150,11 +151,13 @@ describe("Catalog UI", () => {
     await screen.findByText("Margherita");
     await userEvent.click(screen.getByRole("button", { name: "Excluir" }));
     expect(catalogRequests().filter(([, init]) => init?.method === "DELETE")).toHaveLength(0);
-    await userEvent.click(screen.getByRole("button", { name: "Confirmar exclusão" }));
+    const productConfirm = screen.getByRole("button", { name: "Confirmar exclusão" }); expect(document.activeElement).toBe(productConfirm);
+    await userEvent.click(productConfirm);
     await screen.findByText("Produto excluído.");
     await tab("Adicionais"); await screen.findByText("Catupiry");
     await userEvent.click(screen.getByRole("button", { name: "Excluir" }));
-    await userEvent.click(screen.getByRole("button", { name: "Confirmar exclusão" }));
+    const addonConfirm = screen.getByRole("button", { name: "Confirmar exclusão" }); expect(document.activeElement).toBe(addonConfirm);
+    await userEvent.click(addonConfirm);
     await screen.findByText("Adicional excluído.");
     expect(catalogRequests().filter(([, init]) => init?.method === "DELETE")).toHaveLength(2);
   });

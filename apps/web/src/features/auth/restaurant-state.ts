@@ -9,6 +9,7 @@ interface RestaurantContextValue {
   restaurantId: string | null;
   restaurants: RestaurantSummary[];
   selectRestaurant: (id: string) => void;
+  updateRestaurantName: (id: string, name: string) => void;
 }
 
 export const RestaurantContext = createContext<RestaurantContextValue | null>(

@@ -15,6 +15,7 @@ import { ReservationsPage } from "../features/reservations/reservations-page";
 import { CustomersPage } from "../features/customers/customers-page";
 import { CatalogPage } from "../features/catalog/catalog-page";
 import { TablesPage } from "../features/tables/tables-page";
+import { RestaurantSettingsPage } from "../features/restaurant-settings/restaurant-settings-page";
 
 function ProtectedRoutes() {
   const { authenticated, user } = useAuth();
@@ -74,8 +75,9 @@ function AuthRoutes() {
         <Route element={<OwnerOnly />}>
           <Route path="/cardapio" element={<CatalogPage />} />
           <Route path="/mesas" element={<TablesPage />} />
+          <Route path="/configuracoes" element={<RestaurantSettingsPage />} />
           {navigation
-            .filter((item) => item.ownerOnly && !["/cardapio", "/mesas"].includes(item.path))
+            .filter((item) => item.ownerOnly && !["/cardapio", "/mesas", "/configuracoes"].includes(item.path))
             .map((item) => (
               <Route
                 key={item.path}

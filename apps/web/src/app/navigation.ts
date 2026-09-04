@@ -36,17 +36,9 @@ export const navigation = [
     ownerOnly: true,
   },
   {
-    path: "/relatorios",
-    label: "Relatórios",
-    detail:
-      "Os relatórios da pizzaria serão disponibilizados em uma próxima etapa.",
-    ownerOnly: true,
-  },
-  {
     path: "/configuracoes",
     label: "Configurações",
-    detail:
-      "As configurações administrativas serão disponibilizadas em uma próxima etapa.",
+    detail: "Identificação, contato e timezone do restaurante.",
     ownerOnly: true,
   },
 ] as const;

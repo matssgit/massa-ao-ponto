@@ -1,0 +1,22 @@
+.restaurant-settings-page { padding: 2.5rem; max-width: 980px; }
+.settings-heading { display: flex; justify-content: space-between; align-items: start; gap: 1rem; margin-bottom: 1.5rem; }
+.settings-heading h1 { margin-bottom: .45rem; }
+.settings-heading p:last-child, .settings-help, .settings-actions span { color: var(--muted); }
+.settings-heading p:last-child { margin: 0; }
+.restaurant-settings-form { display: grid; gap: 1rem; }
+.restaurant-settings-form fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 1.25rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.restaurant-settings-form legend { padding: 0 .45rem; font-family: Georgia, serif; font-size: 1.1rem; }
+.restaurant-settings-form label { display: grid; gap: .45rem; font-size: .875rem; }
+.restaurant-settings-form fieldset:first-of-type label { grid-column: 1 / -1; }
+.settings-help { grid-column: 1 / -1; margin: 0; font-size: .8rem; line-height: 1.5; }
+.settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.settings-actions span { font-size: .875rem; }
+.settings-success { border-left: 2px solid var(--accent); padding-left: 1rem; }
+.settings-feedback { padding: 1.5rem 0; }
+@media (max-width: 760px) {
+  .restaurant-settings-page { padding: 1.5rem 1rem; }
+  .settings-heading { flex-direction: column; }
+  .restaurant-settings-form fieldset { grid-template-columns: 1fr; padding: 1rem; }
+  .restaurant-settings-form fieldset:first-of-type label, .settings-help { grid-column: auto; }
+  .settings-actions { align-items: stretch; flex-direction: column; }
+}

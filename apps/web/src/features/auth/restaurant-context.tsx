@@ -7,6 +7,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
   const { memberships, service } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [restaurants, setRestaurants] = useState<RestaurantSummary[]>([]);
+  const [restaurantNames, setRestaurantNames] = useState<Record<string, string>>({});
   const membership =
     memberships.find((item) => item.restaurantId === selected) ??
     (memberships.length === 1 ? memberships[0] : null);
@@ -31,15 +32,26 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     setSelected(id);
   }
 
+  function updateRestaurantName(id: string, name: string) {
+    if (!memberships.some((item) => item.restaurantId === id)) return;
+    setRestaurantNames((current) => ({ ...current, [id]: name }));
+  }
+
   return (
     <RestaurantContext.Provider
       value={{
         membership,
         restaurantId: membership?.restaurantId ?? null,
-        restaurants: restaurants.filter((restaurant) =>
-          memberships.some((item) => item.restaurantId === restaurant.id),
-        ),
+        restaurants: restaurants
+          .filter((restaurant) =>
+            memberships.some((item) => item.restaurantId === restaurant.id),
+          )
+          .map((restaurant) => ({
+            ...restaurant,
+            name: restaurantNames[restaurant.id] ?? restaurant.name,
+          })),
         selectRestaurant,
+        updateRestaurantName,
       }}
     >
       {children}
