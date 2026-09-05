@@ -43,6 +43,17 @@ import { TableOccupiedError } from "../modules/orders/errors/table-occupied-erro
 import { TableRestaurantMismatchError } from "../modules/reservations/errors/table-restaurant-mismatch-error.js";
 import { ZodError } from "zod";
 import { AuthRateLimitError, ForbiddenError, InvalidCredentialsError, InvalidCsrfError, UnauthenticatedError } from "../modules/auth/errors/auth-errors.js";
+import {
+  InvitationAlreadyPendingError,
+  InvitationAlreadyUsedError,
+  InvitationExpiredError,
+  InvitationInvalidError,
+  InvitationNotFoundError,
+  InvitationRevokedError,
+  LastActiveOwnerError,
+  MemberAlreadyExistsError,
+  MemberNotFoundError,
+} from "../modules/auth/errors/membership-errors.js";
 
 export const errorHandler = (
   error: FastifyError,
@@ -74,6 +85,8 @@ export const errorHandler = (
 
   if (
     error instanceof RestaurantNotFoundError ||
+    error instanceof MemberNotFoundError ||
+    error instanceof InvitationNotFoundError ||
     error instanceof TableNotFoundError ||
     error instanceof ReservationNotFoundError ||
     error instanceof CustomerNotFoundError ||
@@ -104,6 +117,13 @@ export const errorHandler = (
 
   if (
     error instanceof TableNumberAlreadyExistsError ||
+    error instanceof LastActiveOwnerError ||
+    error instanceof MemberAlreadyExistsError ||
+    error instanceof InvitationAlreadyPendingError ||
+    error instanceof InvitationInvalidError ||
+    error instanceof InvitationExpiredError ||
+    error instanceof InvitationAlreadyUsedError ||
+    error instanceof InvitationRevokedError ||
     error instanceof ReservationConflictError ||
     error instanceof TableInactiveError ||
     error instanceof CapacityExceededError ||

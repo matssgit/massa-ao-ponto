@@ -1,4 +1,12 @@
 import {
+  acceptExistingUserInvitationController,
+  createMemberInvitationController,
+  listMemberInvitationsController,
+  listMembersController,
+  revokeMemberInvitationController,
+  updateMembershipController,
+} from "../modules/auth/controllers/membership-controllers.js";
+import {
   completeDeliveryController,
   createDeliveryController,
   startDeliveryController,
@@ -75,6 +83,14 @@ export async function restaurantsRoutes(app: FastifyInstance) {
     { config: { access: "owner" } },
     updateRestaurantController,
   );
+
+  // === MEMBERSHIPS ===
+  app.get("/restaurants/:restaurantId/members", { config: { access: "owner" } }, listMembersController);
+  app.patch("/restaurants/:restaurantId/members/:membershipId", { config: { access: "owner" } }, updateMembershipController);
+  app.post("/restaurants/:restaurantId/member-invitations", { config: { access: "owner" } }, createMemberInvitationController);
+  app.get("/restaurants/:restaurantId/member-invitations", { config: { access: "owner" } }, listMemberInvitationsController);
+  app.delete("/restaurants/:restaurantId/member-invitations/:invitationId", { config: { access: "owner" } }, revokeMemberInvitationController);
+  app.post("/member-invitations/accept", { config: { access: "user" } }, acceptExistingUserInvitationController);
 
   // === TABLES ===
   app.post(

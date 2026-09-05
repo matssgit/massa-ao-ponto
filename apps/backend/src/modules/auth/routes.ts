@@ -3,6 +3,7 @@ import rateLimit from "@fastify/rate-limit";
 import { AuthRateLimitError } from "./errors/auth-errors.js";
 import { readAuthConfig } from "./auth-config.js";
 import { createAuthControllers } from "./controllers/auth-controllers.js";
+import { acceptNewUserInvitationController } from "./controllers/membership-controllers.js";
 import { assertTrustedAuthOrigin } from "./csrf.js";
 import { Argon2PasswordHasher } from "./password-hasher.js";
 import { DrizzleAuthRepository } from "./repositories/drizzle-auth-repository.js";
@@ -35,7 +36,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.addHook("onRequest", async (request, reply) => {
     reply.header("Cache-Control", "no-store");
     reply.header("Pragma", "no-cache");
-    if (request.routeOptions.url !== "/auth/login") return;
+    if (!["/auth/login", "/auth/member-invitations/accept"].includes(request.routeOptions.url ?? "")) return;
     // Protect login before a session exists; no origin inferred from an untrusted Host header.
     assertTrustedAuthOrigin(config, request.headers.origin, request.headers["x-auth-request"]);
   });
@@ -45,5 +46,9 @@ export async function authRoutes(app: FastifyInstance) {
     config: { access: "auth-runtime", rateLimit: config.loginRateLimit },
   }, controllers.login);
   app.get("/auth/session", { config: { access: "auth-runtime" } }, controllers.session);
+  app.post("/auth/member-invitations/accept", {
+    bodyLimit: 8192,
+    config: { access: "auth-runtime" },
+  }, acceptNewUserInvitationController);
   app.post("/auth/logout", { bodyLimit: 8192, config: { access: "user" } }, controllers.logout);
 }

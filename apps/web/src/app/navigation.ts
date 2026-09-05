@@ -41,4 +41,10 @@ export const navigation = [
     detail: "Identificação, contato e timezone do restaurante.",
     ownerOnly: true,
   },
+  {
+    path: "/equipe",
+    label: "Equipe",
+    detail: "Membros, acessos e convites do restaurante.",
+    ownerOnly: true,
+  },
 ] as const;

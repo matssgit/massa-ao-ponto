@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach } from "vitest";
 import { db } from "../../src/db/index.js";
-import { restaurantMemberships, restaurants, users } from "../../src/db/schema/index.js";
+import { memberInvitations, restaurantMemberships, restaurants, users } from "../../src/db/schema/index.js";
 import { readAuthConfig } from "../../src/modules/auth/auth-config.js";
 import { Argon2PasswordHasher } from "../../src/modules/auth/password-hasher.js";
 import type { GetSessionUseCase } from "../../src/modules/auth/use-cases/get-session.use-case.js";
@@ -68,7 +68,10 @@ export class TestAuth {
   }
 
   async cleanup() {
-    if (this.userId) await db.delete(users).where(eq(users.id, this.userId));
+    if (this.userId) {
+      await db.delete(memberInvitations).where(eq(memberInvitations.createdByUserId, this.userId));
+      await db.delete(users).where(eq(users.id, this.userId));
+    }
     this.headers = {};
     this.userId = "";
   }

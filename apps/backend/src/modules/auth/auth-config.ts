@@ -8,6 +8,7 @@ const environmentSchema = z.object({
   AUTH_SESSION_IDLE_SECONDS: z.coerce.number().int().min(60).max(604800).default(1800),
   AUTH_LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100).default(20),
   AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
+  AUTH_MEMBER_INVITATION_TTL_SECONDS: z.coerce.number().int().min(300).max(2592000).default(604800),
 });
 
 export function readAuthConfig(environment: NodeJS.ProcessEnv = process.env) {
@@ -44,6 +45,7 @@ export function readAuthConfig(environment: NodeJS.ProcessEnv = process.env) {
     cookieOptions: { httpOnly: true, secure, sameSite: "lax", path: "/" } as const,
     lifetimeMs: env.AUTH_SESSION_TTL_SECONDS * 1000,
     idleTimeoutMs: env.AUTH_SESSION_IDLE_SECONDS * 1000,
+    invitationLifetimeMs: env.AUTH_MEMBER_INVITATION_TTL_SECONDS * 1000,
     loginRateLimit: {
       max: env.AUTH_LOGIN_RATE_LIMIT_MAX,
       timeWindow: env.AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS * 1000,

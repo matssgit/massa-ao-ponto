@@ -16,6 +16,8 @@ import { CustomersPage } from "../features/customers/customers-page";
 import { CatalogPage } from "../features/catalog/catalog-page";
 import { TablesPage } from "../features/tables/tables-page";
 import { RestaurantSettingsPage } from "../features/restaurant-settings/restaurant-settings-page";
+import { InvitationAcceptancePage } from "../features/team/invitation-acceptance-page";
+import { TeamPage } from "../features/team/team-page";
 
 function ProtectedRoutes() {
   const { authenticated, user } = useAuth();
@@ -54,6 +56,7 @@ function AuthRoutes() {
     );
   return (
     <Routes>
+      <Route path="/convite" element={<InvitationAcceptancePage />} />
       <Route
         path="/login"
         element={authenticated ? <Navigate to="/" replace /> : <LoginPage />}
@@ -76,8 +79,9 @@ function AuthRoutes() {
           <Route path="/cardapio" element={<CatalogPage />} />
           <Route path="/mesas" element={<TablesPage />} />
           <Route path="/configuracoes" element={<RestaurantSettingsPage />} />
+          <Route path="/equipe" element={<TeamPage />} />
           {navigation
-            .filter((item) => item.ownerOnly && !["/cardapio", "/mesas", "/configuracoes"].includes(item.path))
+            .filter((item) => item.ownerOnly && !["/cardapio", "/mesas", "/configuracoes", "/equipe"].includes(item.path))
             .map((item) => (
               <Route
                 key={item.path}

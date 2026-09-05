@@ -130,8 +130,17 @@ O runtime de auth usa User separado de Customer e sessão opaca persistida no Po
 | `POST /auth/login` | Body `{ email, password }`; retorna `200 { user: { id, email } }` e cookie HttpOnly |
 | `GET /auth/session` | Retorna `200 { user: { id, email }, memberships: [{ restaurantId, role }], csrfToken }`; sessão inválida retorna 401 |
 | `POST /auth/logout` | Exige sessão válida e CSRF; revoga a sessão, limpa o cookie e retorna 204; sessão ausente/inválida retorna 401 |
+| `GET /restaurants/:restaurantId/members` | OWNER; lista memberships do Restaurant em `{ data, meta }` |
+| `PATCH /restaurants/:restaurantId/members/:membershipId` | OWNER; altera `role` e/ou `active`, preservando ao menos um OWNER ativo |
+| `POST /restaurants/:restaurantId/member-invitations` | OWNER; cria convite STAFF e retorna o token bruto somente nessa resposta |
+| `GET /restaurants/:restaurantId/member-invitations` | OWNER; lista convites em `{ data, meta }`, sem token ou hash |
+| `DELETE /restaurants/:restaurantId/member-invitations/:invitationId` | OWNER; revoga sem apagar o histórico |
+| `POST /auth/member-invitations/accept` | Sem sessão; aceita convite para novo User com `{ token, password }` |
+| `POST /member-invitations/accept` | Sessão e CSRF; aceita convite do e-mail do User autenticado com `{ token }` |
 
 O login normaliza e-mail com trim/lowercase e verifica senha com Argon2id. Credenciais incorretas, e-mail inexistente e User inativo retornam o mesmo `401 { code: "INVALID_CREDENTIALS", message: "Invalid email or password." }`. Não existe signup público nem provisionamento HTTP de usuários nesta etapa.
+
+Convites são tenant-aware e começam como STAFF. Enquanto não existe entrega por e-mail, o endpoint de criação devolve o token bruto uma única vez para transmissão por canal administrativo confiável; o PostgreSQL armazena somente SHA-256. Não registre esse token em logs, tickets ou arquivos do repositório. Convites pendentes duplicados para o mesmo Restaurant/e-mail são rejeitados; aceite, expiração e revogação são definitivos. O aceite público nunca recebe e-mail do cliente nem cria sessão. Se o e-mail já pertencer a um User global, esse User deve autenticar e usar o endpoint autenticado; nenhum fluxo revela memberships de outros Restaurants ou redefine sua senha.
 
 O cookie contém apenas o identificador aleatório da sessão; o banco guarda somente seu hash SHA-256. A consulta de sessão retorna apenas memberships ativas do User autenticado, ordenadas por `restaurantId`, ou `[]`. O frontend pode selecionar um restaurante, mas o backend consulta novamente a membership a cada request; alterar o `restaurantId` da URL não concede acesso.
 
@@ -156,6 +165,7 @@ Configuração dos endpoints:
 - Validar uma sessão atualiza `lastActivityAt`, sem estender `expiresAt`. Sessões expiradas, revogadas ou de User inativo recebem `401 UNAUTHENTICATED`.
 - `AUTH_LOGIN_RATE_LIMIT_MAX`: tentativas por IP, default 20, inteiro entre 1 e 100.
 - `AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS`: janela fixa a partir da primeira tentativa, default 300 (5 minutos), inteiro entre 60 e 3600. Valores inválidos impedem o startup; os defaults também valem em produção, sem flag para desativação.
+- `AUTH_MEMBER_INVITATION_TTL_SECONDS`: validade absoluta do convite, default 604800 (7 dias), inteiro entre 300 e 2592000 (30 dias).
 
 O limiter atua somente em `POST /auth/login`, após a proteção de Origin e antes de parsing/verificação de senha. Tentativas válidas, credenciais inválidas e bodies malformados que chegam ao limiter consomem a mesma cota; sucesso não a reinicia. Excesso retorna `429 { code: "AUTH_RATE_LIMIT", message: "Too many login attempts. Please try again later." }` com `Retry-After` em segundos, exposto via CORS. Requests bloqueados não estendem a janela nem causam ban permanente. Consulta de sessão, logout e OPTIONS não consomem essa cota.
 

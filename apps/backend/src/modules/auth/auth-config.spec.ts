@@ -10,6 +10,7 @@ describe("Auth configuration", () => {
     });
     expect(config.lifetimeMs).toBe(28_800_000);
     expect(config.idleTimeoutMs).toBe(1_800_000);
+    expect(config.invitationLifetimeMs).toBe(604_800_000);
     expect(config.loginRateLimit).toEqual({ max: 20, timeWindow: 300_000 });
     expect([...config.allowedOrigins]).toEqual([]);
   });
@@ -44,6 +45,8 @@ describe("Auth configuration", () => {
     { AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: "0" },
     { AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: "59" },
     { AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: "3601" },
+    { AUTH_MEMBER_INVITATION_TTL_SECONDS: "299" },
+    { AUTH_MEMBER_INVITATION_TTL_SECONDS: "2592001" },
     { NODE_ENV: "production" },
     { NODE_ENV: "production", AUTH_ALLOWED_ORIGINS: "http://admin.example.com" },
     { NODE_ENV: "production", AUTH_ALLOWED_ORIGINS: "https://admin.example.com", AUTH_COOKIE_SECURE: "false" },
