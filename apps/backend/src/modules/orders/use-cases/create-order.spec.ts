@@ -77,6 +77,8 @@ describe("CreateOrderUseCase", () => {
       address: "Rua",
       phone: "11",
       timezone: "UTC",
+      slug: null,
+      publicEnabled: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

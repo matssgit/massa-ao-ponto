@@ -19,6 +19,7 @@ interface CreateReservationRequest {
   startsAt: Date;
   endsAt: Date;
   observation?: string | null;
+  publicAccessTokenHash?: string;
 }
 
 export class CreateReservationUseCase {
@@ -63,6 +64,7 @@ export class CreateReservationUseCase {
         startsAt: request.startsAt,
         endsAt: request.endsAt,
         observation: request.observation,
+        publicAccessTokenHash: request.publicAccessTokenHash,
       });
 
       await repos.reservationHistory.create({

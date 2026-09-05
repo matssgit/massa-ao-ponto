@@ -6,7 +6,7 @@ export interface AuthContext {
   role: AuthMembership["role"];
 }
 
-export type RouteAccess = "auth-runtime" | "user" | "tenant" | "owner" | "disabled";
+export type RouteAccess = "public" | "auth-runtime" | "user" | "tenant" | "owner" | "disabled";
 
 declare module "fastify" {
   interface FastifyRequest {

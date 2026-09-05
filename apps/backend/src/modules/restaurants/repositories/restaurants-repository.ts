@@ -4,6 +4,8 @@ export interface Restaurant {
   address: string;
   phone: string;
   timezone: string;
+  slug: string | null;
+  publicEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,11 +22,15 @@ export interface UpdateRestaurantInput {
   address?: string;
   phone?: string;
   timezone?: string;
+  slug?: string | null;
+  publicEnabled?: boolean;
 }
 
 export interface RestaurantsRepository {
   create(data: CreateRestaurantInput): Promise<Restaurant>;
   findById(id: string): Promise<Restaurant | null>;
+  findBySlug(slug: string): Promise<Restaurant | null>;
+  findPublishedBySlug(slug: string): Promise<Restaurant | null>;
   findAll(): Promise<Restaurant[]>;
   update(id: string, data: UpdateRestaurantInput): Promise<Restaurant | null>;
 }

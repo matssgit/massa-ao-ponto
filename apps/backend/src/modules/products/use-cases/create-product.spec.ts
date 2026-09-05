@@ -34,6 +34,8 @@ describe("CreateProductUseCase", () => {
       address: "Rua",
       phone: "11",
       timezone: "UTC",
+      slug: null,
+      publicEnabled: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -99,6 +101,8 @@ describe("CreateProductUseCase", () => {
       address: "B",
       phone: "1",
       timezone: "UTC",
+      slug: null,
+      publicEnabled: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

@@ -8,6 +8,7 @@ export interface Reservation {
   startsAt: Date;
   endsAt: Date;
   observation: string | null;
+  publicAccessTokenHash?: string | null;
 }
 
 export interface CreateReservationData {
@@ -19,6 +20,7 @@ export interface CreateReservationData {
   startsAt: Date;
   endsAt: Date;
   observation?: string | null;
+  publicAccessTokenHash?: string | null;
 }
 
 export interface ReservationsRepository {
@@ -29,6 +31,7 @@ export interface ReservationsRepository {
     endsAt: Date,
   ): Promise<Reservation | null>;
   findById(id: string): Promise<Reservation | null>;
+  findByPublicAccessTokenHash(tokenHash: string): Promise<Reservation | null>;
   findByIdAndRestaurantId(
     reservationId: string,
     restaurantId: string,

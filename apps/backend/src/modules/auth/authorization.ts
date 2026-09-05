@@ -22,6 +22,13 @@ export function registerAuthorization(app: FastifyInstance): void {
     if (request.is404) return;
     reply.header("Cache-Control", "no-store");
     const access = request.routeOptions.config.access;
+    // Public routes do not use staff sessions; unsafe methods still require a trusted browser origin.
+    if (access === "public") {
+      if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+        assertTrustedAuthOrigin(config, request.headers.origin, request.headers["x-auth-request"]);
+      }
+      return;
+    }
     // Only explicitly registered auth endpoints delegate validation to their own runtime.
     if (access === "auth-runtime") return;
     const { session, user } = await validate.execute(request.cookies[config.cookieName], false);

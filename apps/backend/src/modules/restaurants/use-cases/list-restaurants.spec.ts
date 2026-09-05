@@ -14,7 +14,7 @@ describe("List Restaurants Use Case", () => {
     const now = new Date();
     repository.restaurants = ["b", "a", "c", "d"].map((id) => ({
       id, name: id === "b" || id === "a" ? "Same" : "Other", address: "", phone: "",
-      timezone: "UTC", createdAt: now, updatedAt: now,
+      timezone: "UTC", slug: null, publicEnabled: false, createdAt: now, updatedAt: now,
     }));
     repository.memberships = [
       { id: "1", userId: "u", restaurantId: "b", role: "OWNER", active: true, createdAt: now, updatedAt: now },

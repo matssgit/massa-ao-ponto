@@ -28,6 +28,8 @@ describe("CreateProductCategoryUseCase", () => {
       address: "Rua Teste",
       phone: "11999999999",
       timezone: "UTC",
+      slug: null,
+      publicEnabled: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

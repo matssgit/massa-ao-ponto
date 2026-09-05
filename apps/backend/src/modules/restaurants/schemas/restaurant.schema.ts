@@ -11,6 +11,9 @@ export const updateRestaurantParamsSchema = z.object({
   restaurantId: z.string().uuid("Invalid restaurant ID format."),
 });
 
-export const updateRestaurantBodySchema = createRestaurantSchema.partial();
+export const updateRestaurantBodySchema = createRestaurantSchema.partial().extend({
+  slug: z.string().min(1).max(100).nullable().optional(),
+  publicEnabled: z.boolean().optional(),
+});
 
 export type CreateRestaurantBody = z.infer<typeof createRestaurantSchema>;

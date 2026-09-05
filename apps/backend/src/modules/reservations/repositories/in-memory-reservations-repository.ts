@@ -26,6 +26,7 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
       id: randomUUID(),
       ...data,
       observation: data.observation || null,
+      publicAccessTokenHash: data.publicAccessTokenHash ?? null,
     };
     this.items.push(reservation);
     return reservation;
@@ -49,6 +50,10 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
 
   async findById(id: string): Promise<Reservation | null> {
     return this.items.find((item) => item.id === id) || null;
+  }
+
+  async findByPublicAccessTokenHash(tokenHash: string): Promise<Reservation | null> {
+    return this.items.find((item) => item.publicAccessTokenHash === tokenHash) ?? null;
   }
 
   async findByIdAndRestaurantId(

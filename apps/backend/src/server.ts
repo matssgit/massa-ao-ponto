@@ -5,6 +5,7 @@ import { registerCors } from "./http/cors.js";
 import { readAuthConfig } from "./modules/auth/auth-config.js";
 import { registerAuthorization } from "./modules/auth/authorization.js";
 import { authRoutes } from "./modules/auth/routes.js";
+import { publicReservationRoutes } from "./modules/public-reservations/routes.js";
 import { restaurantsRoutes } from "./http/routes.js";
 
 export const app = fastify();
@@ -15,6 +16,7 @@ app.register(async (scope) => {
   await scope.register(cookie);
   registerAuthorization(scope);
   scope.register(authRoutes);
+  scope.register(publicReservationRoutes);
   scope.register(restaurantsRoutes);
 });
 

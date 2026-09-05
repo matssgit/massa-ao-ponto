@@ -36,6 +36,10 @@ import { ReservationCancellationWindowExpiredError } from "../modules/reservatio
 import { ReservationConflictError } from "../modules/reservations/errors/reservation-conflict-error.js";
 import { ReservationNotFoundError } from "../modules/reservations/errors/reservation-not-found-error.js";
 import { RestaurantNotFoundError } from "../modules/restaurants/errors/restaurant-not-found-error.js";
+import { InvalidRestaurantPublicConfigError } from "../modules/restaurants/errors/invalid-restaurant-public-config-error.js";
+import { RestaurantSlugConflictError } from "../modules/restaurants/errors/restaurant-slug-conflict-error.js";
+import { PublicReservationNotFoundError } from "../modules/reservations/errors/public-reservation-not-found-error.js";
+import { PublicRateLimitError } from "../modules/public-reservations/public-rate-limit-error.js";
 import { TableInactiveError } from "../modules/reservations/errors/table-inactive-error.js";
 import { TableNotFoundError } from "../modules/reservations/errors/table-not-found-error.js";
 import { TableNumberAlreadyExistsError } from "../modules/tables/errors/table-number-already-exists-error.js";
@@ -81,10 +85,11 @@ export const errorHandler = (
     return sendDomainError(401);
   }
   if (error instanceof InvalidCsrfError || error instanceof ForbiddenError) return sendDomainError(403);
-  if (error instanceof AuthRateLimitError) return sendDomainError(429);
+  if (error instanceof AuthRateLimitError || error instanceof PublicRateLimitError) return sendDomainError(429);
 
   if (
     error instanceof RestaurantNotFoundError ||
+    error instanceof PublicReservationNotFoundError ||
     error instanceof MemberNotFoundError ||
     error instanceof InvitationNotFoundError ||
     error instanceof TableNotFoundError ||
@@ -117,6 +122,8 @@ export const errorHandler = (
 
   if (
     error instanceof TableNumberAlreadyExistsError ||
+    error instanceof RestaurantSlugConflictError ||
+    error instanceof InvalidRestaurantPublicConfigError ||
     error instanceof LastActiveOwnerError ||
     error instanceof MemberAlreadyExistsError ||
     error instanceof InvitationAlreadyPendingError ||

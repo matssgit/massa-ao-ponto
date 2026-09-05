@@ -9,6 +9,12 @@ import { and, asc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { reservations } from "../../../db/schema/index.js";
 
+function toReservation(row: typeof reservations.$inferSelect): Reservation {
+  const { publicAccessTokenHash, ...reservation } = row;
+  void publicAccessTokenHash;
+  return reservation;
+}
+
 function buildListConditions(filters: FindManyReservationsFilters) {
   const conditions = [eq(reservations.restaurantId, filters.restaurantId)];
 
@@ -35,7 +41,7 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
       .insert(reservations)
       .values(data)
       .returning();
-    return result[0];
+    return toReservation(result[0]);
   }
 
   async findConflictingReservation(
@@ -55,7 +61,7 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
         ),
       );
 
-    return result[0] || null;
+    return result[0] ? toReservation(result[0]) : null;
   }
 
   async findById(id: string): Promise<Reservation | null> {
@@ -63,7 +69,15 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
       .select()
       .from(reservations)
       .where(eq(reservations.id, id));
-    return result[0] || null;
+    return result[0] ? toReservation(result[0]) : null;
+  }
+
+  async findByPublicAccessTokenHash(tokenHash: string): Promise<Reservation | null> {
+    const [reservation] = await this.client
+      .select()
+      .from(reservations)
+      .where(eq(reservations.publicAccessTokenHash, tokenHash));
+    return reservation ? toReservation(reservation) : null;
   }
 
   async findByIdAndRestaurantId(
@@ -80,7 +94,7 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
         ),
       );
 
-    return reservation || null;
+    return reservation ? toReservation(reservation) : null;
   }
 
   async findByIdAndRestaurantIdForUpdate(
@@ -98,7 +112,7 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
       )
       .for("update");
 
-    return reservation || null;
+    return reservation ? toReservation(reservation) : null;
   }
 
   async updateStatus(
@@ -110,7 +124,7 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
       .set({ status, updatedAt: new Date() })
       .where(eq(reservations.id, id))
       .returning();
-    return result[0];
+    return toReservation(result[0]);
   }
 
   async findManyByRestaurantId(
@@ -124,7 +138,7 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
       .limit(filters.limit)
       .offset((filters.page - 1) * filters.limit);
 
-    return result;
+    return result.map(toReservation);
   }
 
   async countByRestaurantId(
@@ -159,18 +173,19 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
   }
 
   async findByCustomerId(customerId: string): Promise<Reservation[]> {
-    return await this.client
+    const result = await this.client
       .select()
       .from(reservations)
       .where(eq(reservations.customerId, customerId))
       .orderBy(asc(reservations.startsAt), asc(reservations.id));
+    return result.map(toReservation);
   }
 
   async findByCustomerIdAndRestaurantId(
     customerId: string,
     restaurantId: string,
   ): Promise<Reservation[]> {
-    return await this.client
+    const result = await this.client
       .select()
       .from(reservations)
       .where(
@@ -180,5 +195,6 @@ export class DrizzleReservationsRepository implements ReservationsRepository {
         ),
       )
       .orderBy(asc(reservations.startsAt), asc(reservations.id));
+    return result.map(toReservation);
   }
 }

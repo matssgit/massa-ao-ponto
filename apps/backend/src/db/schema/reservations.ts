@@ -4,6 +4,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -34,6 +35,7 @@ export const reservations = pgTable(
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     observation: text("observation"),
+    publicAccessTokenHash: text("public_access_token_hash"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -43,6 +45,9 @@ export const reservations = pgTable(
     ).on(table.restaurantId, table.startsAt, table.endsAt),
     tableIdx: index("idx_reservations_table_id").on(table.tableId),
     customerIdx: index("idx_reservations_customer_id").on(table.customerId),
+    publicAccessTokenHashUnique: uniqueIndex(
+      "reservations_public_access_token_hash_unique",
+    ).on(table.publicAccessTokenHash),
   }),
 );
 

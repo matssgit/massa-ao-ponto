@@ -9,6 +9,12 @@ const environmentSchema = z.object({
   AUTH_LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100).default(20),
   AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
   AUTH_MEMBER_INVITATION_TTL_SECONDS: z.coerce.number().int().min(300).max(2592000).default(604800),
+  PUBLIC_AVAILABILITY_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1000).default(120),
+  PUBLIC_AVAILABILITY_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3600).default(60),
+  PUBLIC_RESERVATION_CREATE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100).default(10),
+  PUBLIC_RESERVATION_CREATE_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(500).default(60),
+  PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
 });
 
 export function readAuthConfig(environment: NodeJS.ProcessEnv = process.env) {
@@ -49,6 +55,20 @@ export function readAuthConfig(environment: NodeJS.ProcessEnv = process.env) {
     loginRateLimit: {
       max: env.AUTH_LOGIN_RATE_LIMIT_MAX,
       timeWindow: env.AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS * 1000,
+    },
+    publicReservationRateLimits: {
+      availability: {
+        max: env.PUBLIC_AVAILABILITY_RATE_LIMIT_MAX,
+        timeWindow: env.PUBLIC_AVAILABILITY_RATE_LIMIT_WINDOW_SECONDS * 1000,
+      },
+      create: {
+        max: env.PUBLIC_RESERVATION_CREATE_RATE_LIMIT_MAX,
+        timeWindow: env.PUBLIC_RESERVATION_CREATE_RATE_LIMIT_WINDOW_SECONDS * 1000,
+      },
+      access: {
+        max: env.PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_MAX,
+        timeWindow: env.PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_WINDOW_SECONDS * 1000,
+      },
     },
   };
 }

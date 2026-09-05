@@ -30,6 +30,8 @@ describe("GetAvailabilityUseCase", () => {
       address: "Endereço",
       phone: "11999999999",
       timezone: "UTC",
+      slug: null,
+      publicEnabled: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
