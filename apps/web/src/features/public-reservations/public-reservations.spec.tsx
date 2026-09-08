@@ -47,6 +47,7 @@ describe("Public reservation UI", () => {
     expect(await screen.findByRole("heading", { name: "Casa do Forno" })).toBeTruthy();
     expect(screen.getByText(restaurant.address)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Ver cardápio" }).getAttribute("href")).toBe("/r/casa-do-forno/cardapio");
+    expect(screen.getByRole("link", { name: "Pedir para retirada" }).getAttribute("href")).toBe("/r/casa-do-forno/pedido");
     await userEvent.click(screen.getByRole("link", { name: /Reservar mesa/ }));
     expect(await screen.findByRole("heading", { name: "Uma mesa para vocês." })).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
@@ -75,6 +76,7 @@ describe("Public reservation UI", () => {
     expect(screen.getByText(/45,90/).textContent).toContain("R$");
     expect(screen.getByText(/Borda recheada/).textContent).toContain("Catupiry");
     expect(screen.getByText(/8,00/).textContent).toContain("+");
+    expect(screen.getByRole("link", { name: "Fazer pedido para retirada" }).getAttribute("href")).toBe("/r/casa-do-forno/pedido");
     expect(transport.mock.calls.every(([input]) => new URL(String(input)).pathname.startsWith("/public/"))).toBe(true);
   });
   it("shows an accessible empty public catalog", async () => {
@@ -189,6 +191,17 @@ describe("Public reservation UI", () => {
     const transport = fixture("/r/casa-do-forno/reservar", (url, init) => url.pathname.endsWith("/reservations") && init?.method === "POST" ? Response.json({ code: "PUBLIC_RATE_LIMIT", message: "Too many" }, { status: 429, headers: { "Retry-After": "60" } }) : undefined);
     await availability(); await customer(); await userEvent.click(screen.getByRole("button", { name: "Revisar reserva" })); await userEvent.click(screen.getByRole("button", { name: "Confirmar reserva" }));
     expect((await screen.findByRole("alert")).textContent).toContain("60 segundos");
+    expect(transport.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+  });
+  it("blocks a duplicate reservation after an uncertain create result", async () => {
+    const transport = fixture("/r/casa-do-forno/reservar", (url, init) => {
+      if (url.pathname.endsWith("/reservations") && init?.method === "POST") throw new Error("connection lost");
+      return undefined;
+    });
+    await availability(); await customer(); await userEvent.click(screen.getByRole("button", { name: "Revisar reserva" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar reserva" }));
+    expect(await screen.findByText(/Para evitar duplicidade, não envie novamente/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Confirmar reserva" }).hasAttribute("disabled")).toBe(true);
     expect(transport.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
   });
   it("traps confirmation focus and closes with Escape without cancelling", async () => {

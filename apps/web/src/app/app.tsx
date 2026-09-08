@@ -114,8 +114,10 @@ export function App({ service }: { service: AuthService }) {
   return <Routes>
     <Route path="/r/:slug" element={<PublicRoute service={publicService} page="restaurant" />} />
     <Route path="/r/:slug/cardapio" element={<PublicRoute service={publicService} page="catalog" />} />
+    <Route path="/r/:slug/pedido" element={<PublicRoute service={publicService} page="order" />} />
     <Route path="/r/:slug/reservar" element={<PublicRoute service={publicService} page="reserve" />} />
     <Route path="/reserva/:token" element={<PublicRoute service={publicService} page="details" />} />
+    <Route path="/pedido/:token" element={<PublicRoute service={publicService} page="order-details" />} />
     <Route path="*" element={<AuthProvider service={service}><AuthRoutes /></AuthProvider>} />
   </Routes>;
 }

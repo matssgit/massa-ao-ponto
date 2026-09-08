@@ -25,6 +25,35 @@ const publicCategorySchema = z.object({
   id: z.uuid(), name: z.string(), displayOrder: z.number().int().nonnegative(), products: z.array(publicProductSchema),
 }).strict();
 export const publicCatalogSchema = z.object({ categories: z.array(publicCategorySchema) }).strict();
+const publicOrderAddonSnapshotSchema = z.object({
+  addonName: z.string(), unitPrice: z.number().int().nonnegative(),
+  quantity: z.number().int().positive(), subtotal: z.number().int().nonnegative(),
+}).strict();
+const publicOrderItemSnapshotSchema = z.object({
+  productName: z.string(), unitPrice: z.number().int().nonnegative(),
+  quantity: z.number().int().positive(), subtotal: z.number().int().nonnegative(),
+  addons: z.array(publicOrderAddonSnapshotSchema),
+}).strict();
+export const publicOrderDetailsSchema = z.object({
+  order: z.object({
+    status: z.enum(["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"]),
+    type: z.literal("PICKUP"),
+    subtotal: z.number().int().nonnegative(),
+    deliveryFee: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+    paymentStatus: z.enum(["PENDING", "PAID"]),
+    createdAt: z.iso.datetime({ offset: true }),
+  }).strict(),
+  items: z.array(publicOrderItemSnapshotSchema),
+}).strict();
+export const createdPublicOrderSchema = publicOrderDetailsSchema.extend({ accessToken: tokenSchema }).strict();
+export const publicOrderCustomerFormSchema = z.object({
+  name: z.string().trim().min(2, "Informe seu nome com pelo menos 2 caracteres.").max(120, "O nome deve ter no máximo 120 caracteres."),
+  phone: z.string().min(1, "Informe seu telefone.").max(30, "O telefone deve ter no máximo 30 caracteres.")
+    .refine(value => value.replace(/\D/g, "").length >= 10, "Informe o telefone com DDD (ao menos 10 dígitos)."),
+  email: z.union([z.literal(""), z.string().max(254, "O e-mail deve ter no máximo 254 caracteres.").email("Informe um e-mail válido.")]),
+  observation: z.string().max(500, "A observação deve ter no máximo 500 caracteres."),
+});
 export const customerFormSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome com pelo menos 2 caracteres."),
   phone: z.string().min(1, "Informe seu telefone.").refine(value => value.replace(/\D/g, "").length >= 10, "Informe o telefone com DDD (ao menos 10 dígitos)."),
@@ -35,5 +64,12 @@ export type PublicRestaurant = z.infer<typeof restaurantSchema>;
 export type AvailableTable = z.infer<typeof availabilitySchema>[number];
 export type PublicDetails = z.infer<typeof detailsSchema>;
 export type PublicCatalog = z.infer<typeof publicCatalogSchema>;
+export type PublicOrderDetails = z.infer<typeof publicOrderDetailsSchema>;
+export type CreatePublicOrderInput = {
+  type: "PICKUP";
+  customer: { name: string; phone: string; email?: string };
+  items: { productId: string; quantity: number; addons?: { addonId: string; quantity: number }[] }[];
+  observation?: string;
+};
 export type Period = { partySize: number; startsAt: string; endsAt: string };
 export type CreateInput = Period & { tableId: string; customer: { name: string; phone: string; email?: string }; notes?: string };

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ApiClient, ApiError } from "../../lib/api-client";
-import { availabilitySchema, createdSchema, detailsSchema, publicCatalogSchema, restaurantSchema, tokenSchema, type CreateInput, type Period } from "./schemas";
+import { availabilitySchema, createdPublicOrderSchema, createdSchema, detailsSchema, publicCatalogSchema, publicOrderDetailsSchema, restaurantSchema, tokenSchema, type CreateInput, type CreatePublicOrderInput, type Period } from "./schemas";
 const publicOptions = { csrf: false, credentials: "omit", referrerPolicy: "no-referrer" } as const;
 function decode<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -15,6 +15,19 @@ export class PublicReservationService {
   }
   catalog(slug: string, signal?: AbortSignal) {
     return this.client.request(`${this.root(slug)}/catalog`, { ...publicOptions, signal }).then(data => decode(publicCatalogSchema, data));
+  }
+  createOrder(slug: string, input: CreatePublicOrderInput) {
+    return this.client.request(`${this.root(slug)}/orders`, { ...publicOptions, method: "POST", body: input }).then(data => decode(createdPublicOrderSchema, data));
+  }
+  private orderTokenPath(token: string) {
+    if (!tokenSchema.safeParse(token).success) throw new ApiError(404, "PUBLIC_ORDER_NOT_FOUND", "Pedido não encontrado ou link inválido.");
+    return `/public/orders/${encodeURIComponent(token)}`;
+  }
+  async lookupOrder(token: string, signal?: AbortSignal) {
+    return decode(publicOrderDetailsSchema, await this.client.request(this.orderTokenPath(token), { ...publicOptions, signal }));
+  }
+  async cancelOrder(token: string) {
+    return decode(publicOrderDetailsSchema, await this.client.request(`${this.orderTokenPath(token)}/cancel`, { ...publicOptions, method: "POST" }));
   }
   availability(slug: string, period: Period, signal?: AbortSignal) {
     const query = new URLSearchParams({ startsAt: period.startsAt, endsAt: period.endsAt, partySize: String(period.partySize) });
