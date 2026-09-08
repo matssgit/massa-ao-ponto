@@ -13,6 +13,11 @@ import { orders } from "../../../db/schema/index.js";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+function mapOrder({ publicAccessTokenHash, ...order }: typeof orders.$inferSelect): Order {
+  void publicAccessTokenHash;
+  return order;
+}
+
 function buildListConditions(filters: ListOrdersFilters) {
   const conditions = [eq(orders.restaurantId, filters.restaurantId)];
 
@@ -32,7 +37,7 @@ export class DrizzleOrdersRepository implements OrdersRepository {
 
   async create(data: CreateOrderData): Promise<Order> {
     const [order] = await this.client.insert(orders).values(data).returning();
-    return order;
+    return mapOrder(order);
   }
 
   async findById(id: string): Promise<Order | null> {
@@ -40,7 +45,15 @@ export class DrizzleOrdersRepository implements OrdersRepository {
       .select()
       .from(orders)
       .where(eq(orders.id, id));
-    return result[0] || null;
+    return result[0] ? mapOrder(result[0]) : null;
+  }
+
+  async findByPublicAccessTokenHash(tokenHash: string): Promise<Order | null> {
+    const [order] = await this.client
+      .select()
+      .from(orders)
+      .where(eq(orders.publicAccessTokenHash, tokenHash));
+    return order ? mapOrder(order) : null;
   }
 
   async findByIdAndRestaurantId(
@@ -57,7 +70,7 @@ export class DrizzleOrdersRepository implements OrdersRepository {
         ),
       );
 
-    return order || null;
+    return order ? mapOrder(order) : null;
   }
 
   async findByIdAndRestaurantIdForUpdate(
@@ -75,17 +88,18 @@ export class DrizzleOrdersRepository implements OrdersRepository {
       )
       .for("update");
 
-    return order || null;
+    return order ? mapOrder(order) : null;
   }
 
   async findMany(filters: ListOrdersFilters): Promise<Order[]> {
-    return await this.client
+    const rows = await this.client
       .select()
       .from(orders)
       .where(and(...buildListConditions(filters)))
       .orderBy(desc(orders.createdAt), desc(orders.id))
       .limit(filters.limit)
       .offset((filters.page - 1) * filters.limit);
+    return rows.map(mapOrder);
   }
 
   async count(filters: ListOrdersFilters): Promise<number> {
@@ -104,7 +118,7 @@ export class DrizzleOrdersRepository implements OrdersRepository {
       .where(eq(orders.id, id))
       .for("update");
 
-    return result[0] || null;
+    return result[0] ? mapOrder(result[0]) : null;
   }
 
   async updateStatus(id: string, status: OrderStatus): Promise<void> {
@@ -139,6 +153,6 @@ export class DrizzleOrdersRepository implements OrdersRepository {
           ]),
         ),
       );
-    return result[0] || null;
+    return result[0] ? mapOrder(result[0]) : null;
   }
 }

@@ -14,6 +14,17 @@ export const detailsSchema = z.object({
   }).strict(),
 }).strict();
 export const createdSchema = detailsSchema.extend({ accessToken: tokenSchema }).strict();
+const publicAddonSchema = z.object({
+  id: z.uuid(), name: z.string(), description: z.string().nullable(), price: z.number().int().nonnegative(),
+}).strict();
+const publicProductSchema = z.object({
+  id: z.uuid(), categoryId: z.uuid(), name: z.string(), description: z.string().nullable(),
+  price: z.number().int().nonnegative(), displayOrder: z.number().int().nonnegative(), addons: z.array(publicAddonSchema),
+}).strict();
+const publicCategorySchema = z.object({
+  id: z.uuid(), name: z.string(), displayOrder: z.number().int().nonnegative(), products: z.array(publicProductSchema),
+}).strict();
+export const publicCatalogSchema = z.object({ categories: z.array(publicCategorySchema) }).strict();
 export const customerFormSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome com pelo menos 2 caracteres."),
   phone: z.string().min(1, "Informe seu telefone.").refine(value => value.replace(/\D/g, "").length >= 10, "Informe o telefone com DDD (ao menos 10 dígitos)."),
@@ -23,5 +34,6 @@ export const customerFormSchema = z.object({
 export type PublicRestaurant = z.infer<typeof restaurantSchema>;
 export type AvailableTable = z.infer<typeof availabilitySchema>[number];
 export type PublicDetails = z.infer<typeof detailsSchema>;
+export type PublicCatalog = z.infer<typeof publicCatalogSchema>;
 export type Period = { partySize: number; startsAt: string; endsAt: string };
 export type CreateInput = Period & { tableId: string; customer: { name: string; phone: string; email?: string }; notes?: string };

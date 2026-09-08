@@ -1,6 +1,7 @@
 import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 
 import { AddonNotFoundError } from "../modules/products/errors/addon-not-found-error.js";
+import { AddonInactiveError } from "../modules/orders/errors/addon-inactive-error.js";
 import { AddonRestaurantMismatchError } from "../modules/products/errors/addon-restaurant-mismatch-error.js";
 import { CapacityExceededError } from "../modules/reservations/errors/capacity-exceeded-error.js";
 import { ProductNotFoundError as CatalogProductNotFoundError } from "../modules/products/errors/product-not-found-error.js";
@@ -39,6 +40,7 @@ import { RestaurantNotFoundError } from "../modules/restaurants/errors/restauran
 import { InvalidRestaurantPublicConfigError } from "../modules/restaurants/errors/invalid-restaurant-public-config-error.js";
 import { RestaurantSlugConflictError } from "../modules/restaurants/errors/restaurant-slug-conflict-error.js";
 import { PublicReservationNotFoundError } from "../modules/reservations/errors/public-reservation-not-found-error.js";
+import { PublicOrderNotFoundError } from "../modules/orders/errors/public-order-not-found-error.js";
 import { PublicRateLimitError } from "../modules/public-reservations/public-rate-limit-error.js";
 import { TableInactiveError } from "../modules/reservations/errors/table-inactive-error.js";
 import { TableNotFoundError } from "../modules/reservations/errors/table-not-found-error.js";
@@ -90,6 +92,7 @@ export const errorHandler = (
   if (
     error instanceof RestaurantNotFoundError ||
     error instanceof PublicReservationNotFoundError ||
+    error instanceof PublicOrderNotFoundError ||
     error instanceof MemberNotFoundError ||
     error instanceof InvitationNotFoundError ||
     error instanceof TableNotFoundError ||
@@ -141,6 +144,7 @@ export const errorHandler = (
     error instanceof ProductHasOrdersError ||
     error instanceof DuplicateProductInOrderError ||
     error instanceof ProductInactiveError ||
+    error instanceof AddonInactiveError ||
     error instanceof ProductRestaurantMismatchError ||
     error instanceof InvalidOrderStatusTransitionError ||
     error instanceof InvalidOrderPaymentTransitionError ||

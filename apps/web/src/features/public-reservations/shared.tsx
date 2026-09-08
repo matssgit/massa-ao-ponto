@@ -15,15 +15,15 @@ export function ErrorNotice({ error, retry }: { error: unknown; retry?: () => vo
   useEffect(() => { ref.current?.focus(); }, [error]);
   return <div className="public-error" role="alert" tabIndex={-1} ref={ref}><p>{publicError(error)}</p>{retry && <button onClick={retry}>Tentar novamente</button>}</div>;
 }
-export function PublicFrame({ children, slug }: { children: ReactNode; slug?: string | null }) {
+export function PublicFrame({ children, slug, page = "reservations" }: { children: ReactNode; slug?: string | null; page?: "reservations" | "catalog" }) {
   useEffect(() => {
     const previousTitle = document.title;
     const description = document.querySelector('meta[name="description"]');
     const previousDescription = description?.getAttribute("content");
-    document.title = "Massa ao Ponto · Reservas";
-    description?.setAttribute("content", "Encontre sua mesa e acompanhe sua reserva.");
+    document.title = page === "catalog" ? "Massa ao Ponto · Cardápio" : "Massa ao Ponto · Reservas";
+    description?.setAttribute("content", page === "catalog" ? "Conheça o cardápio do restaurante." : "Encontre sua mesa e acompanhe sua reserva.");
     return () => { document.title = previousTitle; if (previousDescription !== null && previousDescription !== undefined) description?.setAttribute("content", previousDescription); };
-  }, []);
+  }, [page]);
   return <div className="public-site"><header className="public-header">{slug ? <Link to={"/r/" + encodeURIComponent(slug)} className="public-brand">Massa <span>ao Ponto</span></Link> : <span className="public-brand">Massa <span>ao Ponto</span></span>}<span>À mesa, juntos.</span></header><main id="public-main" className="public-main">{children}</main><footer className="public-footer">Massa ao Ponto <span>Um lugar para bons encontros.</span></footer></div>;
 }
 export function usePublicQuery<T>(load: (signal: AbortSignal) => Promise<T>) {

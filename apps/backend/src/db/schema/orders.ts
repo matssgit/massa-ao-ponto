@@ -4,6 +4,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import {
@@ -52,6 +53,7 @@ export const orders = pgTable(
     deliveryZipCode: text("delivery_zip_code"),
 
     observation: text("observation"),
+    publicAccessTokenHash: text("public_access_token_hash"),
 
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -60,6 +62,9 @@ export const orders = pgTable(
     return {
       restaurantIdIdx: index("orders_restaurant_id_idx").on(table.restaurantId),
       customerIdIdx: index("orders_customer_id_idx").on(table.customerId),
+      publicAccessTokenHashUnique: uniqueIndex(
+        "orders_public_access_token_hash_unique",
+      ).on(table.publicAccessTokenHash),
     };
   },
 );

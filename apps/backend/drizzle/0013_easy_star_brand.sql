@@ -1,0 +1,2 @@
+ALTER TABLE "orders" ADD COLUMN "public_access_token_hash" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "orders_public_access_token_hash_unique" ON "orders" USING btree ("public_access_token_hash");

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ApiClient, ApiError } from "../../lib/api-client";
-import { availabilitySchema, createdSchema, detailsSchema, restaurantSchema, tokenSchema, type CreateInput, type Period } from "./schemas";
+import { availabilitySchema, createdSchema, detailsSchema, publicCatalogSchema, restaurantSchema, tokenSchema, type CreateInput, type Period } from "./schemas";
 const publicOptions = { csrf: false, credentials: "omit", referrerPolicy: "no-referrer" } as const;
 function decode<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -12,6 +12,9 @@ export class PublicReservationService {
   private root(slug: string) { return `/public/restaurants/${encodeURIComponent(slug)}`; }
   restaurant(slug: string, signal?: AbortSignal) {
     return this.client.request(this.root(slug), { ...publicOptions, signal }).then(data => decode(restaurantSchema, data));
+  }
+  catalog(slug: string, signal?: AbortSignal) {
+    return this.client.request(`${this.root(slug)}/catalog`, { ...publicOptions, signal }).then(data => decode(publicCatalogSchema, data));
   }
   availability(slug: string, period: Period, signal?: AbortSignal) {
     const query = new URLSearchParams({ startsAt: period.startsAt, endsAt: period.endsAt, partySize: String(period.partySize) });

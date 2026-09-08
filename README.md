@@ -1205,5 +1205,15 @@ As mutações públicas exigem `AUTH_ALLOWED_ORIGINS` com a origin exata do clie
 | PUBLIC_RESERVATION_CREATE_RATE_LIMIT_WINDOW_SECONDS | 900 | 60–3600 |
 | PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_MAX | 60 | 1–500 |
 | PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_WINDOW_SECONDS | 300 | 60–3600 |
+| PUBLIC_ORDER_CREATE_RATE_LIMIT_MAX | 10 | 1–100 |
+| PUBLIC_ORDER_CREATE_RATE_LIMIT_WINDOW_SECONDS | 900 | 60–3600 |
+| PUBLIC_ORDER_LOOKUP_RATE_LIMIT_MAX | 120 | 1–1000 |
+| PUBLIC_ORDER_LOOKUP_RATE_LIMIT_WINDOW_SECONDS | 300 | 60–3600 |
+| PUBLIC_ORDER_CANCEL_RATE_LIMIT_MAX | 30 | 1–500 |
+| PUBLIC_ORDER_CANCEL_RATE_LIMIT_WINDOW_SECONDS | 300 | 60–3600 |
 
 Limites inteiros por IP e por rota; lookup e cancelamento têm contadores próprios. Configuração inválida impede startup. O limiter público é local por processo e independente do login; excesso retorna 429 PUBLIC_RATE_LIMIT com Retry-After. Tokens nos caminhos de lookup/cancelamento são credenciais: futura configuração de logs de proxy deve omitir esses caminhos. Não há frontend público nem envio de token por e-mail/WhatsApp nesta etapa.
+
+### Pedidos públicos PICKUP — 40G
+
+`POST /public/restaurants/:slug/orders` cria somente pedidos PICKUP em Restaurant publicado. Preços, totais, pagamento e taxa são definidos pelo servidor; o payload público não aceita IDs de Customer, endereço ou campos financeiros. O token opaco retornado na criação é a única credencial para `GET /public/orders/:token` e `POST /public/orders/:token/cancel`. O banco armazena somente o hash, e cancelamento segue as regras do domínio para pedidos não pagos em PENDING/CONFIRMED.

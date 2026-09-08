@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 
 export class InMemoryOrdersRepository implements OrdersRepository {
   public items: Order[] = [];
+  private readonly publicAccessTokenHashes = new Map<string, string>();
 
   private matchesFilters(item: Order, filters: ListOrdersFilters): boolean {
     if (item.restaurantId !== filters.restaurantId) return false;
@@ -24,18 +25,24 @@ export class InMemoryOrdersRepository implements OrdersRepository {
   }
 
   async create(data: CreateOrderData): Promise<Order> {
+    const { publicAccessTokenHash, ...orderData } = data;
     const order: Order = {
-      ...data,
+      ...orderData,
       id: randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     this.items.push(order);
+    if (publicAccessTokenHash) this.publicAccessTokenHashes.set(order.id, publicAccessTokenHash);
     return order;
   }
 
   async findById(id: string): Promise<Order | null> {
     return this.items.find((item) => item.id === id) || null;
+  }
+
+  async findByPublicAccessTokenHash(tokenHash: string): Promise<Order | null> {
+    return this.items.find((item) => this.publicAccessTokenHashes.get(item.id) === tokenHash) ?? null;
   }
 
   async findByIdAndRestaurantId(

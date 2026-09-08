@@ -31,9 +31,10 @@ export interface CreateOrderData {
   deliveryState: string | null;
   deliveryZipCode: string | null;
   observation: string | null;
+  publicAccessTokenHash?: string | null;
 }
 
-export interface Order extends CreateOrderData {
+export interface Order extends Omit<CreateOrderData, "publicAccessTokenHash"> {
   id: string;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +57,7 @@ export interface ListOrdersFilters {
 export interface OrdersRepository {
   create(data: CreateOrderData): Promise<Order>;
   findById(id: string): Promise<Order | null>;
+  findByPublicAccessTokenHash(tokenHash: string): Promise<Order | null>;
   findByIdAndRestaurantId(
     orderId: string,
     restaurantId: string,

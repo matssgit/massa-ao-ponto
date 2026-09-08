@@ -92,6 +92,13 @@
       "when": 1788868970395,
       "tag": "0012_cultured_felicia_hardy",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788893669086,
+      "tag": "0013_easy_star_brand",
+      "breakpoints": true
     }
   ]
 }

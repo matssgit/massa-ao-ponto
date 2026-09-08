@@ -10,6 +10,7 @@ const token = "a".repeat(43);
 const restaurant = { name: "Casa do Forno", slug: "casa-do-forno", address: "Rua das Oliveiras, 42", phone: "11987654321", timezone: "America/Sao_Paulo" };
 const table = { id: "11111111-1111-4111-8111-111111111111", number: "7", capacity: 4, type: "table" };
 const details = { restaurant, table: { number: "7", capacity: 4, type: "table" }, reservation: { status: "SCHEDULED", partySize: 2, startsAt: "2030-09-10T22:00:00.000Z", endsAt: "2030-09-11T00:00:00.000Z", notes: null } };
+const catalog = { categories: [{ id: "22222222-2222-4222-8222-222222222222", name: "Pizzas", displayOrder: 1, products: [{ id: "33333333-3333-4333-8333-333333333333", categoryId: "22222222-2222-4222-8222-222222222222", name: "Margherita", description: "Molho, queijo e manjericão", price: 4590, displayOrder: 1, addons: [{ id: "44444444-4444-4444-8444-444444444444", name: "Borda recheada", description: "Catupiry", price: 800 }] }] }] };
 type Handler = (url: URL, init?: RequestInit) => Response | Promise<Response> | undefined;
 function Location() { return <div data-testid="location">{useLocation().pathname}</div>; }
 function fixture(path = "/r/casa-do-forno", handler?: Handler) {
@@ -17,6 +18,7 @@ function fixture(path = "/r/casa-do-forno", handler?: Handler) {
   const transport = vi.fn<typeof fetch>(async (input, init) => {
     const url = new URL(String(input)); const custom = handler?.(url, init); if (custom) return custom;
     if (url.pathname.endsWith("/availability")) return Response.json([table]);
+    if (url.pathname.endsWith("/catalog")) return Response.json(catalog);
     if (url.pathname === "/public/restaurants/casa-do-forno") return Response.json(restaurant);
     if (url.pathname === "/public/restaurants/casa-do-forno/reservations") return Response.json({ ...details, accessToken: token });
     if (url.pathname.endsWith("/cancel")) cancelled = true;
@@ -44,6 +46,7 @@ describe("Public reservation UI", () => {
     const transport = fixture();
     expect(await screen.findByRole("heading", { name: "Casa do Forno" })).toBeTruthy();
     expect(screen.getByText(restaurant.address)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Ver cardápio" }).getAttribute("href")).toBe("/r/casa-do-forno/cardapio");
     await userEvent.click(screen.getByRole("link", { name: /Reservar mesa/ }));
     expect(await screen.findByRole("heading", { name: "Uma mesa para vocês." })).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
@@ -59,6 +62,36 @@ describe("Public reservation UI", () => {
     expect(await screen.findByRole("alert")).toBeTruthy(); fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(await screen.findByRole("heading", { name: "Casa do Forno" })).toBeTruthy();
+  });
+  it("loads the public catalog without auth and renders categories, products, BRL prices and addons", async () => {
+    let resolve: ((response: Response) => void) | undefined;
+    const pending = new Promise<Response>(done => { resolve = done; });
+    const transport = fixture("/r/casa-do-forno/cardapio", url => url.pathname.endsWith("/catalog") ? pending : undefined);
+    expect(screen.getByRole("status").textContent).toContain("Preparando o cardápio");
+    resolve?.(Response.json(catalog));
+    expect(await screen.findByRole("heading", { name: "Cardápio" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Pizzas" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Margherita" })).toBeTruthy();
+    expect(screen.getByText(/45,90/).textContent).toContain("R$");
+    expect(screen.getByText(/Borda recheada/).textContent).toContain("Catupiry");
+    expect(screen.getByText(/8,00/).textContent).toContain("+");
+    expect(transport.mock.calls.every(([input]) => new URL(String(input)).pathname.startsWith("/public/"))).toBe(true);
+  });
+  it("shows an accessible empty public catalog", async () => {
+    fixture("/r/casa-do-forno/cardapio", url => url.pathname.endsWith("/catalog") ? Response.json({ categories: [] }) : undefined);
+    expect(await screen.findByRole("heading", { name: "Cardápio em preparação." })).toBeTruthy();
+  });
+  it("preserves catalog errors and allows retry", async () => {
+    let fail = true;
+    fixture("/r/casa-do-forno/cardapio", url => url.pathname.endsWith("/catalog") && fail ? error(503, "UNAVAILABLE") : undefined);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    fail = false;
+    await userEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(await screen.findByRole("heading", { name: "Margherita" })).toBeTruthy();
+  });
+  it("uses the same generic public state for a missing or unpublished catalog", async () => {
+    fixture("/r/indisponivel/cardapio", url => url.pathname.endsWith("/catalog") ? error(404, "RESTAURANT_NOT_FOUND") : undefined);
+    expect(await screen.findByRole("heading", { name: "Não encontramos este restaurante." })).toBeTruthy();
   });
   it("shows availability loading/success and submits the selected period and partySize", async () => {
     let resolve: ((response: Response) => void) | undefined;

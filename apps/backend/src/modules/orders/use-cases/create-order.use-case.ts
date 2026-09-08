@@ -57,6 +57,7 @@ interface CreateOrderBaseRequest {
     zipCode: string;
   };
   observation?: string;
+  publicAccessTokenHash?: string;
 }
 
 type CreateOrderCustomerRequest =
@@ -231,6 +232,7 @@ export class CreateOrderUseCase {
           deliveryState: request.deliveryAddress?.state ?? null,
           deliveryZipCode: request.deliveryAddress?.zipCode ?? null,
           observation: request.observation ?? null,
+          publicAccessTokenHash: request.publicAccessTokenHash,
         });
 
         await orderItemsRepository.createMany(
