@@ -155,7 +155,12 @@ export const errorHandler = (
     return sendDomainError(409);
   }
 
-  if (request.routeOptions.url?.startsWith("/auth/")) {
+  if (request.routeOptions.config.access === "public") {
+    if (error.statusCode === 400 || error.statusCode === 413 || error.statusCode === 415) {
+      return reply.status(error.statusCode).send({ code: "INVALID_PUBLIC_REQUEST", message: "Invalid public request." });
+    }
+    console.error("Public request failed.");
+  } else if (request.routeOptions.url?.startsWith("/auth/")) {
     // Parser/DB errors may carry credentials or query parameters: never log their payload.
     if (error.statusCode === 400 || error.statusCode === 413 || error.statusCode === 415) {
       return reply.status(error.statusCode).send({

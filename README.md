@@ -1192,3 +1192,18 @@ A proposta é demonstrar **como construir um sistema de negócio evolutivo**, on
 > **Código simples, regras explícitas, banco como autoridade e testes como proteção contra regressões.**
 
 O Massa ao Ponto continua sendo desenvolvido de forma incremental, documentando as decisões arquiteturais relevantes e mantendo uma base suficientemente sólida para permitir que o sistema cresça sem transformar cada nova feature em uma refatoração.
+
+### Configuração de reservas públicas — 40B
+
+As mutações públicas exigem `AUTH_ALLOWED_ORIGINS` com a origin exata do cliente e header `X-Auth-Request: 1`, sem sessão de funcionário. Restaurant permanece despublicado até OWNER configurar slug e `publicEnabled` no PATCH administrativo.
+
+| Variável | Default | Intervalo permitido |
+| --- | --- | --- |
+| PUBLIC_AVAILABILITY_RATE_LIMIT_MAX | 120 | 1–1000 |
+| PUBLIC_AVAILABILITY_RATE_LIMIT_WINDOW_SECONDS | 60 | 60–3600 |
+| PUBLIC_RESERVATION_CREATE_RATE_LIMIT_MAX | 10 | 1–100 |
+| PUBLIC_RESERVATION_CREATE_RATE_LIMIT_WINDOW_SECONDS | 900 | 60–3600 |
+| PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_MAX | 60 | 1–500 |
+| PUBLIC_RESERVATION_ACCESS_RATE_LIMIT_WINDOW_SECONDS | 300 | 60–3600 |
+
+Limites inteiros por IP e por rota; lookup e cancelamento têm contadores próprios. Configuração inválida impede startup. O limiter público é local por processo e independente do login; excesso retorna 429 PUBLIC_RATE_LIMIT com Retry-After. Tokens nos caminhos de lookup/cancelamento são credenciais: futura configuração de logs de proxy deve omitir esses caminhos. Não há frontend público nem envio de token por e-mail/WhatsApp nesta etapa.

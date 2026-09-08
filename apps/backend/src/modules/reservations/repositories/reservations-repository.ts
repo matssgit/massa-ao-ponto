@@ -8,7 +8,6 @@ export interface Reservation {
   startsAt: Date;
   endsAt: Date;
   observation: string | null;
-  publicAccessTokenHash?: string | null;
 }
 
 export interface CreateReservationData {

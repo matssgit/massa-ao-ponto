@@ -1,3 +1,5 @@
+import { RestaurantSlugConflictError } from "../errors/restaurant-slug-conflict-error.js";
+import { InvalidRestaurantPublicConfigError } from "../errors/invalid-restaurant-public-config-error.js";
 import {
   CreateRestaurantInput,
   Restaurant,
@@ -47,11 +49,24 @@ export class DrizzleRestaurantsRepository implements RestaurantsRepository {
   }
 
   async update(id: string, data: UpdateRestaurantInput): Promise<Restaurant | null> {
-    const [restaurant] = await this.client
-      .update(restaurants)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(restaurants.id, id))
-      .returning();
-    return restaurant ? mapRestaurant(restaurant) : null;
+    try {
+      const [restaurant] = await this.client
+        .update(restaurants)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(restaurants.id, id))
+        .returning();
+      return restaurant ? mapRestaurant(restaurant) : null;
+    } catch (error) {
+      const cause = error instanceof Error && error.cause ? error.cause : error;
+      if (typeof cause === "object" && cause !== null && "code" in cause && "constraint_name" in cause) {
+        if (cause.code === "23505" && cause.constraint_name === "restaurants_slug_unique") {
+          throw new RestaurantSlugConflictError();
+        }
+        if (cause.code === "23514" && ["restaurants_slug_canonical_check", "restaurants_public_requires_slug_check"].includes(String(cause.constraint_name))) {
+          throw new InvalidRestaurantPublicConfigError();
+        }
+      }
+      throw error;
+    }
   }
 }

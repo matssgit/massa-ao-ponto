@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { PublicReservationService } from "../features/public-reservations/service";
+import { PublicRoute } from "../features/public-reservations/public-route";
 import { Navigate, Outlet, Route, Routes } from "react-router";
 import { Brand } from "../components/brand";
 import { AuthProvider } from "../features/auth/auth-context";
@@ -107,9 +110,11 @@ function AuthRoutes() {
 }
 
 export function App({ service }: { service: AuthService }) {
-  return (
-    <AuthProvider service={service}>
-      <AuthRoutes />
-    </AuthProvider>
-  );
+  const publicService = useMemo(() => new PublicReservationService(service.client), [service]);
+  return <Routes>
+    <Route path="/r/:slug" element={<PublicRoute service={publicService} page="restaurant" />} />
+    <Route path="/r/:slug/reservar" element={<PublicRoute service={publicService} page="reserve" />} />
+    <Route path="/reserva/:token" element={<PublicRoute service={publicService} page="details" />} />
+    <Route path="*" element={<AuthProvider service={service}><AuthRoutes /></AuthProvider>} />
+  </Routes>;
 }

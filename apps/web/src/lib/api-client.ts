@@ -12,6 +12,7 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly issues?: unknown[],
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "ApiError";
@@ -41,6 +42,8 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   csrf?: boolean;
+  credentials?: RequestCredentials;
+  referrerPolicy?: ReferrerPolicy;
   signal?: AbortSignal;
   allowEmptyResponse?: boolean;
 };
@@ -96,7 +99,8 @@ export class ApiClient {
       response = await this.transport(`${this.baseUrl}${path}`, {
         method,
         headers,
-        credentials: "include",
+        credentials: options.credentials ?? "include",
+        referrerPolicy: options.referrerPolicy,
         cache: "no-store",
         redirect: "error",
         body:
@@ -121,6 +125,9 @@ export class ApiClient {
     if (response.status === 204 && response.ok) return undefined;
     const payload: unknown = await response.json().catch(() => undefined);
     if (!response.ok) {
+      const retryHeader = response.headers.get("Retry-After");
+      const retryValue = retryHeader && /^\d+$/.test(retryHeader) ? Number(retryHeader) : retryHeader ? Math.ceil((Date.parse(retryHeader) - Date.now()) / 1000) : NaN;
+      const retryAfterSeconds = Number.isFinite(retryValue) ? Math.max(0, retryValue) : undefined;
       const parsed = errorSchema.safeParse(payload);
       throw parsed.success
         ? new ApiError(
@@ -128,6 +135,7 @@ export class ApiClient {
             parsed.data.code,
             parsed.data.message,
             parsed.data.issues,
+            retryAfterSeconds,
           )
         : new ApiError(
             response.status,

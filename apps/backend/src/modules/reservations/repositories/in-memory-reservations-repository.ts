@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 
 export class InMemoryReservationsRepository implements ReservationsRepository {
   public items: Reservation[] = [];
+  private readonly tokenHashes = new Map<string, string>();
 
   private matchesFilters(
     item: Reservation,
@@ -22,13 +23,14 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
   }
 
   async create(data: CreateReservationData): Promise<Reservation> {
+    const { publicAccessTokenHash, ...fields } = data;
     const reservation: Reservation = {
       id: randomUUID(),
-      ...data,
+      ...fields,
       observation: data.observation || null,
-      publicAccessTokenHash: data.publicAccessTokenHash ?? null,
     };
     this.items.push(reservation);
+    if (publicAccessTokenHash) this.tokenHashes.set(reservation.id, publicAccessTokenHash);
     return reservation;
   }
 
@@ -53,7 +55,7 @@ export class InMemoryReservationsRepository implements ReservationsRepository {
   }
 
   async findByPublicAccessTokenHash(tokenHash: string): Promise<Reservation | null> {
-    return this.items.find((item) => item.publicAccessTokenHash === tokenHash) ?? null;
+    return this.items.find((item) => this.tokenHashes.get(item.id) === tokenHash) ?? null;
   }
 
   async findByIdAndRestaurantId(

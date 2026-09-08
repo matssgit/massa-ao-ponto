@@ -27,6 +27,8 @@ export class CreatePublicReservationUseCase {
   async execute(input: Input) {
     const restaurant = await this.restaurants.findPublishedBySlug(input.slug);
     if (!restaurant) throw new RestaurantNotFoundError();
+    const table = await this.tables.findByIdAndRestaurantId(input.tableId, restaurant.id);
+    if (!table) throw new PublicReservationNotFoundError();
     const accessToken = createPublicReservationToken();
     const reservation = await new CreateReservationUseCase(this.transactions).execute({
       restaurantId: restaurant.id,
@@ -38,8 +40,6 @@ export class CreatePublicReservationUseCase {
       observation: input.notes,
       publicAccessTokenHash: hashPublicReservationToken(accessToken),
     });
-    const table = await this.tables.findByIdAndRestaurantId(input.tableId, restaurant.id);
-    if (!table) throw new PublicReservationNotFoundError();
     return { accessToken, ...publicReservationView(reservation, restaurant, table) };
   }
 }
