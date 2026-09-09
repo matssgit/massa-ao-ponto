@@ -1,27 +1,39 @@
-import { errorHandler } from "./http/error-handler.js";
-import fastify from "fastify";
-import cookie from "@fastify/cookie";
-import { registerCors } from "./http/cors.js";
-import { readAuthConfig } from "./modules/auth/auth-config.js";
-import { registerAuthorization } from "./modules/auth/authorization.js";
-import { authRoutes } from "./modules/auth/routes.js";
-import { publicReservationRoutes } from "./modules/public-reservations/routes.js";
-import { restaurantsRoutes } from "./http/routes.js";
+import { createApplication } from "./app.js";
+import { closeDatabase } from "./db/index.js";
+import { createGracefulShutdown } from "./runtime.js";
+import { readRuntimeConfig } from "./runtime-config.js";
 
-export const app = fastify();
+const isTest = process.env.NODE_ENV === "test";
+const runtimeConfig = isTest
+  ? { host: "0.0.0.0" as const, port: 3333, trustProxy: false as const }
+  : readRuntimeConfig();
 
-app.setErrorHandler(errorHandler);
-app.register(async (scope) => {
-  await registerCors(scope, readAuthConfig());
-  await scope.register(cookie);
-  registerAuthorization(scope);
-  scope.register(authRoutes);
-  scope.register(publicReservationRoutes);
-  scope.register(restaurantsRoutes);
+export const app = createApplication({
+  trustProxy: runtimeConfig.trustProxy,
+  logger: !isTest,
 });
 
-if (process.env.NODE_ENV !== "test") {
-  app.listen({ port: 3333, host: "0.0.0.0" }).then(() => {
-    console.log("HTTP Server Running!");
-  });
+if (!isTest) {
+  const shutdown = createGracefulShutdown({ closeHttp: () => app.close(), closeDatabase });
+  const handleSignal = (signal: NodeJS.Signals) => {
+    app.log.info({ signal }, "Backend shutdown started.");
+    void shutdown()
+      .then(() => app.log.info({ signal }, "Backend shutdown completed."))
+      .catch(() => {
+        app.log.error({ signal }, "Backend shutdown failed.");
+        process.exitCode = 1;
+      });
+  };
+
+  process.once("SIGTERM", handleSignal);
+  process.once("SIGINT", handleSignal);
+
+  try {
+    await app.listen({ port: runtimeConfig.port, host: runtimeConfig.host });
+    app.log.info({ host: runtimeConfig.host, port: runtimeConfig.port }, "Backend started.");
+  } catch {
+    app.log.error("Backend startup failed.");
+    await shutdown().catch(() => app.log.error("Backend cleanup after startup failure failed."));
+    process.exitCode = 1;
+  }
 }

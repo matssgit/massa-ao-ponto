@@ -121,6 +121,44 @@ pnpm build
 
 O build gera `apps/web/dist`; configure `VITE_API_URL` para o destino antes do build. Uma futura hospedagem deve encaminhar rotas SPA para `index.html` e respeitar HTTPS/CORS/cookies same-site. A 38A não publica a aplicação. Não há lint configurado. Os testes frontend usam Vitest/Testing Library com transporte HTTP simulado; o fluxo completo com conta real em navegador ainda precisa de validação operacional.
 
+# Backend — runtime de produção
+
+O backend possui build TypeScript dedicado e inicia em produção pelo JavaScript compilado, sem `tsx`. Use `apps/backend/.env.example` apenas como referência de nomes e substitua todos os valores pelo ambiente real. Em produção, `DATABASE_URL`, `PORT`, `NODE_ENV=production` e `AUTH_ALLOWED_ORIGINS` HTTPS são obrigatórios; o processo escuta em `0.0.0.0` para compatibilidade com containers e plataformas cloud.
+
+Fluxo de execução, instalando o workspace na raiz e executando o restante em `apps/backend`:
+
+```bash
+pnpm install --frozen-lockfile
+cd apps/backend
+pnpm build
+pnpm db:migrate
+pnpm start
+```
+
+`PORT` aceita inteiro de 1 a 65535 e só possui default 3333 em desenvolvimento. `TRUST_PROXY_HOPS` aceita 0 a 10 e usa 0 por padrão, mantendo headers encaminhados não confiáveis. Configure 1 apenas quando houver exatamente um proxy reverso confiável; valores maiores devem corresponder à topologia real. Quando a confiança em proxy estiver habilitada, impeça acesso direto ao backend no ingress/firewall, pois o IP reconhecido pelo Fastify alimenta os rate limits. Nunca use confiança irrestrita em todos os proxies.
+
+`GET /health` é uma liveness pública de processo e retorna `200 { "status": "ok" }`. `GET /ready` é uma readiness pública que executa uma consulta mínima ao PostgreSQL; retorna `200 { "status": "ready" }` ou `503 { "status": "unavailable" }`, sem detalhes internos. Nenhuma das probes exige sessão ou recebe limiter especial. `SIGTERM` e `SIGINT` iniciam fechamento idempotente: o servidor deixa de aceitar conexões, aguarda o Fastify encerrar e então fecha o pool do PostgreSQL.
+
+O logger do runtime registra somente eventos básicos de startup/shutdown e falhas de readiness; request logging automático fica desabilitado para não registrar tokens presentes em URLs públicas. Esta fundação não configura TLS, proxy, container, deploy, CDN/SPA fallback ou observabilidade externa.
+
+## Container do backend
+
+O contexto de build é a raiz do workspace. O Dockerfile multi-stage produz uma imagem runtime non-root somente com `dist` e dependências de produção, além de um alvo separado que contém o Drizzle para o job explícito de migrations:
+
+```bash
+docker build -f apps/backend/Dockerfile --target migration -t massa-ao-ponto-backend-migrate .
+docker build -f apps/backend/Dockerfile --target runtime -t massa-ao-ponto-backend .
+```
+
+Forneça a configuração externamente por secret manager ou arquivo fora do repositório. Não copie `.env` para a imagem nem grave secrets na linha de comando. Execute migrations uma vez por release, antes de escalar a API, usando conectividade de rede apropriada ao banco:
+
+```bash
+docker run --rm --env-file /secure/path/backend.env massa-ao-ponto-backend-migrate
+docker run --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --env-file /secure/path/backend.env -p 3333:3333 massa-ao-ponto-backend
+```
+
+O startup da API não executa migrations. A imagem declara somente a porta 3333 como referência; `PORT` continua sendo a autoridade em runtime. O healthcheck interno usa `/health` como liveness. Plataformas devem consultar `/ready` separadamente para retirar uma instância sem acesso ao PostgreSQL do balanceamento. O Compose da raiz permanece exclusivamente uma conveniência de desenvolvimento para PostgreSQL e não representa infraestrutura final de produção.
+
 # 🔑 Autenticação por sessão
 
 O runtime de auth usa User separado de Customer e sessão opaca persistida no PostgreSQL. As rotas de negócio exigem sessão válida e, quando vinculadas a um restaurante, membership ativa e role permitida. CORS usa allowlist explícita com credentials, e login possui rate limiting local. O provisionamento inicial é exclusivamente administrativo, pelo comando abaixo. **Proteção distribuída continua pendente; esta etapa não libera exposição pública.**
@@ -169,7 +207,7 @@ Configuração dos endpoints:
 
 O limiter atua somente em `POST /auth/login`, após a proteção de Origin e antes de parsing/verificação de senha. Tentativas válidas, credenciais inválidas e bodies malformados que chegam ao limiter consomem a mesma cota; sucesso não a reinicia. Excesso retorna `429 { code: "AUTH_RATE_LIMIT", message: "Too many login attempts. Please try again later." }` com `Retry-After` em segundos, exposto via CORS. Requests bloqueados não estendem a janela nem causam ban permanente. Consulta de sessão, logout e OPTIONS não consomem essa cota.
 
-A chave é o IP reconhecido pelo Fastify, sem e-mail ou senha. Não há cota global por e-mail; pessoas no mesmo IP/NAT compartilham a cota. `trustProxy` permanece desabilitado: headers encaminhados não mudam a chave, e um reverse proxy fará seus clientes compartilharem o IP do proxy até existir configuração explícita e confiável. O store em memória do plugin atende somente desenvolvimento/single-instance; reinício/evicção perde contadores, múltiplos processos não compartilham limites e rotação de IPs não é resolvida. Rajadas concorrentes acima da cota podem ser rejeitadas integralmente pelo store local. Antes de deploy distribuído, é necessário store compartilhado e revisão da topologia de proxy; Redis não foi implementado.
+A chave é o IP reconhecido pelo Fastify, sem e-mail ou senha. Não há cota global por e-mail; pessoas no mesmo IP/NAT compartilham a cota. `TRUST_PROXY_HOPS=0` mantém headers encaminhados não confiáveis; uma contagem positiva só deve ser configurada para a cadeia conhecida e com acesso direto ao backend bloqueado. O store em memória do plugin atende somente desenvolvimento/single-instance; reinício/evicção perde contadores, múltiplos processos não compartilham limites e rotação de IPs não é resolvida. Rajadas concorrentes acima da cota podem ser rejeitadas integralmente pelo store local. Antes de deploy distribuído, é necessário store compartilhado e revisão da topologia de proxy; Redis não foi implementado.
 
 A configuração pode ser fornecida pelo ambiente ou pelo `.env` do backend. Exemplos (substitua pelas origins reais):
 

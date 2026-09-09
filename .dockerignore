@@ -1,0 +1,17 @@
+.git
+.gitignore
+.data
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+**/*.tmp
+**/.DS_Store
+AGENTS.md
+**/AGENTS.md
+ARCHITECTURE.md
+PROJECT_STATE.md
+README-DESIGN-SYSTEM-PIZZARIA.md

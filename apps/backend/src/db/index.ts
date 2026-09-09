@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import * as schema from "./schema/index.js";
 
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -17,4 +18,10 @@ export const db = drizzle(client, { schema });
 export * from "./schema/index.js";
 export * from "./schema/tables.js";
 
-console.log("📦 Conexão com o banco de dados inicializada.");
+export async function checkDatabaseConnection(): Promise<void> {
+  await db.execute(sql`select 1`);
+}
+
+export async function closeDatabase(): Promise<void> {
+  await client.end({ timeout: 5 });
+}
