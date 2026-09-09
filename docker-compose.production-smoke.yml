@@ -1,0 +1,102 @@
+name: massa-ao-ponto-production-smoke
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smoke
+      POSTGRES_PASSWORD: smoke_password
+      POSTGRES_DB: massa_smoke
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smoke -d massa_smoke"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    networks: [internal]
+
+  migration:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: migration
+    environment:
+      DATABASE_URL: postgresql://smoke:smoke_password@postgres:5432/massa_smoke
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [internal]
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: postgresql://smoke:smoke_password@postgres:5432/massa_smoke
+      AUTH_ALLOWED_ORIGINS: https://localhost:8443
+      AUTH_COOKIE_SECURE: "true"
+      TRUST_PROXY_HOPS: 1
+      AUTH_LOGIN_RATE_LIMIT_MAX: 3
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    networks: [internal]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: /api
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    networks: [internal]
+
+  certificate:
+    image: alpine/openssl:3.5.5
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes
+        -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost'
+        -keyout /tls/tls.key -out /tls/tls.crt &&
+        chmod 644 /tls/tls.key /tls/tls.crt
+    volumes:
+      - smoke-tls:/tls
+    restart: "no"
+    network_mode: none
+
+  proxy:
+    build:
+      context: .
+      dockerfile: infra/reverse-proxy/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      certificate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - smoke-tls:/etc/nginx/tls:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    networks: [edge, internal]
+
+networks:
+  edge:
+  internal:
+    internal: true
+
+volumes:
+  smoke-tls:

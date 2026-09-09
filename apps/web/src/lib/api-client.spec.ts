@@ -158,6 +158,22 @@ describe("ApiClient", () => {
     expect(() => validateApiUrl(value)).toThrow("Configure VITE_API_URL");
   });
 
+  it("supports the fixed same-origin API prefix", async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ status: "ok" }));
+    const client = new ApiClient("/api/", transport);
+
+    await client.request("/health");
+
+    expect(transport).toHaveBeenCalledWith("/api/health", expect.any(Object));
+  });
+
+  it.each(["/", "/other", "/api/path", "/api?token=x", "/api#x", "//other.example.com"])(
+    "rejects unsupported relative API config (%s)",
+    (value) => {
+      expect(() => validateApiUrl(value)).toThrow("Configure VITE_API_URL");
+    },
+  );
+
   it.each([
     "https://other.example.com",
     "//other.example.com",

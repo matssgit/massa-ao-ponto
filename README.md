@@ -121,6 +121,19 @@ pnpm build
 
 O build gera `apps/web/dist`; configure `VITE_API_URL` para o destino antes do build. Uma futura hospedagem deve encaminhar rotas SPA para `index.html` e respeitar HTTPS/CORS/cookies same-site. A 38A não publica a aplicação. Não há lint configurado. Os testes frontend usam Vitest/Testing Library com transporte HTTP simulado; o fluxo completo com conta real em navegador ainda precisa de validação operacional.
 
+## Container e hosting do frontend
+
+O Dockerfile do frontend gera `dist` em um estágio Node/pnpm e serve somente os arquivos estáticos em Nginx unprivileged. `VITE_API_URL` é obrigatória como argumento de build e fica incorporada ao bundle público; alterar o destino da API exige reconstruir a imagem. Variáveis `VITE_*` nunca devem conter secrets.
+
+```bash
+docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://api.example.com -t massa-ao-ponto-web .
+docker run --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m -p 8080:8080 massa-ao-ponto-web
+```
+
+O servidor aplica fallback para `index.html` nas rotas React, inclusive acessos diretos a links de reserva e pedido. Arquivos sob `/assets/` e caminhos com extensão nunca recebem esse fallback: inexistentes retornam 404. `index.html` e rotas SPA usam `Cache-Control: no-store`; assets versionados usam cache longo e immutable. Access log fica desabilitado e `Referrer-Policy: no-referrer` protege tokens presentes em URLs públicas. Também são enviados headers básicos contra MIME sniffing, framing e permissões desnecessárias; HSTS pertence à futura camada HTTPS.
+
+Frontend e API podem usar origins diferentes configuradas, mas a autenticação atual com cookie `SameSite=Lax` exige topologia same-site, como `app.example.com` e `api.example.com` sob HTTPS, com a origin do app em `AUTH_ALLOWED_ORIGINS`; proxy de mesma origin também é compatível. Sites registráveis distintos não passam a compartilhar o cookie apenas por CORS. O Compose da raiz continua dev-only e não inicia o frontend de produção.
+
 # Backend — runtime de produção
 
 O backend possui build TypeScript dedicado e inicia em produção pelo JavaScript compilado, sem `tsx`. Use `apps/backend/.env.example` apenas como referência de nomes e substitua todos os valores pelo ambiente real. Em produção, `DATABASE_URL`, `PORT`, `NODE_ENV=production` e `AUTH_ALLOWED_ORIGINS` HTTPS são obrigatórios; o processo escuta em `0.0.0.0` para compatibilidade com containers e plataformas cloud.
@@ -158,6 +171,30 @@ docker run --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --env-file /secure
 ```
 
 O startup da API não executa migrations. A imagem declara somente a porta 3333 como referência; `PORT` continua sendo a autoridade em runtime. O healthcheck interno usa `/health` como liveness. Plataformas devem consultar `/ready` separadamente para retirar uma instância sem acesso ao PostgreSQL do balanceamento. O Compose da raiz permanece exclusivamente uma conveniência de desenvolvimento para PostgreSQL e não representa infraestrutura final de produção.
+
+## Topologia same-origin com reverse proxy
+
+A topologia recomendada publica somente um reverse proxy TLS:
+
+```text
+https://app.example.com/      → frontend estático
+https://app.example.com/api/* → backend, removendo /api
+```
+
+Nesse modo, construa o frontend com `VITE_API_URL=/api`. O ApiClient aceita somente esse prefixo relativo fixo ou uma URL HTTP(S) absoluta validada. Configure o backend com `AUTH_ALLOWED_ORIGINS=https://app.example.com` e `TRUST_PROXY_HOPS=1`. Backend, frontend e PostgreSQL devem permanecer em rede privada; acesso direto ao backend deve ser bloqueado, pois o Fastify confia exclusivamente no único hop conhecido para identificar o IP usado pelos rate limits.
+
+O proxy substitui, em vez de anexar, qualquer `X-Forwarded-For` enviado pelo cliente e define `X-Forwarded-Proto` e `X-Forwarded-Host`. Métodos, bodies, cookies, CSRF e `Retry-After` são encaminhados sem bypass. O cookie continua `__Host-`, Secure, HttpOnly, SameSite=Lax e Path=/, sem Domain. Access logs ficam desligados no proxy, frontend e backend para não registrar tokens presentes em paths públicos.
+
+TLS termina no proxy. O certificado e a chave de produção devem ser montados a partir de um secret externo nos caminhos configurados; nenhuma chave real pertence ao repositório ou à imagem. O proxy acrescenta HSTS, enquanto os demais headers de conteúdo permanecem responsabilidade do servidor estático do frontend, evitando políticas duplicadas.
+
+`docker-compose.production-smoke.yml` valida localmente essa arquitetura com certificado self-signed efêmero:
+
+```bash
+docker compose -f docker-compose.production-smoke.yml up --build -d
+docker compose -f docker-compose.production-smoke.yml down --volumes --remove-orphans
+```
+
+Esse Compose é somente smoke: usa credenciais descartáveis, aplica migrations por um job único antes da API e expõe apenas `127.0.0.1:8443`. Em produção, execute o alvo de migration uma vez por release, injete secrets/runtime env externamente e depois escale as réplicas da API. `/api/health` é liveness e `/api/ready` é readiness. O arquivo não configura DNS, certificado real, deploy ou CI/CD.
 
 # 🔑 Autenticação por sessão
 

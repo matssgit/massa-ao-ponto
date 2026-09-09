@@ -20,6 +20,8 @@ export class ApiError extends Error {
 }
 
 export function validateApiUrl(value: string | undefined): string {
+  if (value === "/api" || value === "/api/") return "/api";
+
   try {
     const url = new URL(value ?? "");
     if (
@@ -33,7 +35,7 @@ export function validateApiUrl(value: string | undefined): string {
     return url.href.replace(/\/$/, "");
   } catch {
     throw new Error(
-      "Configure VITE_API_URL com a URL HTTP(S) pública da API, sem credenciais, query ou fragmento.",
+      "Configure VITE_API_URL como /api ou uma URL HTTP(S) pública, sem credenciais, query ou fragmento.",
     );
   }
 }
