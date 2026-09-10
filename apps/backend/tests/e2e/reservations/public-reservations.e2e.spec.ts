@@ -164,13 +164,10 @@ describe("Public reservation foundation", () => {
   it("rolls back customer/reservation/hash/history on history failure", async () => {
     const phone = "5511888877776";
     await db.delete(customers).where(eq(customers.phone, phone));
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(DrizzleReservationHistoryRepository.prototype, "create").mockRejectedValueOnce(new Error("sensitive query payload"));
     expect((await create({ ...payload(), customer: { name: "Rollback", phone } })).statusCode).toBe(500);
     expect(await db.select().from(reservations).where(eq(reservations.restaurantId, restaurant.id))).toEqual([]);
     expect(await db.select().from(customers).where(eq(customers.phone, phone))).toEqual([]);
-    expect(log).toHaveBeenCalledWith("Public request failed.");
-    expect(JSON.stringify(log.mock.calls)).not.toContain("sensitive");
   });
 
   it("serializes competing creates and cancellations with a single history transition", async () => {

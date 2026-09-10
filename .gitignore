@@ -25,6 +25,11 @@ pnpm-debug.log*
 # docker
 .data/
 
+# database backup artifacts
+/backups/
+*.dump
+*.backup
+
 # OS
 .DS_Store
 

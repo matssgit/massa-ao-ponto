@@ -12,6 +12,19 @@ services:
       interval: 2s
       timeout: 2s
       retries: 15
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/db-tls/postgres.crt
+      - -c
+      - ssl_key_file=/db-tls/postgres.key
+    depends_on:
+      certificate:
+        condition: service_completed_successfully
+    volumes:
+      - smoke-tls:/db-tls:ro
     networks: [internal]
 
   migration:
@@ -20,7 +33,11 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: migration
     environment:
-      DATABASE_URL: postgresql://smoke:smoke_password@postgres:5432/massa_smoke
+      NODE_ENV: production
+      DATABASE_URL: postgresql://smoke:smoke_password@postgres:5432/massa_smoke?sslmode=verify-full
+      NODE_EXTRA_CA_CERTS: /db-tls/postgres.crt
+    volumes:
+      - smoke-tls:/db-tls:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,7 +52,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3333
-      DATABASE_URL: postgresql://smoke:smoke_password@postgres:5432/massa_smoke
+      DATABASE_URL: postgresql://smoke:smoke_password@postgres:5432/massa_smoke?sslmode=verify-full
+      NODE_EXTRA_CA_CERTS: /db-tls/postgres.crt
       AUTH_ALLOWED_ORIGINS: https://localhost:8443
       AUTH_COOKIE_SECURE: "true"
       TRUST_PROXY_HOPS: 1
@@ -46,6 +64,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
+    volumes:
+      - smoke-tls:/db-tls:ro
     networks: [internal]
 
   frontend:
@@ -67,7 +87,12 @@ services:
         openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes
         -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost'
         -keyout /tls/tls.key -out /tls/tls.crt &&
-        chmod 644 /tls/tls.key /tls/tls.crt
+        openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes
+        -subj '/CN=postgres' -addext 'subjectAltName=DNS:postgres'
+        -keyout /tls/postgres.key -out /tls/postgres.crt &&
+        chown 70:70 /tls/postgres.key /tls/postgres.crt &&
+        chmod 600 /tls/postgres.key &&
+        chmod 644 /tls/tls.key /tls/tls.crt /tls/postgres.crt
     volumes:
       - smoke-tls:/tls
     restart: "no"

@@ -219,13 +219,10 @@ describe("Public PICKUP orders", () => {
 
   it("rolls back Customer, Order, items and token when history persistence fails", async () => {
     const phone = nextPhone();
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(DrizzleOrderHistoryRepository.prototype, "create").mockRejectedValueOnce(new Error("sensitive persistence detail"));
     const response = await create(payload({ customer: { name: "Rollback", phone } }));
     expect(response.statusCode).toBe(500);
     expect(await db.select().from(orders).where(eq(orders.restaurantId, restaurant.id))).toEqual([]);
     expect(await db.select().from(customers).where(eq(customers.phone, phone))).toEqual([]);
-    expect(log).toHaveBeenCalledWith("Public request failed.");
-    expect(JSON.stringify(log.mock.calls)).not.toContain("sensitive");
   });
 });

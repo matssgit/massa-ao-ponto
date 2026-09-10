@@ -150,9 +150,11 @@ pnpm start
 
 `PORT` aceita inteiro de 1 a 65535 e só possui default 3333 em desenvolvimento. `TRUST_PROXY_HOPS` aceita 0 a 10 e usa 0 por padrão, mantendo headers encaminhados não confiáveis. Configure 1 apenas quando houver exatamente um proxy reverso confiável; valores maiores devem corresponder à topologia real. Quando a confiança em proxy estiver habilitada, impeça acesso direto ao backend no ingress/firewall, pois o IP reconhecido pelo Fastify alimenta os rate limits. Nunca use confiança irrestrita em todos os proxies.
 
+`LOG_LEVEL` aceita somente `fatal`, `error`, `warn`, `info`, `debug` ou `trace`. O default é `debug` em desenvolvimento e `info` em produção. Produção emite JSON estruturado pelo Pino para stdout/stderr.
+
 `GET /health` é uma liveness pública de processo e retorna `200 { "status": "ok" }`. `GET /ready` é uma readiness pública que executa uma consulta mínima ao PostgreSQL; retorna `200 { "status": "ready" }` ou `503 { "status": "unavailable" }`, sem detalhes internos. Nenhuma das probes exige sessão ou recebe limiter especial. `SIGTERM` e `SIGINT` iniciam fechamento idempotente: o servidor deixa de aceitar conexões, aguarda o Fastify encerrar e então fecha o pool do PostgreSQL.
 
-O logger do runtime registra somente eventos básicos de startup/shutdown e falhas de readiness; request logging automático fica desabilitado para não registrar tokens presentes em URLs públicas. Esta fundação não configura TLS, proxy, container, deploy, CDN/SPA fallback ou observabilidade externa.
+O runtime registra startup, shutdown, requests concluídos e falhas inesperadas. Cada request recebe um UUID interno, devolvido em `X-Request-Id` e incluído nos logs; valores enviados pelo cliente nesse header não são aceitos como identidade interna. Os logs de request usam somente método, template de rota, status, duração e IP reconhecido pelo Fastify — nunca URL bruta ou body. Rotas com tokens aparecem como `/public/reservations/:token` e `/public/orders/:token`. Cookie, Set-Cookie, Authorization, CSRF, passwords e tokens possuem redaction defensiva. `/health` e readiness saudável não geram access log; falha de readiness continua emitindo warning correlacionado e sem detalhes do banco.
 
 ## Container do backend
 
@@ -172,6 +174,40 @@ docker run --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --env-file /secure
 
 O startup da API não executa migrations. A imagem declara somente a porta 3333 como referência; `PORT` continua sendo a autoridade em runtime. O healthcheck interno usa `/health` como liveness. Plataformas devem consultar `/ready` separadamente para retirar uma instância sem acesso ao PostgreSQL do balanceamento. O Compose da raiz permanece exclusivamente uma conveniência de desenvolvimento para PostgreSQL e não representa infraestrutura final de produção.
 
+## Segurança operacional do PostgreSQL
+
+O pool do backend possui configuração explícita:
+
+| Variável | Default | Faixa |
+| --- | ---: | ---: |
+| `DB_POOL_MAX` | 10 | 1–100 |
+| `DB_IDLE_TIMEOUT_MS` | 30000 | 1000–3600000 |
+| `DB_CONNECTION_TIMEOUT_MS` | 10000 | 1000–120000 |
+| `DB_READINESS_TIMEOUT_MS` | 3000 | 500–30000 |
+
+O driver recebe os timeouts de pool em segundos e a readiness cancela sua query ao atingir o limite próprio. Em produção, `DATABASE_URL` deve usar `sslmode=verify-full`; ausência de TLS, modos com downgrade e `sslmode=require` sem verificação de identidade impedem a inicialização. A CA deve vir do trust store do sistema ou de arquivo externo apontado por `NODE_EXTRA_CA_CERTS`. Certificados, chaves, URLs e dumps reais não pertencem ao Git.
+
+Baseline operacional recomendado: backup automático diário com retenção mínima explícita de 30 dias, PITR de pelo menos 7 dias quando o provedor oferecer e backup adicional imediatamente antes de migrations relevantes. Ajuste retenção e RPO/RTO ao risco real. Backup só é considerado válido depois de restore testado em banco separado.
+
+Proof local descartável, sem PII:
+
+```powershell
+./scripts/postgres-backup-restore-smoke.ps1
+```
+
+O proof inicia PostgreSQL com TLS e certificado efêmero, aplica migrations 0000–0013 pelo job oficial, insere uma fixture sintética, cria dump custom, restaura em outro banco e valida schema, 14 registros Drizzle e fixture. Dump, bancos, certificados, containers, redes e volumes são removidos ao final.
+
+Runbook mínimo de release/incidente:
+
+1. crie e confirme o backup pré-migration;
+2. execute uma única instância do alvo `migration` com a mesma `DATABASE_URL`/CA do runtime;
+3. só inicie/escale a API após sucesso do job e valide `/ready`;
+4. em incidente, restaure o backup em banco novo e isolado;
+5. valide schema, `drizzle.__drizzle_migrations`, dados essenciais e readiness antes de apontar a aplicação;
+6. faça rollback da aplicação somente para versão compatível com o schema restaurado.
+
+Não existem down migrations nem rollback automático de schema. Falha de migration interrompe o deploy; recuperação exige decisão operacional baseada em backup/restore ou migration corretiva revisada.
+
 ## Topologia same-origin com reverse proxy
 
 A topologia recomendada publica somente um reverse proxy TLS:
@@ -183,7 +219,7 @@ https://app.example.com/api/* → backend, removendo /api
 
 Nesse modo, construa o frontend com `VITE_API_URL=/api`. O ApiClient aceita somente esse prefixo relativo fixo ou uma URL HTTP(S) absoluta validada. Configure o backend com `AUTH_ALLOWED_ORIGINS=https://app.example.com` e `TRUST_PROXY_HOPS=1`. Backend, frontend e PostgreSQL devem permanecer em rede privada; acesso direto ao backend deve ser bloqueado, pois o Fastify confia exclusivamente no único hop conhecido para identificar o IP usado pelos rate limits.
 
-O proxy substitui, em vez de anexar, qualquer `X-Forwarded-For` enviado pelo cliente e define `X-Forwarded-Proto` e `X-Forwarded-Host`. Métodos, bodies, cookies, CSRF e `Retry-After` são encaminhados sem bypass. O cookie continua `__Host-`, Secure, HttpOnly, SameSite=Lax e Path=/, sem Domain. Access logs ficam desligados no proxy, frontend e backend para não registrar tokens presentes em paths públicos.
+O proxy substitui, em vez de anexar, qualquer `X-Forwarded-For` enviado pelo cliente e define `X-Forwarded-Proto` e `X-Forwarded-Host`. Métodos, bodies, cookies, CSRF e `Retry-After` são encaminhados sem bypass. O cookie continua `__Host-`, Secure, HttpOnly, SameSite=Lax e Path=/, sem Domain. Access logs permanecem desligados no proxy e frontend. O backend registra somente templates sanitizados de rota, nunca paths brutos com tokens.
 
 TLS termina no proxy. O certificado e a chave de produção devem ser montados a partir de um secret externo nos caminhos configurados; nenhuma chave real pertence ao repositório ou à imagem. O proxy acrescenta HSTS, enquanto os demais headers de conteúdo permanecem responsabilidade do servidor estático do frontend, evitando políticas duplicadas.
 

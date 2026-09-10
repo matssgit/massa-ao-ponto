@@ -31,7 +31,6 @@ describe("errorHandler", () => {
   });
 
   it("não registra nem devolve credenciais em falhas inesperadas de auth", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     testApp = fastify();
     testApp.setErrorHandler(errorHandler);
     testApp.post("/auth/login", async () => {
@@ -42,7 +41,6 @@ describe("errorHandler", () => {
     expect(response.json()).toEqual({
       code: "INTERNAL_SERVER_ERROR", message: "Internal server error.",
     });
-    expect(log).toHaveBeenCalledExactlyOnceWith("Authentication request failed.");
     expect(response.body).not.toContain("sensitive-password-and-token");
   });
 

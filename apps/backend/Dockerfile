@@ -31,6 +31,8 @@ RUN pnpm --filter backend build
 
 FROM build AS migration
 
+ENV NODE_ENV=production
+
 WORKDIR /workspace/apps/backend
 CMD ["pnpm", "db:migrate"]
 

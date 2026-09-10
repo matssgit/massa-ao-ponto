@@ -7,6 +7,7 @@ describe("readRuntimeConfig", () => {
       host: "0.0.0.0",
       port: 3333,
       trustProxy: false,
+      logLevel: "debug",
     });
   });
 
@@ -15,7 +16,16 @@ describe("readRuntimeConfig", () => {
       host: "0.0.0.0",
       port: 8080,
       trustProxy: 1,
+      logLevel: "info",
     });
+  });
+
+  it("accepts a supported explicit log level", () => {
+    expect(readRuntimeConfig({
+      NODE_ENV: "production",
+      PORT: "3333",
+      LOG_LEVEL: "warn",
+    }).logLevel).toBe("warn");
   });
 
   it.each([
@@ -26,6 +36,7 @@ describe("readRuntimeConfig", () => {
     { NODE_ENV: "production", PORT: "invalid" },
     { NODE_ENV: "production", PORT: "3333", TRUST_PROXY_HOPS: "true" },
     { NODE_ENV: "production", PORT: "3333", TRUST_PROXY_HOPS: "11" },
+    { NODE_ENV: "production", PORT: "3333", LOG_LEVEL: "verbose" },
   ])("rejects unsafe or invalid runtime configuration %#", (environment) => {
     expect(() => readRuntimeConfig(environment)).toThrow();
   });

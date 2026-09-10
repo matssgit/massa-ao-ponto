@@ -1,17 +1,16 @@
 import "dotenv/config";
 
 import { defineConfig } from "drizzle-kit";
+import { readDatabaseConfig } from "./src/db/config.js";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is missing");
-}
+const databaseConfig = readDatabaseConfig();
 
 export default defineConfig({
   schema: "./src/db/schema/index.ts",
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: databaseConfig.connectionString,
   },
   verbose: true,
   strict: true,

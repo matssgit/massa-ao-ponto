@@ -14,7 +14,11 @@ export function registerHealthRoutes(
       await readinessCheck();
       return { status: "ready" };
     } catch {
-      request.log.warn("Database readiness check failed.");
+      request.log.warn({
+        requestId: request.id,
+        method: request.method,
+        route: request.routeOptions.url,
+      }, "Database readiness check failed.");
       return reply.status(503).send({ status: "unavailable" });
     }
   });
