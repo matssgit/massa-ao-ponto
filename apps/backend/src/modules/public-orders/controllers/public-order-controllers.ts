@@ -12,6 +12,7 @@ import { createPublicOrderBodySchema, publicOrderTokenParamsSchema } from "../sc
 import { CancelPublicOrderUseCase } from "../use-cases/cancel-public-order.use-case.js";
 import { CreatePublicOrderUseCase } from "../use-cases/create-public-order.use-case.js";
 import { GetPublicOrderUseCase } from "../use-cases/get-public-order.use-case.js";
+import { DrizzleDeliveriesRepository } from "../../orders/repositories/drizzle-deliveries-repository.js";
 
 function makeCreateOrderUseCase() {
   return new CreateOrderUseCase(
@@ -30,6 +31,7 @@ export async function createPublicOrderController(request: FastifyRequest, reply
     new DrizzleRestaurantsRepository(),
     makeCreateOrderUseCase(),
     new DrizzleOrderItemsRepository(),
+    new DrizzleDeliveriesRepository(),
   ).execute(slug, body);
   return reply.status(201).send(result);
 }
@@ -39,6 +41,7 @@ export async function getPublicOrderController(request: FastifyRequest, reply: F
   const result = await new GetPublicOrderUseCase(
     new DrizzleOrdersRepository(),
     new DrizzleOrderItemsRepository(),
+    new DrizzleDeliveriesRepository(),
   ).execute(token);
   return reply.status(200).send(result);
 }
@@ -49,6 +52,7 @@ export async function cancelPublicOrderController(request: FastifyRequest, reply
     new DrizzleOrdersRepository(),
     new DrizzleOrderItemsRepository(),
     new DrizzleOrderTransactionManager(),
+    new DrizzleDeliveriesRepository(),
   ).execute(token);
   return reply.status(200).send(result);
 }

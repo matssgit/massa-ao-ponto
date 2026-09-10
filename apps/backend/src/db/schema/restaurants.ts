@@ -1,4 +1,4 @@
-import { boolean, check, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, check, integer, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 import { relations, sql } from "drizzle-orm";
 import { reservations } from "./reservations.js";
@@ -14,6 +14,8 @@ export const restaurants = pgTable("restaurants", {
     .notNull(),
   slug: varchar("slug", { length: 100 }),
   publicEnabled: boolean("public_enabled").default(false).notNull(),
+  deliveryEnabled: boolean("delivery_enabled").default(false).notNull(),
+  deliveryFeeCents: integer("delivery_fee_cents").default(0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -29,6 +31,10 @@ export const restaurants = pgTable("restaurants", {
   publicRequiresSlug: check(
     "restaurants_public_requires_slug_check",
     sql`not ${table.publicEnabled} or ${table.slug} is not null`,
+  ),
+  deliveryFeeNonnegative: check(
+    "restaurants_delivery_fee_nonnegative_check",
+    sql`${table.deliveryFeeCents} >= 0`,
   ),
 }));
 

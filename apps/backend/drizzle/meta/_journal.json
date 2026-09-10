@@ -99,6 +99,13 @@
       "when": 1788893669086,
       "tag": "0013_easy_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789039881080,
+      "tag": "0014_real_talos",
+      "breakpoints": true
     }
   ]
 }

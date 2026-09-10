@@ -14,6 +14,8 @@ export const updateRestaurantParamsSchema = z.object({
 export const updateRestaurantBodySchema = createRestaurantSchema.partial().extend({
   slug: z.string().min(1).max(100).nullable().optional(),
   publicEnabled: z.boolean().optional(),
+  deliveryEnabled: z.boolean().optional(),
+  deliveryFeeCents: z.number().int().min(0).optional(),
 });
 
 export type CreateRestaurantBody = z.infer<typeof createRestaurantSchema>;

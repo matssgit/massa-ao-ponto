@@ -83,7 +83,7 @@ describe("Public reservation foundation", () => {
   it("returns only public Restaurant fields and hides unpublished and unknown restaurants", async () => {
     const response = await app.inject({ url: `/public/restaurants/${restaurant.slug}` });
     expect(response.statusCode).toBe(200);
-    expect(Object.keys(response.json()).sort()).toEqual(["address", "name", "phone", "slug", "timezone"]);
+    expect(Object.keys(response.json()).sort()).toEqual(["address", "deliveryEnabled", "deliveryFeeCents", "name", "phone", "slug", "timezone"]);
     expect(response.headers["cache-control"]).toBe("no-store");
     await patch({ publicEnabled: false });
     const hidden = await app.inject({ url: `/public/restaurants/${restaurant.slug}` });

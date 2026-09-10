@@ -3,6 +3,8 @@ import { DrizzleOrderItemsRepository } from "./drizzle-order-items-repository.js
 import { DrizzleOrdersRepository } from "./drizzle-orders-repository.js";
 import { DrizzleTablesRepository } from "../../tables/repositories/drizzle-tables-repository.js";
 import { DrizzleCustomersRepository } from "../../reservations/repositories/drizzle-customers-repository.js";
+import { DrizzleDeliveriesRepository } from "./drizzle-deliveries-repository.js";
+import { DrizzleDeliveryHistoryRepository } from "./drizzle-delivery-history-repository.js";
 import {
   OrderTransactionManager,
   OrderTransactionalRepositories,
@@ -21,6 +23,8 @@ export class DrizzleOrderTransactionManager implements OrderTransactionManager {
       const orderHistoryRepository = new DrizzleOrderHistoryRepository(tx);
       const tablesRepository = new DrizzleTablesRepository(tx);
       const customersRepository = new DrizzleCustomersRepository(tx);
+      const deliveriesRepository = new DrizzleDeliveriesRepository(tx);
+      const deliveryHistoryRepository = new DrizzleDeliveryHistoryRepository(tx);
 
       return await callback({
         ordersRepository,
@@ -28,6 +32,8 @@ export class DrizzleOrderTransactionManager implements OrderTransactionManager {
         orderHistoryRepository,
         tablesRepository,
         customersRepository,
+        deliveriesRepository,
+        deliveryHistoryRepository,
       });
     });
   }

@@ -79,6 +79,8 @@ describe("CreateOrderUseCase", () => {
       timezone: "UTC",
       slug: null,
       publicEnabled: false,
+      deliveryEnabled: false,
+      deliveryFeeCents: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

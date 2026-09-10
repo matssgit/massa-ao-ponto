@@ -9,6 +9,8 @@ export function publicRestaurantView(restaurant: Restaurant) {
     address: restaurant.address,
     phone: restaurant.phone || null,
     timezone: restaurant.timezone,
+    deliveryEnabled: restaurant.deliveryEnabled,
+    deliveryFeeCents: restaurant.deliveryFeeCents,
   };
 }
 

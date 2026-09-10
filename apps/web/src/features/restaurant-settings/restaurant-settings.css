@@ -7,6 +7,8 @@
 .restaurant-settings-form fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 1.25rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .restaurant-settings-form legend { padding: 0 .45rem; font-family: Georgia, serif; font-size: 1.1rem; }
 .restaurant-settings-form label { display: grid; gap: .45rem; font-size: .875rem; }
+.restaurant-settings-form .settings-checkbox { display: flex; flex-direction: row; align-items: center; }
+.restaurant-settings-form .settings-checkbox input { width: auto; }
 .restaurant-settings-form fieldset:first-of-type label { grid-column: 1 / -1; }
 .settings-help { grid-column: 1 / -1; margin: 0; font-size: .8rem; line-height: 1.5; }
 .settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }

@@ -9,6 +9,8 @@ import { InMemoryOrdersRepository } from "./in-memory-orders-repository.js";
 import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InMemoryCustomersRepository } from "../../reservations/repositories/in-memory-customers-repository.js";
 import { CustomersRepository } from "../../reservations/repositories/customers-repository.js";
+import { InMemoryDeliveriesRepository } from "./in-memory-deliveries-repository.js";
+import { InMemoryDeliveryHistoryRepository } from "./in-memory-delivery-history-repository.js";
 
 export class InMemoryOrderTransactionManager implements OrderTransactionManager {
   constructor(
@@ -18,6 +20,8 @@ export class InMemoryOrderTransactionManager implements OrderTransactionManager 
     private tablesRepository: InMemoryTablesRepository,
     private customersRepository: CustomersRepository =
       new InMemoryCustomersRepository(),
+    private deliveriesRepository = new InMemoryDeliveriesRepository(),
+    private deliveryHistoryRepository = new InMemoryDeliveryHistoryRepository(),
   ) {}
 
   async transaction<T>(
@@ -29,6 +33,8 @@ export class InMemoryOrderTransactionManager implements OrderTransactionManager 
       orderHistoryRepository: this.orderHistoryRepository,
       tablesRepository: this.tablesRepository,
       customersRepository: this.customersRepository,
+      deliveriesRepository: this.deliveriesRepository,
+      deliveryHistoryRepository: this.deliveryHistoryRepository,
     });
   }
 }

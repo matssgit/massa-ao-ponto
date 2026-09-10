@@ -1,7 +1,8 @@
 import type { OrderItem } from "../orders/repositories/order-items-repository.js";
 import type { Order } from "../orders/repositories/orders-repository.js";
+import type { Delivery } from "../orders/repositories/deliveries-repository.js";
 
-export function publicOrderView(order: Order, orderItems: OrderItem[]) {
+export function publicOrderView(order: Order, orderItems: OrderItem[], delivery: Delivery | null = null) {
   const items = [...orderItems].sort((left, right) => {
     const dateDiff = left.createdAt.getTime() - right.createdAt.getTime();
     return dateDiff || left.id.localeCompare(right.id);
@@ -16,7 +17,17 @@ export function publicOrderView(order: Order, orderItems: OrderItem[]) {
       total: order.total,
       paymentStatus: order.paymentStatus,
       createdAt: order.createdAt,
+      deliveryAddress: order.type === "DELIVERY" ? {
+        street: order.deliveryStreet,
+        number: order.deliveryNumber,
+        complement: order.deliveryComplement,
+        neighborhood: order.deliveryNeighborhood,
+        city: order.deliveryCity,
+        state: order.deliveryState,
+        zipCode: order.deliveryZipCode,
+      } : null,
     },
+    delivery: delivery ? { status: delivery.status } : null,
     items: items.map((item) => ({
       productName: item.productName,
       unitPrice: item.unitPrice,

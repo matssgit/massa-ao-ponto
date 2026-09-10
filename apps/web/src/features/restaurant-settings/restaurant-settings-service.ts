@@ -8,6 +8,8 @@ export const restaurantSchema = z.object({
   address: z.string(),
   phone: z.string(),
   timezone: z.string(),
+  deliveryEnabled: z.boolean(),
+  deliveryFeeCents: z.number().int().nonnegative(),
   createdAt: timestamp,
   updatedAt: timestamp,
 });
@@ -17,6 +19,8 @@ export const restaurantSettingsInputSchema = z.object({
   address: z.string().trim().min(1, "Informe o endereço.").max(255, "O endereço deve ter no máximo 255 caracteres."),
   phone: z.string().trim().min(1, "Informe o telefone.").max(50, "O telefone deve ter no máximo 50 caracteres."),
   timezone: z.string().trim().min(1, "Informe o timezone.").max(100, "O timezone deve ter no máximo 100 caracteres."),
+  deliveryEnabled: z.boolean(),
+  deliveryFeeCents: z.number().int().nonnegative(),
 });
 
 export type RestaurantDetails = z.infer<typeof restaurantSchema>;

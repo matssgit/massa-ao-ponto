@@ -42,6 +42,7 @@ import { RestaurantSlugConflictError } from "../modules/restaurants/errors/resta
 import { PublicReservationNotFoundError } from "../modules/reservations/errors/public-reservation-not-found-error.js";
 import { PublicOrderNotFoundError } from "../modules/orders/errors/public-order-not-found-error.js";
 import { PublicRateLimitError } from "../modules/public-reservations/public-rate-limit-error.js";
+import { PublicDeliveryDisabledError } from "../modules/orders/errors/public-delivery-disabled-error.js";
 import { TableInactiveError } from "../modules/reservations/errors/table-inactive-error.js";
 import { TableNotFoundError } from "../modules/reservations/errors/table-not-found-error.js";
 import { TableNumberAlreadyExistsError } from "../modules/tables/errors/table-number-already-exists-error.js";
@@ -151,6 +152,7 @@ export const errorHandler = (
     error instanceof InvalidOrderPaymentTransitionError ||
     error instanceof PaidOrderCannotBeCancelledError ||
     error instanceof DeliveryAlreadyExistsError ||
+    error instanceof PublicDeliveryDisabledError ||
     error instanceof InvalidDeliveryOrderTypeError ||
     error instanceof InvalidDeliveryStatusTransitionError ||
     error instanceof TableOccupiedError ||

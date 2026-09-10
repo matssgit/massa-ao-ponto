@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
 import { restaurantSettingsInputSchema, type RestaurantDetails, type RestaurantSettingsInput } from "./restaurant-settings-service";
+import { centsToInput, inputToCents } from "../catalog/catalog-money";
 
 const timezoneSuggestions = ["America/Sao_Paulo", "America/Manaus", "America/Recife", "America/Fortaleza", "America/Cuiaba", "UTC"];
 
@@ -14,14 +15,16 @@ export function RestaurantSettingsForm({ restaurant, busy, onSubmit }: { restaur
   const [address, setAddress] = useState(restaurant.address);
   const [phone, setPhone] = useState(restaurant.phone);
   const [timezone, setTimezone] = useState(restaurant.timezone);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(restaurant.deliveryEnabled);
+  const [deliveryFee, setDeliveryFee] = useState(centsToInput(restaurant.deliveryFeeCents));
   const [error, setError] = useState<string | null>(null);
-  const unchanged = name === restaurant.name && address === restaurant.address && phone === restaurant.phone && timezone === restaurant.timezone;
+  const unchanged = name === restaurant.name && address === restaurant.address && phone === restaurant.phone && timezone === restaurant.timezone && deliveryEnabled === restaurant.deliveryEnabled && deliveryFee === centsToInput(restaurant.deliveryFeeCents);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      const value = restaurantSettingsInputSchema.parse({ name, address, phone, timezone });
-      const normalizedUnchanged = value.name === restaurant.name && value.address === restaurant.address && value.phone === restaurant.phone && value.timezone === restaurant.timezone;
+      const value = restaurantSettingsInputSchema.parse({ name, address, phone, timezone, deliveryEnabled, deliveryFeeCents: inputToCents(deliveryFee) });
+      const normalizedUnchanged = value.name === restaurant.name && value.address === restaurant.address && value.phone === restaurant.phone && value.timezone === restaurant.timezone && value.deliveryEnabled === restaurant.deliveryEnabled && value.deliveryFeeCents === restaurant.deliveryFeeCents;
       if (normalizedUnchanged) { setError(null); return; }
       setError(null); await onSubmit(value);
     } catch (cause) { setError(issue(cause)); }
@@ -35,6 +38,11 @@ export function RestaurantSettingsForm({ restaurant, busy, onSubmit }: { restaur
       <label>Timezone<input required maxLength={100} list="restaurant-timezones" spellCheck={false} value={timezone} onChange={(event) => setTimezone(event.target.value)} /></label>
       <datalist id="restaurant-timezones">{timezoneSuggestions.map((value) => <option key={value} value={value} />)}</datalist>
       <p className="settings-help">O valor é enviado exatamente como informado. Use o identificador de timezone configurado para a operação.</p>
+    </fieldset>
+    <fieldset disabled={busy}><legend>Entrega</legend>
+      <label className="settings-checkbox"><input type="checkbox" checked={deliveryEnabled} onChange={(event) => setDeliveryEnabled(event.target.checked)} />Aceitar pedidos para entrega</label>
+      <label>Taxa fixa de entrega (R$)<input inputMode="decimal" value={deliveryFee} onChange={(event) => setDeliveryFee(event.target.value)} /></label>
+      <p className="settings-help">A taxa configurada é aplicada pelo servidor aos pedidos DELIVERY. Retirada continua sem taxa.</p>
     </fieldset>
     {error && <p className="error" role="alert">{error}</p>}
     <div className="settings-actions"><button className="primary" type="submit" disabled={busy || unchanged}>{busy ? "Salvando…" : "Salvar alterações"}</button><span aria-live="polite">{unchanged ? "Nenhuma alteração para salvar." : "Alterações ainda não salvas."}</span></div>

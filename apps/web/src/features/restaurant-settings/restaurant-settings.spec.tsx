@@ -10,7 +10,7 @@ import type { RestaurantDetails } from "./restaurant-settings-service";
 const restaurantA = "11111111-1111-4111-8111-111111111111";
 const restaurantB = "22222222-2222-4222-8222-222222222222";
 const timestamp = "2026-09-04T12:00:00.000Z";
-const details: RestaurantDetails = { id: restaurantA, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", createdAt: timestamp, updatedAt: timestamp };
+const details: RestaurantDetails = { id: restaurantA, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, createdAt: timestamp, updatedAt: timestamp };
 type Handler = (url: URL, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 function fixture(options: { memberships?: Membership[]; handler?: Handler } = {}) {
@@ -64,6 +64,17 @@ describe("Restaurant Settings UI", () => {
     await userEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
     expect(await screen.findByRole("option", { name: "Casa Renovada" })).toBeTruthy();
     expect((screen.getByLabelText("RESTAURANTE") as HTMLSelectElement).value).toBe(restaurantA);
+  });
+
+  it("configures delivery availability and a fixed fee in integer cents", async () => {
+    const { detailRequests } = fixture(); await screen.findByLabelText("Aceitar pedidos para entrega");
+    await userEvent.click(screen.getByLabelText("Aceitar pedidos para entrega"));
+    await userEvent.clear(screen.getByLabelText("Taxa fixa de entrega (R$)"));
+    await userEvent.type(screen.getByLabelText("Taxa fixa de entrega (R$)"), "12,50");
+    await userEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    await screen.findByText("Configurações atualizadas.");
+    const patch = detailRequests().find(([, init]) => init?.method === "PATCH");
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({ deliveryEnabled: true, deliveryFeeCents: 1250 });
   });
 
   it("detects an unchanged form and sends no PATCH", async () => {

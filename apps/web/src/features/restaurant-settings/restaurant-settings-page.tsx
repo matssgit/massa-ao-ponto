@@ -27,6 +27,8 @@ function OwnerRestaurantSettings({ restaurantId }: { restaurantId: string }) {
     if (value.address !== state.data.address) changes.address = value.address;
     if (value.phone !== state.data.phone) changes.phone = value.phone;
     if (value.timezone !== state.data.timezone) changes.timezone = value.timezone;
+    if (value.deliveryEnabled !== state.data.deliveryEnabled) changes.deliveryEnabled = value.deliveryEnabled;
+    if (value.deliveryFeeCents !== state.data.deliveryFeeCents) changes.deliveryFeeCents = value.deliveryFeeCents;
     if (Object.keys(changes).length === 0) return false;
     pending.current = true; setBusy(true); setNotice(null);
     try {

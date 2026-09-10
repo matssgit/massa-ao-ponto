@@ -13,19 +13,28 @@ const pickupStages = [
   { status: "READY", label: "Pronto para retirada" },
   { status: "DELIVERED", label: "Concluído" },
 ] as const;
+const deliveryStages = [
+  { status: "PENDING", label: "Pedido recebido" },
+  { status: "CONFIRMED", label: "Confirmado" },
+  { status: "PREPARING", label: "Em preparo" },
+  { status: "READY", label: "Pronto para sair" },
+  { status: "OUT_FOR_DELIVERY", label: "Saiu para entrega" },
+  { status: "DELIVERED", label: "Entregue" },
+] as const;
 
-function OrderProgress({ status }: { status: PublicOrderDetails["order"]["status"] }) {
+function OrderProgress({ status, type }: { status: PublicOrderDetails["order"]["status"]; type: PublicOrderDetails["order"]["type"] }) {
   if (status === "CANCELLED") {
     return <section className="public-order-cancelled" role="status" aria-label="Pedido cancelado">
       <strong>Pedido cancelado</strong>
       <span>O acompanhamento foi encerrado.</span>
     </section>;
   }
-  const currentIndex = status === "OUT_FOR_DELIVERY"
-    ? pickupStages.length - 1
-    : pickupStages.findIndex(step => step.status === status);
+  const stages = type === "DELIVERY" ? deliveryStages : pickupStages;
+  const currentIndex = type === "PICKUP" && status === "OUT_FOR_DELIVERY"
+    ? stages.length - 1
+    : stages.findIndex(step => step.status === status);
   return <ol className="public-order-progress" aria-label="Progresso do pedido">
-    {pickupStages.map((step, index) => {
+    {stages.map((step, index) => {
       const state = index < currentIndex ? "completed" : index === currentIndex ? "current" : "future";
       return <li key={step.status} className={`public-order-progress-${state}`} aria-current={state === "current" ? "step" : undefined}>
         <span className="public-order-progress-marker" aria-hidden="true">{state === "completed" ? "✓" : index + 1}</span>
@@ -108,10 +117,10 @@ export function PublicOrderDetailsPage({ service, token }: { service: PublicRese
       : invalid ? <PublicMissing order />
       : query.error && !data ? <ErrorNotice error={query.error} retry={query.reload} />
       : data && <div className="public-detail">
-        <p className="public-eyebrow">Retirada no local</p>
+        <p className="public-eyebrow">{data.order.type === "DELIVERY" ? "Entrega" : "Retirada no local"}</p>
         <h1>Seu pedido</h1>
         <p className="public-status">{orderStatusLabels[data.order.status]}</p>
-        <OrderProgress status={data.order.status} />
+        <OrderProgress status={data.order.status} type={data.order.type} />
         <div className="public-order-refresh">
           <button className="public-secondary" disabled={refreshing} onClick={refresh}>{refreshing ? "Atualizando pedido…" : "Atualizar pedido"}</button>
           <div aria-live="polite">
@@ -132,7 +141,9 @@ export function PublicOrderDetailsPage({ service, token }: { service: PublicRese
             <div><dt>Subtotal</dt><dd>{formatCatalogMoney(data.order.subtotal)}</dd></div>
             <div><dt>Taxa de entrega</dt><dd>{formatCatalogMoney(data.order.deliveryFee)}</dd></div>
             <div><dt>Total confirmado</dt><dd><strong>{formatCatalogMoney(data.order.total)}</strong></dd></div>
-            <div><dt>Modalidade</dt><dd>Retirada no local</dd></div>
+            <div><dt>Modalidade</dt><dd>{data.order.type === "DELIVERY" ? "Entrega" : "Retirada no local"}</dd></div>
+            {data.order.deliveryAddress && <div><dt>Endereço de entrega</dt><dd>{data.order.deliveryAddress.street}, {data.order.deliveryAddress.number}{data.order.deliveryAddress.complement && <> · {data.order.deliveryAddress.complement}</>}<br />{data.order.deliveryAddress.neighborhood} · {data.order.deliveryAddress.city}/{data.order.deliveryAddress.state}<br />CEP {data.order.deliveryAddress.zipCode}</dd></div>}
+            {data.delivery && <div><dt>Status da entrega</dt><dd>{data.delivery.status === "PENDING" ? "Aguardando saída" : data.delivery.status === "OUT_FOR_DELIVERY" ? "Saiu para entrega" : "Entregue"}</dd></div>}
             <div><dt>Pagamento</dt><dd><strong>{paymentLabels[data.order.paymentStatus]}</strong></dd></div>
             <div><dt>Pedido criado em</dt><dd>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(data.order.createdAt))}</dd></div>
           </dl>

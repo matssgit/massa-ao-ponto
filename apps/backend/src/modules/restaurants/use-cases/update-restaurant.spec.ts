@@ -27,6 +27,8 @@ describe("UpdateRestaurantUseCase", () => {
       address: "Rua B",
       phone: "222",
       timezone: "America/Sao_Paulo",
+      deliveryEnabled: true,
+      deliveryFeeCents: 850,
     });
 
     expect(result).toMatchObject({
@@ -35,6 +37,8 @@ describe("UpdateRestaurantUseCase", () => {
       address: "Rua B",
       phone: "222",
       timezone: "America/Sao_Paulo",
+      deliveryEnabled: true,
+      deliveryFeeCents: 850,
     });
   });
 
@@ -68,4 +72,3 @@ describe("UpdateRestaurantUseCase", () => {
     ).rejects.toBeInstanceOf(RestaurantNotFoundError);
   });
 });
-

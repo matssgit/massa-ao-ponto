@@ -58,6 +58,7 @@ interface CreateOrderBaseRequest {
   };
   observation?: string;
   publicAccessTokenHash?: string;
+  initializeDelivery?: boolean;
 }
 
 type CreateOrderCustomerRequest =
@@ -176,6 +177,8 @@ export class CreateOrderUseCase {
         orderHistoryRepository,
         tablesRepository,
         customersRepository,
+        deliveriesRepository,
+        deliveryHistoryRepository,
       }) => {
         let customer: Customer;
 
@@ -249,6 +252,16 @@ export class CreateOrderUseCase {
               ? "Pedido DINE_IN (Mesa) criado"
               : "Pedido criado",
         });
+
+        if (request.initializeDelivery) {
+          const delivery = await deliveriesRepository.create(order.id);
+          await deliveryHistoryRepository.create({
+            deliveryId: delivery.id,
+            action: "DELIVERY_CREATED",
+            previousStatus: "PENDING",
+            newStatus: "PENDING",
+          });
+        }
 
         return order;
       },

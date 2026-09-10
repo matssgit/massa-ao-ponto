@@ -7,10 +7,11 @@ import { ApiClient } from "../../lib/api-client";
 import { AuthService } from "../auth/auth-service";
 
 const token = "o".repeat(43);
-const restaurant = { name: "Casa do Forno", slug: "casa-do-forno", address: "Rua das Oliveiras, 42", phone: "11987654321", timezone: "America/Sao_Paulo" };
+const restaurant = { name: "Casa do Forno", slug: "casa-do-forno", address: "Rua das Oliveiras, 42", phone: "11987654321", timezone: "America/Sao_Paulo", deliveryEnabled: true, deliveryFeeCents: 1200 };
 const catalog = { categories: [{ id: "22222222-2222-4222-8222-222222222222", name: "Pizzas", displayOrder: 1, products: [{ id: "33333333-3333-4333-8333-333333333333", categoryId: "22222222-2222-4222-8222-222222222222", name: "Margherita", description: "Molho, queijo e manjericão", price: 4000, displayOrder: 1, addons: [{ id: "44444444-4444-4444-8444-444444444444", name: "Borda recheada", description: "Catupiry", price: 700 }] }] }] };
 const details = {
-  order: { status: "PENDING", type: "PICKUP", subtotal: 8700, deliveryFee: 0, total: 8700, paymentStatus: "PENDING", createdAt: "2030-09-10T22:00:00.000Z" },
+  order: { status: "PENDING", type: "PICKUP", subtotal: 8700, deliveryFee: 0, total: 8700, paymentStatus: "PENDING", createdAt: "2030-09-10T22:00:00.000Z", deliveryAddress: null },
+  delivery: null,
   items: [{ productName: "Margherita", unitPrice: 4000, quantity: 2, subtotal: 8000, addons: [{ addonName: "Borda recheada", unitPrice: 700, quantity: 1, subtotal: 700 }] }],
 };
 type Handler = (url: URL, init?: RequestInit) => Response | Promise<Response> | undefined;
@@ -90,6 +91,43 @@ describe("Public pickup order UI", () => {
     storage.mockRestore();
   });
 
+  it("offers DELIVERY only when enabled and submits the address without client-owned financial fields", async () => {
+    const transport = fixture();
+    await userEvent.click(await screen.findByLabelText(/Entrega/));
+    await userEvent.click(screen.getByRole("button", { name: "Adicionar Margherita" }));
+    expect(screen.getAllByText(/52,00/).some(node => node.textContent?.includes("R$"))).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    await userEvent.type(screen.getByLabelText(/^Nome/), "Maria Silva");
+    await userEvent.type(screen.getByLabelText(/^Telefone com DDD/), "11987654321");
+    await userEvent.click(screen.getByRole("button", { name: "Revisar pedido" }));
+    expect(screen.getByLabelText("Rua").getAttribute("aria-invalid")).toBe("true");
+    await userEvent.type(screen.getByLabelText("Rua"), "Rua das Flores");
+    await userEvent.type(screen.getByLabelText("Número"), "42");
+    await userEvent.type(screen.getByLabelText("Bairro"), "Centro");
+    await userEvent.type(screen.getByLabelText("Cidade"), "São Paulo");
+    await userEvent.type(screen.getByLabelText("UF"), "SP");
+    await userEvent.type(screen.getByLabelText("CEP"), "01001-000");
+    await userEvent.click(screen.getByRole("button", { name: "Revisar pedido" }));
+    expect(screen.getByText("Entrega")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar pedido" }));
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe(`/pedido/${token}`));
+    const request = transport.mock.calls.find(([input, init]) => new URL(String(input)).pathname.endsWith("/orders") && init?.method === "POST");
+    const body = JSON.parse(String(request?.[1]?.body)) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "DELIVERY",
+      deliveryAddress: { street: "Rua das Flores", number: "42", neighborhood: "Centro", city: "São Paulo", state: "SP", zipCode: "01001-000" },
+    });
+    expect(JSON.stringify(body)).not.toMatch(/deliveryFee|subtotal|total|price/i);
+  });
+
+  it("hides DELIVERY when the Restaurant has it disabled", async () => {
+    fixture(undefined, url => url.pathname === "/public/restaurants/casa-do-forno"
+      ? Response.json({ ...restaurant, deliveryEnabled: false, deliveryFeeCents: 0 })
+      : undefined);
+    await screen.findByRole("heading", { name: "Monte seu pedido" });
+    expect(screen.queryByLabelText(/Entrega/)).toBeNull();
+  });
+
   it("does not retry an uncertain create result or enable duplicate submission", async () => {
     const transport = fixture(undefined, (url, init) => {
       if (url.pathname.endsWith("/orders") && init?.method === "POST") throw new Error("connection lost");
@@ -127,6 +165,27 @@ describe("Public pickup order UI", () => {
     resolve?.(Response.json(details));
     expect(await screen.findByText("Pedido atualizado.")).toBeTruthy();
     expect(screen.getByText(/Última consulta:/)).toBeTruthy();
+  });
+
+  it("renders DELIVERY address, fee and delivery-aware progress from snapshots", async () => {
+    const deliveryDetails = {
+      ...details,
+      order: {
+        ...details.order,
+        type: "DELIVERY",
+        status: "OUT_FOR_DELIVERY",
+        deliveryFee: 1200,
+        total: 9900,
+        deliveryAddress: { street: "Rua das Flores", number: "42", complement: null, neighborhood: "Centro", city: "São Paulo", state: "SP", zipCode: "01001-000" },
+      },
+      delivery: { status: "OUT_FOR_DELIVERY" },
+    };
+    fixture(`/pedido/${token}`, url => url.pathname === `/public/orders/${token}` ? Response.json(deliveryDetails) : undefined);
+    await screen.findByRole("heading", { name: "Seu pedido" });
+    expect(screen.getAllByText("Saiu para entrega")).toHaveLength(2);
+    expect(screen.getByText(/Rua das Flores, 42/)).toBeTruthy();
+    expect(screen.getByText("Status da entrega").nextElementSibling?.textContent).toBe("Saiu para entrega");
+    expect(screen.getAllByText(/99,00/).some(node => node.textContent?.includes("R$"))).toBe(true);
   });
 
   it.each([

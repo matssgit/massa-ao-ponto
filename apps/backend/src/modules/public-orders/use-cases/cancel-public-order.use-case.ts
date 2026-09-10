@@ -5,12 +5,14 @@ import type { OrdersRepository } from "../../orders/repositories/orders-reposito
 import type { OrderTransactionManager } from "../../orders/repositories/order-transaction-manager.js";
 import { CancelOrderUseCase } from "../../orders/use-cases/cancel-order.use-case.js";
 import { publicOrderView } from "../public-order-view.js";
+import type { DeliveriesRepository } from "../../orders/repositories/deliveries-repository.js";
 
 export class CancelPublicOrderUseCase {
   constructor(
     private readonly orders: OrdersRepository,
     private readonly orderItems: OrderItemsRepository,
     private readonly transactions: OrderTransactionManager,
+    private readonly deliveries: DeliveriesRepository,
   ) {}
 
   async execute(token: string) {
@@ -25,6 +27,7 @@ export class CancelPublicOrderUseCase {
     const cancelled = await this.orders.findByPublicAccessTokenHash(tokenHash);
     if (!cancelled) throw new PublicOrderNotFoundError();
     const items = await this.orderItems.findManyByOrderIds([cancelled.id]);
-    return publicOrderView(cancelled, items);
+    const delivery = cancelled.type === "DELIVERY" ? await this.deliveries.findByOrderId(cancelled.id) : null;
+    return publicOrderView(cancelled, items, delivery);
   }
 }

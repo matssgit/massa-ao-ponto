@@ -6,6 +6,8 @@ export interface Restaurant {
   timezone: string;
   slug: string | null;
   publicEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryFeeCents: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +26,8 @@ export interface UpdateRestaurantInput {
   timezone?: string;
   slug?: string | null;
   publicEnabled?: boolean;
+  deliveryEnabled?: boolean;
+  deliveryFeeCents?: number;
 }
 
 export interface RestaurantsRepository {

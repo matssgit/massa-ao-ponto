@@ -4,11 +4,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import {
-  addons, customers, orderHistory, orders, productAddons, productCategories,
+  addons, customers, deliveries, deliveryHistory, orderHistory, orders, productAddons, productCategories,
   products, restaurants,
 } from "../../../src/db/schema/index.js";
 import { hashPublicOrderToken } from "../../../src/modules/orders/public-order-tokens.js";
 import { DrizzleOrderHistoryRepository } from "../../../src/modules/orders/repositories/drizzle-order-history-repository.js";
+import { DrizzleDeliveryHistoryRepository } from "../../../src/modules/orders/repositories/drizzle-delivery-history-repository.js";
 import { nextAuthClientAddress, useTestAuth } from "../../helpers/auth.js";
 
 const auth = useTestAuth(app);
@@ -89,7 +90,7 @@ describe("Public PICKUP orders", () => {
       customer: { name: "Supplied name", phone },
     }));
     expect(response.statusCode).toBe(201);
-    const body = response.json<{ accessToken: string; order: { total: number }; items: unknown[] }>();
+    const body = response.json<{ accessToken: string; order: { total: number }; items: unknown[]; delivery: null }>();
     expect(body.accessToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(body.order).toMatchObject({
       status: "PENDING", type: "PICKUP", paymentStatus: "PENDING",
@@ -108,7 +109,7 @@ describe("Public PICKUP orders", () => {
     for (let index = 0; index < 2; index++) {
       const lookup = await app.inject({ url: `/public/orders/${body.accessToken}`, remoteAddress });
       expect(lookup.statusCode).toBe(200);
-      expect(lookup.json()).toEqual({ order: body.order, items: body.items });
+      expect(lookup.json()).toEqual({ order: body.order, items: body.items, delivery: body.delivery });
     }
     const admin = await app.inject({
       url: `/restaurants/${restaurant.id}/orders/${stored.id}`,
@@ -140,6 +141,55 @@ describe("Public PICKUP orders", () => {
     ]) {
       expect((await create(body)).statusCode).toBe(400);
     }
+    expect(await db.select().from(orders).where(eq(orders.restaurantId, restaurant.id))).toEqual([]);
+  });
+
+  it("creates DELIVERY atomically with the Restaurant fee and exposes safe delivery details", async () => {
+    await db.update(restaurants).set({
+      deliveryEnabled: true,
+      deliveryFeeCents: 1200,
+    }).where(eq(restaurants.id, restaurant.id));
+    const deliveryAddress = {
+      street: "Rua das Flores",
+      number: "42",
+      complement: "Apto 3",
+      neighborhood: "Centro",
+      city: "São Paulo",
+      state: "sp",
+      zipCode: "01001-000",
+    };
+
+    const response = await create(payload({ type: "DELIVERY", deliveryAddress }));
+    expect(response.statusCode).toBe(201);
+    const body = response.json<{ accessToken: string; order: { deliveryFee: number; total: number }; delivery: { status: string } }>();
+    expect(body.order).toMatchObject({
+      type: "DELIVERY",
+      subtotal: 8700,
+      deliveryFee: 1200,
+      total: 9900,
+      deliveryAddress: { ...deliveryAddress, state: "SP" },
+    });
+    expect(body.delivery).toEqual({ status: "PENDING" });
+
+    const [storedOrder] = await db.select().from(orders).where(eq(orders.restaurantId, restaurant.id));
+    const [storedDelivery] = await db.select().from(deliveries).where(eq(deliveries.orderId, storedOrder.id));
+    expect(storedDelivery).toMatchObject({ orderId: storedOrder.id, status: "PENDING" });
+    expect(await db.select().from(deliveryHistory).where(eq(deliveryHistory.deliveryId, storedDelivery.id))).toHaveLength(1);
+    expect((await app.inject({ url: `/public/orders/${body.accessToken}`, remoteAddress })).json()).toMatchObject({
+      order: { type: "DELIVERY", deliveryFee: 1200, total: 9900 },
+      delivery: { status: "PENDING" },
+    });
+  });
+
+  it("rejects disabled DELIVERY, missing address and client-owned fee fields", async () => {
+    const address = {
+      street: "Rua A", number: "1", neighborhood: "Centro",
+      city: "São Paulo", state: "SP", zipCode: "01001000",
+    };
+    expect((await create(payload({ type: "DELIVERY", deliveryAddress: address }))).statusCode).toBe(409);
+    await db.update(restaurants).set({ deliveryEnabled: true, deliveryFeeCents: 900 }).where(eq(restaurants.id, restaurant.id));
+    expect((await create(payload({ type: "DELIVERY" }))).statusCode).toBe(400);
+    expect((await create(payload({ type: "DELIVERY", deliveryAddress: address, deliveryFee: 1 }))).statusCode).toBe(400);
     expect(await db.select().from(orders).where(eq(orders.restaurantId, restaurant.id))).toEqual([]);
   });
 
@@ -221,6 +271,23 @@ describe("Public PICKUP orders", () => {
     const phone = nextPhone();
     vi.spyOn(DrizzleOrderHistoryRepository.prototype, "create").mockRejectedValueOnce(new Error("sensitive persistence detail"));
     const response = await create(payload({ customer: { name: "Rollback", phone } }));
+    expect(response.statusCode).toBe(500);
+    expect(await db.select().from(orders).where(eq(orders.restaurantId, restaurant.id))).toEqual([]);
+    expect(await db.select().from(customers).where(eq(customers.phone, phone))).toEqual([]);
+  });
+
+  it("rolls back the complete DELIVERY aggregate when delivery history persistence fails", async () => {
+    await db.update(restaurants).set({ deliveryEnabled: true, deliveryFeeCents: 500 }).where(eq(restaurants.id, restaurant.id));
+    const phone = nextPhone();
+    vi.spyOn(DrizzleDeliveryHistoryRepository.prototype, "create").mockRejectedValueOnce(new Error("delivery history failure"));
+    const response = await create(payload({
+      type: "DELIVERY",
+      customer: { name: "Rollback delivery", phone },
+      deliveryAddress: {
+        street: "Rua A", number: "1", neighborhood: "Centro",
+        city: "São Paulo", state: "SP", zipCode: "01001000",
+      },
+    }));
     expect(response.statusCode).toBe(500);
     expect(await db.select().from(orders).where(eq(orders.restaurantId, restaurant.id))).toEqual([]);
     expect(await db.select().from(customers).where(eq(customers.phone, phone))).toEqual([]);

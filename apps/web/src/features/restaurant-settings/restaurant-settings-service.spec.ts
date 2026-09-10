@@ -4,7 +4,7 @@ import { RestaurantSettingsService, restaurantSchema, restaurantSettingsInputSch
 
 const restaurantId = "11111111-1111-4111-8111-111111111111";
 const timestamp = "2026-09-04T12:00:00.000Z";
-const restaurant = { id: restaurantId, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", createdAt: timestamp, updatedAt: timestamp };
+const restaurant = { id: restaurantId, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, createdAt: timestamp, updatedAt: timestamp };
 
 describe("RestaurantSettingsService", () => {
   it("validates the real Restaurant detail contract", () => {
@@ -27,7 +27,7 @@ describe("RestaurantSettingsService", () => {
   });
 
   it("trims input and enforces the physical field limits", () => {
-    expect(restaurantSettingsInputSchema.parse({ name: " Casa ", address: " Rua ", phone: " 11 ", timezone: " UTC " })).toEqual({ name: "Casa", address: "Rua", phone: "11", timezone: "UTC" });
-    expect(() => restaurantSettingsInputSchema.parse({ name: "A", address: "B", phone: "1", timezone: "x".repeat(101) })).toThrow();
+    expect(restaurantSettingsInputSchema.parse({ name: " Casa ", address: " Rua ", phone: " 11 ", timezone: " UTC ", deliveryEnabled: false, deliveryFeeCents: 0 })).toEqual({ name: "Casa", address: "Rua", phone: "11", timezone: "UTC", deliveryEnabled: false, deliveryFeeCents: 0 });
+    expect(() => restaurantSettingsInputSchema.parse({ name: "A", address: "B", phone: "1", timezone: "x".repeat(101), deliveryEnabled: false, deliveryFeeCents: 0 })).toThrow();
   });
 });
