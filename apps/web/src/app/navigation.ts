@@ -12,6 +12,12 @@ export const navigation = [
     ownerOnly: false,
   },
   {
+    path: "/cozinha",
+    label: "Cozinha",
+    detail: "Fila operacional de pedidos ativos.",
+    ownerOnly: false,
+  },
+  {
     path: "/reservas",
     label: "Reservas",
     detail: "Agenda, disponibilidade e operação das reservas.",

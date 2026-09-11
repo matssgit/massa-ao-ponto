@@ -21,6 +21,7 @@ import { TablesPage } from "../features/tables/tables-page";
 import { RestaurantSettingsPage } from "../features/restaurant-settings/restaurant-settings-page";
 import { InvitationAcceptancePage } from "../features/team/invitation-acceptance-page";
 import { TeamPage } from "../features/team/team-page";
+import { KitchenPage } from "../features/kitchen/kitchen-page";
 
 function ProtectedRoutes() {
   const { authenticated, user } = useAuth();
@@ -67,10 +68,11 @@ function AuthRoutes() {
       <Route element={<ProtectedRoutes />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/pedidos" element={<OrdersPage />} />
+        <Route path="/cozinha" element={<KitchenPage />} />
         <Route path="/reservas" element={<ReservationsPage />} />
         <Route path="/clientes" element={<CustomersPage />} />
         {navigation
-          .filter((item) => !item.ownerOnly && !["/", "/pedidos", "/reservas", "/clientes"].includes(item.path))
+          .filter((item) => !item.ownerOnly && !["/", "/pedidos", "/cozinha", "/reservas", "/clientes"].includes(item.path))
           .map((item) => (
             <Route
               key={item.path}
