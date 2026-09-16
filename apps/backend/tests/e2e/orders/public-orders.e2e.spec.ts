@@ -5,7 +5,7 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import {
   addons, customers, deliveries, deliveryHistory, notificationDeliveries, orderHistory, orders, productAddons, productCategories,
-  products, restaurantOperatingHours, restaurants,
+  products, restaurantOperatingHours, restaurantSpecialHours, restaurants,
 } from "../../../src/db/schema/index.js";
 import { hashPublicOrderToken } from "../../../src/modules/orders/public-order-tokens.js";
 import { DrizzleOrderHistoryRepository } from "../../../src/modules/orders/repositories/drizzle-order-history-repository.js";
@@ -81,6 +81,14 @@ afterEach(async () => {
 });
 
 describe("Public PICKUP orders", () => {
+  it("blocks a closed special date and lets manual OPEN take precedence", async () => {
+    const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: restaurant.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    await db.insert(restaurantSpecialHours).values({ restaurantId: restaurant.id, date: localDate, closed: true, label: "Feriado" });
+    expect((await create()).statusCode).toBe(409);
+    await db.update(restaurants).set({ operationalOverride: "OPEN" }).where(eq(restaurants.id, restaurant.id));
+    expect((await create()).statusCode).toBe(201);
+  });
+
   it("applies DEFAULT, CLOSED and OPEN to public PICKUP and DELIVERY", async () => {
     expect((await create()).statusCode).toBe(201);
     await db.insert(restaurantOperatingHours).values(Array.from({ length: 7 }, (_, dayOfWeek) => ({

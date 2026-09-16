@@ -127,6 +127,13 @@
       "when": 1789563086627,
       "tag": "0017_reflective_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789577014424,
+      "tag": "0018_solid_runaways",
+      "breakpoints": true
     }
   ]
 }

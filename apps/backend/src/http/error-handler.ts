@@ -40,6 +40,7 @@ import { RestaurantNotFoundError } from "../modules/restaurants/errors/restauran
 import { InvalidRestaurantPublicConfigError } from "../modules/restaurants/errors/invalid-restaurant-public-config-error.js";
 import { RestaurantSlugConflictError } from "../modules/restaurants/errors/restaurant-slug-conflict-error.js";
 import { RestaurantClosedError } from "../modules/restaurants/errors/restaurant-closed-error.js";
+import { SpecialHourConflictError, SpecialHourNotFoundError } from "../modules/restaurants/errors/special-hours-errors.js";
 import { PublicReservationNotFoundError } from "../modules/reservations/errors/public-reservation-not-found-error.js";
 import { PublicOrderNotFoundError } from "../modules/orders/errors/public-order-not-found-error.js";
 import { PublicRateLimitError } from "../modules/public-reservations/public-rate-limit-error.js";
@@ -98,6 +99,7 @@ export const errorHandler = (
     error instanceof PublicOrderNotFoundError ||
     error instanceof MemberNotFoundError ||
     error instanceof InvitationNotFoundError ||
+    error instanceof SpecialHourNotFoundError ||
     error instanceof TableNotFoundError ||
     error instanceof ReservationNotFoundError ||
     error instanceof CustomerNotFoundError ||
@@ -130,6 +132,7 @@ export const errorHandler = (
     error instanceof TableNumberAlreadyExistsError ||
     error instanceof RestaurantSlugConflictError ||
     error instanceof RestaurantClosedError ||
+    error instanceof SpecialHourConflictError ||
     error instanceof InvalidRestaurantPublicConfigError ||
     error instanceof LastActiveOwnerError ||
     error instanceof MemberAlreadyExistsError ||

@@ -4,6 +4,7 @@ import { relations, sql } from "drizzle-orm";
 import { reservations } from "./reservations.js";
 import { tables } from "./tables.js";
 import { restaurantOperatingHours } from "./restaurant-operating-hours.js";
+import { restaurantSpecialHours } from "./restaurant-special-hours.js";
 
 export const operationalOverrideEnum = pgEnum("operational_override", ["DEFAULT", "OPEN", "CLOSED"]);
 
@@ -51,4 +52,5 @@ export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   tables: many(tables),
   reservations: many(reservations),
   operatingHours: many(restaurantOperatingHours),
+  specialHours: many(restaurantSpecialHours),
 }));

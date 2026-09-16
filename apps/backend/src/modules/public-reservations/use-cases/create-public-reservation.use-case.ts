@@ -9,6 +9,7 @@ import { publicReservationView } from "../public-view.js";
 import type { OperatingHoursRepository } from "../../restaurants/repositories/operating-hours-repository.js";
 import { isReservationWithinOperatingHours } from "../../restaurants/operating-hours.js";
 import { RestaurantClosedError } from "../../restaurants/errors/restaurant-closed-error.js";
+import type { SpecialHoursRepository } from "../../restaurants/repositories/special-hours-repository.js";
 
 interface Input {
   slug: string;
@@ -26,13 +27,17 @@ export class CreatePublicReservationUseCase {
     private readonly tables: TablesRepository,
     private readonly transactions: ReservationTransactionManager,
     private readonly operatingHours: OperatingHoursRepository,
+    private readonly specialHours: SpecialHoursRepository,
   ) {}
 
   async execute(input: Input) {
     const restaurant = await this.restaurants.findPublishedBySlug(input.slug);
     if (!restaurant) throw new RestaurantNotFoundError();
-    const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
-    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt, restaurant.operationalOverride)) throw new RestaurantClosedError();
+    const [hours, specialHours] = await Promise.all([
+      this.operatingHours.findByRestaurantId(restaurant.id),
+      this.specialHours.findByRestaurantId(restaurant.id),
+    ]);
+    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt, restaurant.operationalOverride, specialHours)) throw new RestaurantClosedError();
     const table = await this.tables.findByIdAndRestaurantId(input.tableId, restaurant.id);
     if (!table) throw new PublicReservationNotFoundError();
     const accessToken = createPublicReservationToken();

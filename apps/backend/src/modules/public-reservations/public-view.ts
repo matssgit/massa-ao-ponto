@@ -3,8 +3,11 @@ import type { Restaurant } from "../restaurants/repositories/restaurants-reposit
 import type { Table } from "../tables/repositories/tables-repository.js";
 import { isRestaurantOpenAt, operatingHoursView } from "../restaurants/operating-hours.js";
 import type { OperatingHour } from "../restaurants/repositories/operating-hours-repository.js";
+import type { SpecialHour } from "../restaurants/repositories/special-hours-repository.js";
+import { restaurantLocalDate } from "../restaurants/operating-hours.js";
 
-export function publicRestaurantView(restaurant: Restaurant, operatingHours: OperatingHour[]) {
+export function publicRestaurantView(restaurant: Restaurant, operatingHours: OperatingHour[], specialHours: SpecialHour[] = []) {
+  const today = restaurantLocalDate(new Date(), restaurant.timezone);
   return {
     name: restaurant.name,
     slug: restaurant.slug,
@@ -14,8 +17,17 @@ export function publicRestaurantView(restaurant: Restaurant, operatingHours: Ope
     deliveryEnabled: restaurant.deliveryEnabled,
     deliveryFeeCents: restaurant.deliveryFeeCents,
     operationalOverride: restaurant.operationalOverride,
-    openNow: isRestaurantOpenAt(operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride),
+    openNow: isRestaurantOpenAt(operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride, specialHours),
     operatingHours: operatingHoursView(operatingHours),
+    specialHours: specialHours
+      .filter((entry) => entry.date >= today)
+      .map((entry) => ({
+        date: entry.date,
+        closed: entry.closed,
+        opensAt: entry.opensAt?.slice(0, 5) ?? null,
+        closesAt: entry.closesAt?.slice(0, 5) ?? null,
+        label: entry.label,
+      })),
   };
 }
 

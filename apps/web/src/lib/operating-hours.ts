@@ -9,6 +9,14 @@ export const operatingHoursSchema = z.object({ configured: z.boolean(), days: z.
 export type OperatingHours = z.infer<typeof operatingHoursSchema>;
 export type OperatingDay = z.infer<typeof operatingDaySchema>;
 export type OperationalOverride = "DEFAULT" | "OPEN" | "CLOSED";
+export const specialHourSchema = z.object({
+  date: z.iso.date(),
+  closed: z.boolean(),
+  opensAt: localTime.nullable(),
+  closesAt: localTime.nullable(),
+  label: z.string().nullable(),
+}).strict();
+export type SpecialHour = z.infer<typeof specialHourSchema>;
 
 export const weekdayLabels = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"] as const;
 const weekdayIndex: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -22,27 +30,35 @@ function localParts(instant: Date, timezone: string) {
   return { dayOfWeek: weekdayIndex[value("weekday")], date: `${value("year")}-${value("month")}-${value("day")}`, minutes: Number(value("hour")) * 60 + Number(value("minute")) };
 }
 
+export function restaurantLocalDate(instant: Date, timezone: string) {
+  return localParts(instant, timezone).date;
+}
+
 function minutes(value: string) {
   const [hour, minute] = value.split(":").map(Number);
   return hour * 60 + minute;
 }
 
-export function isRestaurantOpenAt(hours: OperatingHours, timezone: string, instant = new Date(), override: OperationalOverride = "DEFAULT") {
+export function isRestaurantOpenAt(hours: OperatingHours, timezone: string, instant = new Date(), override: OperationalOverride = "DEFAULT", specialHours: SpecialHour[] = []) {
   if (override === "OPEN") return true;
   if (override === "CLOSED") return false;
-  if (!hours.configured) return true;
   const local = localParts(instant, timezone);
+  const special = specialHours.find(entry => entry.date === local.date);
+  if (special) return Boolean(!special.closed && special.opensAt && special.closesAt && local.minutes >= minutes(special.opensAt) && local.minutes < minutes(special.closesAt));
+  if (!hours.configured) return true;
   const day = hours.days.find(entry => entry.dayOfWeek === local.dayOfWeek);
   return Boolean(day?.active && local.minutes >= minutes(day.opensAt) && local.minutes < minutes(day.closesAt));
 }
 
-export function isReservationWithinOperatingHours(hours: OperatingHours, timezone: string, startsAt: string, endsAt: string, override: OperationalOverride = "DEFAULT") {
+export function isReservationWithinOperatingHours(hours: OperatingHours, timezone: string, startsAt: string, endsAt: string, override: OperationalOverride = "DEFAULT", specialHours: SpecialHour[] = []) {
   if (override === "OPEN") return true;
   if (override === "CLOSED") return false;
-  if (!hours.configured) return true;
   const start = localParts(new Date(startsAt), timezone);
   const end = localParts(new Date(endsAt), timezone);
   if (start.date !== end.date || start.dayOfWeek !== end.dayOfWeek) return false;
+  const special = specialHours.find(entry => entry.date === start.date);
+  if (special) return Boolean(!special.closed && special.opensAt && special.closesAt && start.minutes >= minutes(special.opensAt) && end.minutes <= minutes(special.closesAt));
+  if (!hours.configured) return true;
   const day = hours.days.find(entry => entry.dayOfWeek === start.dayOfWeek);
   return Boolean(day?.active && start.minutes >= minutes(day.opensAt) && end.minutes <= minutes(day.closesAt));
 }

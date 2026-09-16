@@ -15,6 +15,7 @@ import { GetPublicOrderUseCase } from "../use-cases/get-public-order.use-case.js
 import { DrizzleDeliveriesRepository } from "../../orders/repositories/drizzle-deliveries-repository.js";
 import { DrizzleOperatingHoursRepository } from "../../restaurants/repositories/drizzle-operating-hours-repository.js";
 import { makeWhatsAppNotificationService } from "../../notifications/notification-factory.js";
+import { DrizzleSpecialHoursRepository } from "../../restaurants/repositories/drizzle-special-hours-repository.js";
 
 function makeCreateOrderUseCase() {
   return new CreateOrderUseCase(
@@ -35,6 +36,7 @@ export async function createPublicOrderController(request: FastifyRequest, reply
     new DrizzleOrderItemsRepository(),
     new DrizzleDeliveriesRepository(),
     new DrizzleOperatingHoursRepository(),
+    new DrizzleSpecialHoursRepository(),
   ).execute(slug, body);
   await makeWhatsAppNotificationService(request.log).notifyPublicOrderCreated(result.accessToken);
   return reply.status(201).send(result);

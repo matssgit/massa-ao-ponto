@@ -56,6 +56,14 @@ describe("Public pickup order UI", () => {
     expect(screen.getByRole("button", { name: "Confirmar pedido" }).hasAttribute("disabled")).toBe(true);
     expect(transport.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
   });
+  it("keeps the catalog available but blocks confirmation on a closed special date", async () => {
+    const date = new Intl.DateTimeFormat("en-CA", { timeZone: restaurant.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const transport = fixture(undefined, url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json({ ...restaurant, openNow: false, specialHours: [{ date, closed: true, opensAt: null, closesAt: null, label: "Feriado" }] }) : undefined);
+    expect(await screen.findByText(/fechado agora/i)).toBeTruthy();
+    await reachReview();
+    expect(screen.getByRole("button", { name: "Confirmar pedido" }).hasAttribute("disabled")).toBe(true);
+    expect(transport.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+  });
   it("allows confirmation outside the weekly hours while manually OPEN", async () => {
     const transport = fixture(undefined, url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json({ ...restaurant, operationalOverride: "OPEN", openNow: true, operatingHours: { ...operatingHours, configured: true } }) : undefined);
     await reachReview();

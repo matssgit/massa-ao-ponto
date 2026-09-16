@@ -38,7 +38,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
   const estimate = useMemo(() => catalog ? estimatedTotal(catalog, cart) : 0, [catalog, cart]);
   const deliveryFee = mode === "DELIVERY" ? restaurant?.deliveryFeeCents ?? 0 : 0;
   const estimatedGrandTotal = estimate + deliveryFee;
-  const restaurantOpen = restaurant ? isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride) : true;
+  const restaurantOpen = restaurant ? isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride, restaurant.specialHours) : true;
 
   function productQuantity(productId: string, delta: number) {
     setCart((current) => {
@@ -72,7 +72,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
 
   async function submit() {
     if (!restaurant || !catalog || submitting.current || lines.length === 0) return;
-    if (!isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride)) { setSubmitError(new Error(restaurant.operationalOverride === "CLOSED" ? "O restaurante está temporariamente fechado." : "O restaurante está fechado agora. Tente novamente durante o horário de funcionamento.")); return; }
+    if (!isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride, restaurant.specialHours)) { setSubmitError(new Error(restaurant.operationalOverride === "CLOSED" ? "O restaurante está temporariamente fechado." : "O restaurante está fechado agora. Tente novamente durante o horário de funcionamento.")); return; }
     submitting.current = true; setBusy(true); setSubmitError(undefined); setUncertain(false);
     try {
       const common = {

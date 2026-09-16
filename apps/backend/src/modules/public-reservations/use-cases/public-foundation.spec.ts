@@ -5,6 +5,7 @@ import { InMemoryReservationsRepository } from "../../reservations/repositories/
 import { createPublicReservationToken, hashPublicReservationToken } from "../../reservations/public-reservation-tokens.js";
 import { GetPublicRestaurantUseCase } from "./get-public-restaurant.use-case.js";
 import { InMemoryOperatingHoursRepository } from "../../restaurants/repositories/in-memory-operating-hours-repository.js";
+import { InMemorySpecialHoursRepository } from "../../restaurants/repositories/in-memory-special-hours-repository.js";
 
 describe("Public foundation unit contracts", () => {
   it("canonicalizes slug, requires publication and detects collisions in memory", async () => {
@@ -18,7 +19,7 @@ describe("Public foundation unit contracts", () => {
     expect(await repository.findPublishedBySlug("pizza-casa")).toBe(first);
     await expect(update.execute({ restaurantId: second.id, slug: "Pizza Casa" })).rejects.toMatchObject({ name: "RestaurantSlugConflictError" });
     await update.execute({ restaurantId: first.id, publicEnabled: false });
-    await expect(new GetPublicRestaurantUseCase(repository, new InMemoryOperatingHoursRepository()).execute("pizza-casa")).rejects.toMatchObject({ name: "RestaurantNotFoundError" });
+    await expect(new GetPublicRestaurantUseCase(repository, new InMemoryOperatingHoursRepository(), new InMemorySpecialHoursRepository()).execute("pizza-casa")).rejects.toMatchObject({ name: "RestaurantNotFoundError" });
   });
 
   it("keeps hash out of in-memory return values and preserves token lookup after status changes", async () => {

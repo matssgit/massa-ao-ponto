@@ -6,6 +6,7 @@ import type { TablesRepository } from "../../tables/repositories/tables-reposito
 import type { OperatingHoursRepository } from "../../restaurants/repositories/operating-hours-repository.js";
 import { isReservationWithinOperatingHours } from "../../restaurants/operating-hours.js";
 import { RestaurantClosedError } from "../../restaurants/errors/restaurant-closed-error.js";
+import type { SpecialHoursRepository } from "../../restaurants/repositories/special-hours-repository.js";
 
 export class GetPublicAvailabilityUseCase {
   constructor(
@@ -13,13 +14,17 @@ export class GetPublicAvailabilityUseCase {
     private readonly tables: TablesRepository,
     private readonly reservations: ReservationsRepository,
     private readonly operatingHours: OperatingHoursRepository,
+    private readonly specialHours: SpecialHoursRepository,
   ) {}
 
   async execute(input: { slug: string; startsAt: Date; endsAt: Date; partySize?: number }) {
     const restaurant = await this.restaurants.findPublishedBySlug(input.slug);
     if (!restaurant) throw new RestaurantNotFoundError();
-    const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
-    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt, restaurant.operationalOverride)) throw new RestaurantClosedError();
+    const [hours, specialHours] = await Promise.all([
+      this.operatingHours.findByRestaurantId(restaurant.id),
+      this.specialHours.findByRestaurantId(restaurant.id),
+    ]);
+    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt, restaurant.operationalOverride, specialHours)) throw new RestaurantClosedError();
     const available = await new GetAvailabilityUseCase(
       this.restaurants,
       this.tables,

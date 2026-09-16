@@ -10,6 +10,7 @@ import type { DeliveriesRepository } from "../../orders/repositories/deliveries-
 import type { OperatingHoursRepository } from "../../restaurants/repositories/operating-hours-repository.js";
 import { isRestaurantOpenAt } from "../../restaurants/operating-hours.js";
 import { RestaurantClosedError } from "../../restaurants/errors/restaurant-closed-error.js";
+import type { SpecialHoursRepository } from "../../restaurants/repositories/special-hours-repository.js";
 
 export class CreatePublicOrderUseCase {
   constructor(
@@ -18,14 +19,18 @@ export class CreatePublicOrderUseCase {
     private readonly orderItems: OrderItemsRepository,
     private readonly deliveries: DeliveriesRepository,
     private readonly operatingHours: OperatingHoursRepository,
+    private readonly specialHours: SpecialHoursRepository,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
   async execute(slug: string, input: CreatePublicOrderBody) {
     const restaurant = await this.restaurants.findPublishedBySlug(slug);
     if (!restaurant) throw new RestaurantNotFoundError();
-    const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
-    if (!isRestaurantOpenAt(hours, restaurant.timezone, this.now(), restaurant.operationalOverride)) throw new RestaurantClosedError();
+    const [hours, specialHours] = await Promise.all([
+      this.operatingHours.findByRestaurantId(restaurant.id),
+      this.specialHours.findByRestaurantId(restaurant.id),
+    ]);
+    if (!isRestaurantOpenAt(hours, restaurant.timezone, this.now(), restaurant.operationalOverride, specialHours)) throw new RestaurantClosedError();
     if (input.type === "DELIVERY" && !restaurant.deliveryEnabled) {
       throw new PublicDeliveryDisabledError();
     }

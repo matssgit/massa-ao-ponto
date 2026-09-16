@@ -6,3 +6,11 @@
 .operating-hours-times label { display: grid; gap: .35rem; font-size: .8rem; }
 .operating-hours-settings > button { justify-self: start; }
 @media (max-width: 620px) { .operating-hours-day { grid-template-columns: 1fr; } .operating-hours-times { grid-template-columns: 1fr 1fr; } }
+.special-hours-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.special-hours-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid var(--line); }
+.special-hours-list li > div { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.special-hours-list small { width: 100%; color: var(--muted); }
+.special-hours-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.special-hours-form > label { display: grid; gap: .35rem; }
+.special-hours-actions { display: flex; align-items: end; gap: .5rem; }
+@media (max-width: 620px) { .special-hours-list li { align-items: flex-start; flex-direction: column; } .special-hours-form { grid-template-columns: 1fr; } }

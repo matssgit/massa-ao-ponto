@@ -1,5 +1,6 @@
 import type { OperatingHour, OperatingHourInput } from "./repositories/operating-hours-repository.js";
 import type { OperationalOverride } from "./repositories/restaurants-repository.js";
+import type { SpecialHour } from "./repositories/special-hours-repository.js";
 
 export const weekDays = [0, 1, 2, 3, 4, 5, 6] as const;
 const weekdayIndex: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -11,6 +12,10 @@ function localParts(instant: Date, timezone: string) {
   }).formatToParts(instant);
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   return { dayOfWeek: weekdayIndex[value("weekday")], date: `${value("year")}-${value("month")}-${value("day")}`, minutes: Number(value("hour")) * 60 + Number(value("minute")) };
+}
+
+export function restaurantLocalDate(instant: Date, timezone: string) {
+  return localParts(instant, timezone).date;
 }
 
 function timeMinutes(value: string) {
@@ -33,22 +38,30 @@ export function operatingHoursView(hours: OperatingHour[]) {
   };
 }
 
-export function isRestaurantOpenAt(hours: OperatingHour[], timezone: string, instant: Date, override: OperationalOverride = "DEFAULT") {
+export function isRestaurantOpenAt(hours: OperatingHour[], timezone: string, instant: Date, override: OperationalOverride = "DEFAULT", specialHours: SpecialHour[] = []) {
   if (override === "OPEN") return true;
   if (override === "CLOSED") return false;
-  if (hours.length === 0) return true;
   const local = localParts(instant, timezone);
+  const special = specialHours.find((entry) => entry.date === local.date);
+  if (special) {
+    return Boolean(!special.closed && special.opensAt && special.closesAt && local.minutes >= timeMinutes(special.opensAt) && local.minutes < timeMinutes(special.closesAt));
+  }
+  if (hours.length === 0) return true;
   const day = hours.find((hour) => hour.dayOfWeek === local.dayOfWeek);
   return Boolean(day?.active && day.opensAt && day.closesAt && local.minutes >= timeMinutes(day.opensAt) && local.minutes < timeMinutes(day.closesAt));
 }
 
-export function isReservationWithinOperatingHours(hours: OperatingHour[], timezone: string, startsAt: Date, endsAt: Date, override: OperationalOverride = "DEFAULT") {
+export function isReservationWithinOperatingHours(hours: OperatingHour[], timezone: string, startsAt: Date, endsAt: Date, override: OperationalOverride = "DEFAULT", specialHours: SpecialHour[] = []) {
   if (override === "OPEN") return true;
   if (override === "CLOSED") return false;
-  if (hours.length === 0) return true;
   const start = localParts(startsAt, timezone);
   const end = localParts(endsAt, timezone);
   if (start.date !== end.date || start.dayOfWeek !== end.dayOfWeek) return false;
+  const special = specialHours.find((entry) => entry.date === start.date);
+  if (special) {
+    return Boolean(!special.closed && special.opensAt && special.closesAt && start.minutes >= timeMinutes(special.opensAt) && end.minutes <= timeMinutes(special.closesAt));
+  }
+  if (hours.length === 0) return true;
   const day = hours.find((hour) => hour.dayOfWeek === start.dayOfWeek);
   return Boolean(day?.active && day.opensAt && day.closesAt && start.minutes >= timeMinutes(day.opensAt) && end.minutes <= timeMinutes(day.closesAt));
 }

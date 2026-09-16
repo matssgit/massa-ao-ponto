@@ -16,10 +16,11 @@ import { GetPublicReservationUseCase } from "../use-cases/get-public-reservation
 import { GetPublicRestaurantUseCase } from "../use-cases/get-public-restaurant.use-case.js";
 import { DrizzleOperatingHoursRepository } from "../../restaurants/repositories/drizzle-operating-hours-repository.js";
 import { makeWhatsAppNotificationService } from "../../notifications/notification-factory.js";
+import { DrizzleSpecialHoursRepository } from "../../restaurants/repositories/drizzle-special-hours-repository.js";
 
 export async function getPublicRestaurantController(request: FastifyRequest, reply: FastifyReply) {
   const { slug } = publicRestaurantParamsSchema.parse(request.params);
-  const result = await new GetPublicRestaurantUseCase(new DrizzleRestaurantsRepository(), new DrizzleOperatingHoursRepository()).execute(slug);
+  const result = await new GetPublicRestaurantUseCase(new DrizzleRestaurantsRepository(), new DrizzleOperatingHoursRepository(), new DrizzleSpecialHoursRepository()).execute(slug);
   return reply.status(200).send(result);
 }
 
@@ -31,6 +32,7 @@ export async function getPublicAvailabilityController(request: FastifyRequest, r
     new DrizzleTablesRepository(),
     new DrizzleReservationsRepository(),
     new DrizzleOperatingHoursRepository(),
+    new DrizzleSpecialHoursRepository(),
   ).execute({ slug, ...query });
   return reply.status(200).send(result);
 }
@@ -43,6 +45,7 @@ export async function createPublicReservationController(request: FastifyRequest,
     new DrizzleTablesRepository(),
     new DrizzleReservationTransactionManager(),
     new DrizzleOperatingHoursRepository(),
+    new DrizzleSpecialHoursRepository(),
   ).execute({ slug, ...body });
   await makeWhatsAppNotificationService(request.log).notifyPublicReservationCreated(result.accessToken);
   return reply.status(201).send(result);

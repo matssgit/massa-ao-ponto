@@ -71,8 +71,20 @@ describe("Public reservation UI", () => {
     fixture(undefined, url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json(closed) : undefined);
     expect(await screen.findByText("Temporariamente fechado")).toBeTruthy();
   });
+  it("shows a labelled special closure on the landing", async () => {
+    const date = new Intl.DateTimeFormat("en-CA", { timeZone: restaurant.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    fixture(undefined, url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json({ ...restaurant, openNow: false, specialHours: [{ date, closed: true, opensAt: null, closesAt: null, label: "Feriado municipal" }] }) : undefined);
+    expect(await screen.findByText("Fechado agora")).toBeTruthy();
+    expect(screen.getByText("Feriado municipal")).toBeTruthy();
+  });
   it("allows availability outside weekly hours while manually OPEN", async () => {
     const transport = fixture("/r/casa-do-forno/reservar", url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json({ ...restaurant, operationalOverride: "OPEN", openNow: true, operatingHours: { ...operatingHours, configured: true } }) : undefined);
+    await availability();
+    expect(await screen.findByRole("radio", { name: /Mesa 7/ })).toBeTruthy();
+    expect(transport.mock.calls.filter(([input]) => new URL(String(input)).pathname.endsWith("/availability"))).toHaveLength(1);
+  });
+  it("uses a special open interval for the selected reservation date", async () => {
+    const transport = fixture("/r/casa-do-forno/reservar", url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json({ ...restaurant, operatingHours: { ...operatingHours, configured: true }, specialHours: [{ date: "2030-09-10", closed: false, opensAt: "18:00", closesAt: "22:00", label: "Atendimento especial" }] }) : undefined);
     await availability();
     expect(await screen.findByRole("radio", { name: /Mesa 7/ })).toBeTruthy();
     expect(transport.mock.calls.filter(([input]) => new URL(String(input)).pathname.endsWith("/availability"))).toHaveLength(1);

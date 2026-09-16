@@ -22,4 +22,5 @@ export * from "./restaurant-memberships.js";
 export * from "./sessions.js";
 export * from "./member-invitations.js";
 export * from "./restaurant-operating-hours.js";
+export * from "./restaurant-special-hours.js";
 export * from "./notification-deliveries.js";

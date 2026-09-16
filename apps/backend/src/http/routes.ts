@@ -61,6 +61,7 @@ import { updateReservationStatusController } from "../modules/reservations/contr
 import { updateRestaurantController } from "../modules/restaurants/controllers/update-restaurant.js";
 import { updateTableController } from "../modules/tables/controllers/update-table.js";
 import { getOperatingHoursController, updateOperatingHoursController } from "../modules/restaurants/controllers/operating-hours.js";
+import { createSpecialHourController, deleteSpecialHourController, listSpecialHoursController, updateSpecialHourController } from "../modules/restaurants/controllers/special-hours.js";
 
 export async function restaurantsRoutes(app: FastifyInstance) {
   // === RESTAURANTS ===
@@ -94,6 +95,10 @@ export async function restaurantsRoutes(app: FastifyInstance) {
     { config: { access: "owner" } },
     updateOperatingHoursController,
   );
+  app.get("/restaurants/:restaurantId/special-hours", { config: { access: "owner" } }, listSpecialHoursController);
+  app.post("/restaurants/:restaurantId/special-hours", { config: { access: "owner" } }, createSpecialHourController);
+  app.patch("/restaurants/:restaurantId/special-hours/:specialHourId", { config: { access: "owner" } }, updateSpecialHourController);
+  app.delete("/restaurants/:restaurantId/special-hours/:specialHourId", { config: { access: "owner" } }, deleteSpecialHourController);
 
   // === MEMBERSHIPS ===
   app.get("/restaurants/:restaurantId/members", { config: { access: "owner" } }, listMembersController);
