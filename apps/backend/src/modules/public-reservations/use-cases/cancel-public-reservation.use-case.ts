@@ -6,6 +6,7 @@ import { CancelReservationUseCase } from "../../reservations/use-cases/cancel-re
 import type { RestaurantsRepository } from "../../restaurants/repositories/restaurants-repository.js";
 import type { TablesRepository } from "../../tables/repositories/tables-repository.js";
 import { publicReservationView } from "../public-view.js";
+import type { OperatingHoursRepository } from "../../restaurants/repositories/operating-hours-repository.js";
 
 export class CancelPublicReservationUseCase {
   constructor(
@@ -13,6 +14,7 @@ export class CancelPublicReservationUseCase {
     private readonly restaurants: RestaurantsRepository,
     private readonly tables: TablesRepository,
     private readonly transactions: ReservationTransactionManager,
+    private readonly operatingHours: OperatingHoursRepository,
   ) {}
 
   async execute(token: string, now: Date) {
@@ -25,11 +27,12 @@ export class CancelPublicReservationUseCase {
       reservationId: reservation.id,
       now,
     });
-    const [restaurant, table] = await Promise.all([
+    const [restaurant, table, hours] = await Promise.all([
       this.restaurants.findById(cancelled.restaurantId),
       this.tables.findByIdAndRestaurantId(cancelled.tableId, cancelled.restaurantId),
+      this.operatingHours.findByRestaurantId(cancelled.restaurantId),
     ]);
     if (!restaurant || !table) throw new PublicReservationNotFoundError();
-    return publicReservationView(cancelled, restaurant, table);
+    return publicReservationView(cancelled, restaurant, table, hours);
   }
 }

@@ -21,3 +21,4 @@ export * from "./membership-role.js";
 export * from "./restaurant-memberships.js";
 export * from "./sessions.js";
 export * from "./member-invitations.js";
+export * from "./restaurant-operating-hours.js";

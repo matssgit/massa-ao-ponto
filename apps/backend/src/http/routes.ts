@@ -60,6 +60,7 @@ import { updateProductController } from "../modules/products/controllers/update-
 import { updateReservationStatusController } from "../modules/reservations/controllers/update-reservation-status.js";
 import { updateRestaurantController } from "../modules/restaurants/controllers/update-restaurant.js";
 import { updateTableController } from "../modules/tables/controllers/update-table.js";
+import { getOperatingHoursController, updateOperatingHoursController } from "../modules/restaurants/controllers/operating-hours.js";
 
 export async function restaurantsRoutes(app: FastifyInstance) {
   // === RESTAURANTS ===
@@ -82,6 +83,16 @@ export async function restaurantsRoutes(app: FastifyInstance) {
     "/restaurants/:restaurantId",
     { config: { access: "owner" } },
     updateRestaurantController,
+  );
+  app.get(
+    "/restaurants/:restaurantId/operating-hours",
+    { config: { access: "owner" } },
+    getOperatingHoursController,
+  );
+  app.put(
+    "/restaurants/:restaurantId/operating-hours",
+    { config: { access: "owner" } },
+    updateOperatingHoursController,
   );
 
   // === MEMBERSHIPS ===

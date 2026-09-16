@@ -13,6 +13,7 @@ import { CancelPublicOrderUseCase } from "../use-cases/cancel-public-order.use-c
 import { CreatePublicOrderUseCase } from "../use-cases/create-public-order.use-case.js";
 import { GetPublicOrderUseCase } from "../use-cases/get-public-order.use-case.js";
 import { DrizzleDeliveriesRepository } from "../../orders/repositories/drizzle-deliveries-repository.js";
+import { DrizzleOperatingHoursRepository } from "../../restaurants/repositories/drizzle-operating-hours-repository.js";
 
 function makeCreateOrderUseCase() {
   return new CreateOrderUseCase(
@@ -32,6 +33,7 @@ export async function createPublicOrderController(request: FastifyRequest, reply
     makeCreateOrderUseCase(),
     new DrizzleOrderItemsRepository(),
     new DrizzleDeliveriesRepository(),
+    new DrizzleOperatingHoursRepository(),
   ).execute(slug, body);
   return reply.status(201).send(result);
 }

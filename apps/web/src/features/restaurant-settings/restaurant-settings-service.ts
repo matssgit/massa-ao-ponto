@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiClient, ApiError } from "../../lib/api-client";
+import { operatingHoursSchema, type OperatingDay } from "../../lib/operating-hours";
 
 const timestamp = z.iso.datetime({ offset: true });
 export const restaurantSchema = z.object({
@@ -33,6 +34,12 @@ function parse(value: unknown): RestaurantDetails {
   return result.data;
 }
 
+function parseOperatingHours(value: unknown) {
+  const result = operatingHoursSchema.safeParse(value);
+  if (!result.success) throw new ApiError(200, "INVALID_RESPONSE", "A API retornou os horários em formato inesperado.");
+  return result.data;
+}
+
 export class RestaurantSettingsService {
   constructor(private readonly client: ApiClient) {}
   private path(restaurantId: string) {
@@ -43,5 +50,12 @@ export class RestaurantSettingsService {
   }
   async update(restaurantId: string, changes: RestaurantSettingsChanges) {
     return parse(await this.client.request(this.path(restaurantId), { method: "PATCH", body: changes }));
+  }
+
+  async getOperatingHours(restaurantId: string, signal?: AbortSignal) {
+    return parseOperatingHours(await this.client.request(`${this.path(restaurantId)}/operating-hours`, { signal }));
+  }
+  async updateOperatingHours(restaurantId: string, days: OperatingDay[]) {
+    return parseOperatingHours(await this.client.request(`${this.path(restaurantId)}/operating-hours`, { method: "PUT", body: { days } }));
   }
 }

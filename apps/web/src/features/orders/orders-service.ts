@@ -52,6 +52,32 @@ export type OrderType = z.infer<typeof orderTypeSchema>;
 export type OrderDetail = z.infer<typeof orderDetailsSchema>;
 export type OrdersList = z.infer<typeof ordersListSchema>;
 export type HistoryEntry = z.infer<typeof historySchema>;
+const createCustomerSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome do cliente."),
+  phone: z.string().trim().min(10, "Informe um telefone válido."),
+  email: z.string().trim().email("Informe um e-mail válido.").optional(),
+});
+const createOrderItemSchema = z.object({
+  productId: z.uuid(), quantity: z.number().int().positive(),
+  addons: z.array(z.object({ addonId: z.uuid(), quantity: z.number().int().positive() })).optional(),
+});
+const deliveryAddressSchema = z.object({
+  street: z.string().trim().min(1, "Informe a rua."), number: z.string().trim().min(1, "Informe o número."),
+  complement: z.string().trim().optional(), neighborhood: z.string().trim().min(1, "Informe o bairro."),
+  city: z.string().trim().min(1, "Informe a cidade."), state: z.string().trim().min(1, "Informe o estado."),
+  zipCode: z.string().trim().min(1, "Informe o CEP."),
+});
+const createOrderCommon = {
+  customer: createCustomerSchema,
+  items: z.array(createOrderItemSchema).min(1, "Adicione pelo menos um produto."),
+  observation: z.string().trim().optional(),
+};
+export const createOrderInputSchema = z.discriminatedUnion("type", [
+  z.object({ ...createOrderCommon, type: z.literal("PICKUP"), deliveryFee: z.literal(0) }),
+  z.object({ ...createOrderCommon, type: z.literal("DINE_IN"), tableId: z.uuid("Selecione uma mesa."), deliveryFee: z.literal(0) }),
+  z.object({ ...createOrderCommon, type: z.literal("DELIVERY"), deliveryFee: cents, deliveryAddress: deliveryAddressSchema }),
+]);
+export type CreateOrderInput = z.infer<typeof createOrderInputSchema>;
 export interface OrdersFiltersValue {
   status?: OrderStatus;
   type?: OrderType;
@@ -88,6 +114,10 @@ export class OrdersService {
 
   async detail(restaurantId: string, orderId: string, signal?: AbortSignal) {
     return parse(orderDetailsSchema, await this.client.request(this.path(restaurantId, orderId), { signal }));
+  }
+
+  async create(restaurantId: string, input: CreateOrderInput) {
+    return parse(orderSchema, await this.client.request(this.path(restaurantId), { method: "POST", body: input }));
   }
 
   async mutate(restaurantId: string, orderId: string, action: OrderAction): Promise<void> {

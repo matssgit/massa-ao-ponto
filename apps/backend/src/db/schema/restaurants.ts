@@ -3,6 +3,7 @@ import { boolean, check, integer, pgTable, timestamp, uniqueIndex, uuid, varchar
 import { relations, sql } from "drizzle-orm";
 import { reservations } from "./reservations.js";
 import { tables } from "./tables.js";
+import { restaurantOperatingHours } from "./restaurant-operating-hours.js";
 
 export const restaurants = pgTable("restaurants", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -41,4 +42,5 @@ export const restaurants = pgTable("restaurants", {
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   tables: many(tables),
   reservations: many(reservations),
+  operatingHours: many(restaurantOperatingHours),
 }));

@@ -14,10 +14,11 @@ import { CreatePublicReservationUseCase } from "../use-cases/create-public-reser
 import { GetPublicAvailabilityUseCase } from "../use-cases/get-public-availability.use-case.js";
 import { GetPublicReservationUseCase } from "../use-cases/get-public-reservation.use-case.js";
 import { GetPublicRestaurantUseCase } from "../use-cases/get-public-restaurant.use-case.js";
+import { DrizzleOperatingHoursRepository } from "../../restaurants/repositories/drizzle-operating-hours-repository.js";
 
 export async function getPublicRestaurantController(request: FastifyRequest, reply: FastifyReply) {
   const { slug } = publicRestaurantParamsSchema.parse(request.params);
-  const result = await new GetPublicRestaurantUseCase(new DrizzleRestaurantsRepository()).execute(slug);
+  const result = await new GetPublicRestaurantUseCase(new DrizzleRestaurantsRepository(), new DrizzleOperatingHoursRepository()).execute(slug);
   return reply.status(200).send(result);
 }
 
@@ -28,6 +29,7 @@ export async function getPublicAvailabilityController(request: FastifyRequest, r
     new DrizzleRestaurantsRepository(),
     new DrizzleTablesRepository(),
     new DrizzleReservationsRepository(),
+    new DrizzleOperatingHoursRepository(),
   ).execute({ slug, ...query });
   return reply.status(200).send(result);
 }
@@ -39,6 +41,7 @@ export async function createPublicReservationController(request: FastifyRequest,
     new DrizzleRestaurantsRepository(),
     new DrizzleTablesRepository(),
     new DrizzleReservationTransactionManager(),
+    new DrizzleOperatingHoursRepository(),
   ).execute({ slug, ...body });
   return reply.status(201).send(result);
 }
@@ -49,6 +52,7 @@ export async function getPublicReservationController(request: FastifyRequest, re
     new DrizzleReservationsRepository(),
     new DrizzleRestaurantsRepository(),
     new DrizzleTablesRepository(),
+    new DrizzleOperatingHoursRepository(),
   ).execute(token);
   return reply.status(200).send(result);
 }
@@ -60,6 +64,7 @@ export async function cancelPublicReservationController(request: FastifyRequest,
     new DrizzleRestaurantsRepository(),
     new DrizzleTablesRepository(),
     new DrizzleReservationTransactionManager(),
+    new DrizzleOperatingHoursRepository(),
   ).execute(token, new Date());
   return reply.status(200).send(result);
 }

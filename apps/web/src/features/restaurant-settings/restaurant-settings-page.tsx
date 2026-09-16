@@ -7,6 +7,7 @@ import { RestaurantSettingsForm } from "./restaurant-settings-form";
 import { RestaurantSettingsService, type RestaurantSettingsChanges, type RestaurantSettingsInput } from "./restaurant-settings-service";
 import { useRestaurantSettingsQuery } from "./use-restaurant-settings-query";
 import "./restaurant-settings.css";
+import { OperatingHoursForm } from "./operating-hours-form";
 
 function OwnerRestaurantSettings({ restaurantId }: { restaurantId: string }) {
   const { service: auth } = useAuth();
@@ -49,7 +50,7 @@ function OwnerRestaurantSettings({ restaurantId }: { restaurantId: string }) {
     {notice && <p className={notice.error ? "error" : "settings-success"} role={notice.error ? "alert" : "status"}>{notice.text}</p>}
     {state.status === "loading" && <p className="settings-feedback" role="status">Carregando configurações…</p>}
     {state.status === "error" && <div className="settings-feedback"><p role="alert">{state.message}</p><button className="secondary" onClick={() => { setNotice(null); reload(); }}>Tentar carregar novamente</button></div>}
-    {state.status === "success" && <RestaurantSettingsForm key={state.data.updatedAt} restaurant={state.data} busy={busy} onSubmit={save} />}
+    {state.status === "success" && <><RestaurantSettingsForm key={state.data.updatedAt} restaurant={state.data} busy={busy} onSubmit={save} /><OperatingHoursForm restaurantId={restaurantId} service={service} /></>}
   </section>;
 }
 

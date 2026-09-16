@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { operatingHoursSchema } from "../../lib/operating-hours";
 
 export const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-export const restaurantSchema = z.object({ name: z.string(), slug: z.string().nullable(), address: z.string(), phone: z.string().nullable(), timezone: z.string(), deliveryEnabled: z.boolean(), deliveryFeeCents: z.number().int().nonnegative() }).strict();
+export const restaurantSchema = z.object({ name: z.string(), slug: z.string().nullable(), address: z.string(), phone: z.string().nullable(), timezone: z.string(), deliveryEnabled: z.boolean(), deliveryFeeCents: z.number().int().nonnegative(), operatingHours: operatingHoursSchema }).strict();
 const tableSchema = z.object({ number: z.string(), capacity: z.number().int().positive(), type: z.enum(["table", "room"]) }).strict();
 export const availabilitySchema = z.array(tableSchema.extend({ id: z.uuid() }).strict());
 export const detailsSchema = z.object({

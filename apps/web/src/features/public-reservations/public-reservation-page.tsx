@@ -5,6 +5,7 @@ import { publicDate, reservationPeriod } from "./dates";
 import { customerFormSchema, type AvailableTable, type Period, type PublicRestaurant } from "./schemas";
 import { PublicReservationService } from "./service";
 import { ErrorNotice, PublicFrame, PublicMissing, usePublicQuery } from "./shared";
+import { isReservationWithinOperatingHours } from "../../lib/operating-hours";
 
 export function PublicReservationPage({ service, slug }: { service: PublicReservationService; slug: string }) {
   const query = usePublicQuery(useCallback((signal: AbortSignal) => service.restaurant(slug, signal), [service, slug]));
@@ -42,6 +43,7 @@ function ReservationForm({ service, slug, restaurant }: { service: PublicReserva
     setAvailabilityError(undefined); setTableId(""); setTables(undefined); setReview(false);
     try {
       const next = reservationPeriod(people, start, end, restaurant.timezone);
+      if (!isReservationWithinOperatingHours(restaurant.operatingHours, restaurant.timezone, next.startsAt, next.endsAt)) throw new Error("O restaurante está fechado nesse período. Escolha um horário dentro do funcionamento informado.");
       setPeriod(next); setChecking(true);
       const result = await service.availability(slug, next, controller.signal);
       if (!controller.signal.aborted) setTables(result);

@@ -1,0 +1,32 @@
+.admin-create-panel { padding: 1.5rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.admin-create-panel > header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.admin-create-panel h2, .admin-create-panel h3 { margin: 0; }
+.admin-create-panel form { display: grid; gap: 1rem; }
+.admin-create-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; border: 1px solid var(--line); border-radius: 8px; padding: 1rem; }
+.admin-create-fields legend { padding: 0 .4rem; font-weight: 600; }
+.admin-create-fields label, .admin-create-wide { display: grid; gap: .4rem; min-width: 0; font-size: .875rem; }
+.admin-create-wide textarea { min-height: 5rem; }
+.admin-create-items > ul { grid-column: 1 / -1; list-style: none; padding: 0; margin: 0; }
+.admin-create-items > ul > li { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .75rem 0; border-top: 1px solid var(--line); }
+.admin-create-items small, .admin-create-review small, .admin-create-availability small { display: block; color: var(--muted); margin-top: .3rem; }
+.admin-create-totals { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0; }
+.admin-create-totals div { min-width: 9rem; }
+.admin-create-totals dt { color: var(--muted); font-size: .8rem; }
+.admin-create-totals dd { margin: .25rem 0 0; font-weight: 600; }
+.admin-create-review { display: grid; gap: 1rem; }
+.admin-create-review ul { margin: 0; padding-left: 1.25rem; }
+.admin-create-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.admin-create-uncertain { padding: 1rem; border-left: 3px solid var(--accent); background: var(--background); }
+.admin-create-availability { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+.admin-create-availability fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; border: 0; padding: 0; margin: 1rem 0; }
+.admin-create-availability fieldset label { display: flex; gap: .75rem; align-items: start; padding: 1rem; border: 1px solid var(--line); border-radius: 8px; }
+.admin-heading-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+@media (max-width: 900px) {
+  .admin-create-fields, .admin-create-availability fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .admin-create-panel { padding: 1rem; }
+  .admin-create-panel > header, .admin-create-items > ul > li { align-items: stretch; flex-direction: column; }
+  .admin-create-fields, .admin-create-availability fieldset { grid-template-columns: 1fr; }
+  .admin-heading-actions, .admin-heading-actions button, .admin-create-actions button { width: 100%; }
+}

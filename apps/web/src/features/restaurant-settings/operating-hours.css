@@ -1,0 +1,8 @@
+.operating-hours-settings { display: grid; gap: 1rem; margin-top: 2rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.operating-hours-settings h2 { margin: 0 0 .5rem; font-family: Georgia, serif; }
+.operating-hours-week { display: grid; gap: .5rem; }
+.operating-hours-day { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.5fr); align-items: center; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid var(--line); }
+.operating-hours-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.operating-hours-times label { display: grid; gap: .35rem; font-size: .8rem; }
+.operating-hours-settings > button { justify-self: start; }
+@media (max-width: 620px) { .operating-hours-day { grid-template-columns: 1fr; } .operating-hours-times { grid-template-columns: 1fr 1fr; } }

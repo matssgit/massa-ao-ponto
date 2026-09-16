@@ -22,6 +22,7 @@ function fixture(options: { memberships?: Membership[]; handler?: Handler } = {}
     if (url.pathname === "/restaurants") return Response.json([{ id: restaurantA, name: "Massa Centro" }, { id: restaurantB, name: "Massa Norte" }]);
     if (url.pathname.includes("/dashboard/")) return url.pathname.endsWith("sales-summary") ? Response.json({ period: { startsAt: null, endsAt: null }, orders: { total: 0, paid: 0, pending: 0, delivered: 0, cancelled: 0 }, revenue: 0, averageTicket: 0 }) : Response.json([]);
     const overridden = options.handler?.(url, init); if (overridden) return overridden;
+    if (method === "GET" && url.pathname.endsWith("/operating-hours")) return Response.json({ configured: false, days: Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, active: false, opensAt: null, closesAt: null })) });
     if (method === "GET" && url.pathname === `/restaurants/${restaurantA}`) return Response.json(restaurant);
     if (method === "GET" && url.pathname === `/restaurants/${restaurantB}`) return Response.json({ ...restaurant, id: restaurantB, name: "Massa Norte", address: "Rua B, 20" });
     if (method === "PATCH" && url.pathname === `/restaurants/${restaurantA}`) { restaurant = { ...restaurant, ...JSON.parse(String(init?.body)) }; return Response.json(restaurant); }

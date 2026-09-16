@@ -106,6 +106,13 @@
       "when": 1789039881080,
       "tag": "0014_real_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1789515205556,
+      "tag": "0015_abandoned_spirit",
+      "breakpoints": true
     }
   ]
 }

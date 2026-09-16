@@ -34,6 +34,19 @@ export type ReservationListItem = z.infer<typeof reservationListItemSchema>;
 export type ReservationsList = z.infer<typeof reservationsListSchema>;
 export type ReservationHistoryEntry = z.infer<typeof reservationHistorySchema>;
 export type AvailableTable = z.infer<typeof tableSchema>;
+export const createReservationInputSchema = z.object({
+  tableId: z.uuid("Selecione uma mesa."),
+  customer: z.object({
+    name: z.string().trim().min(2, "Informe o nome do cliente."),
+    phone: z.string().trim().min(10, "Informe um telefone válido."),
+    email: z.string().trim().email("Informe um e-mail válido.").optional(),
+  }),
+  people: z.number().int().positive("Informe a quantidade de pessoas."),
+  startsAt: timestamp,
+  endsAt: timestamp,
+  observation: z.string().trim().nullable().optional(),
+}).refine((value) => value.startsAt < value.endsAt, { message: "O término deve ser depois do início.", path: ["endsAt"] });
+export type CreateReservationInput = z.infer<typeof createReservationInputSchema>;
 export interface ReservationFiltersValue { status?: ReservationStatus; startsAt?: string; endsAt?: string; page: number; limit: number }
 export type ReservationAction = { kind: "status"; status: ReservationStatus } | { kind: "cancel" };
 
@@ -61,9 +74,12 @@ export class ReservationsService {
     ]);
     return parse(reservationDetailsSchema, { reservation, history });
   }
-  async availability(restaurantId: string, reservation: Reservation, signal?: AbortSignal) {
+  async availability(restaurantId: string, reservation: Pick<Reservation, "startsAt" | "endsAt" | "people">, signal?: AbortSignal) {
     const query = new URLSearchParams({ startsAt: reservation.startsAt, endsAt: reservation.endsAt, people: String(reservation.people) });
     return parse(availabilitySchema, await this.client.request(`/restaurants/${encodeURIComponent(restaurantId)}/availability?${query}`, { signal }));
+  }
+  async create(restaurantId: string, input: CreateReservationInput) {
+    return parse(reservationSchema, await this.client.request(this.root(restaurantId), { method: "POST", body: input }));
   }
   async mutate(restaurantId: string, reservationId: string, action: ReservationAction) {
     const root = this.root(restaurantId, reservationId);

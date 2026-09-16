@@ -7,6 +7,9 @@ import type { CreatePublicOrderBody } from "../schemas/public-order.schema.js";
 import { publicOrderView } from "../public-order-view.js";
 import { PublicDeliveryDisabledError } from "../../orders/errors/public-delivery-disabled-error.js";
 import type { DeliveriesRepository } from "../../orders/repositories/deliveries-repository.js";
+import type { OperatingHoursRepository } from "../../restaurants/repositories/operating-hours-repository.js";
+import { isRestaurantOpenAt } from "../../restaurants/operating-hours.js";
+import { RestaurantClosedError } from "../../restaurants/errors/restaurant-closed-error.js";
 
 export class CreatePublicOrderUseCase {
   constructor(
@@ -14,11 +17,15 @@ export class CreatePublicOrderUseCase {
     private readonly createOrder: CreateOrderUseCase,
     private readonly orderItems: OrderItemsRepository,
     private readonly deliveries: DeliveriesRepository,
+    private readonly operatingHours: OperatingHoursRepository,
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   async execute(slug: string, input: CreatePublicOrderBody) {
     const restaurant = await this.restaurants.findPublishedBySlug(slug);
     if (!restaurant) throw new RestaurantNotFoundError();
+    const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
+    if (!isRestaurantOpenAt(hours, restaurant.timezone, this.now())) throw new RestaurantClosedError();
     if (input.type === "DELIVERY" && !restaurant.deliveryEnabled) {
       throw new PublicDeliveryDisabledError();
     }

@@ -6,6 +6,9 @@ import { CreateReservationUseCase } from "../../reservations/use-cases/create-re
 import type { TablesRepository } from "../../tables/repositories/tables-repository.js";
 import { PublicReservationNotFoundError } from "../../reservations/errors/public-reservation-not-found-error.js";
 import { publicReservationView } from "../public-view.js";
+import type { OperatingHoursRepository } from "../../restaurants/repositories/operating-hours-repository.js";
+import { isReservationWithinOperatingHours } from "../../restaurants/operating-hours.js";
+import { RestaurantClosedError } from "../../restaurants/errors/restaurant-closed-error.js";
 
 interface Input {
   slug: string;
@@ -22,11 +25,14 @@ export class CreatePublicReservationUseCase {
     private readonly restaurants: RestaurantsRepository,
     private readonly tables: TablesRepository,
     private readonly transactions: ReservationTransactionManager,
+    private readonly operatingHours: OperatingHoursRepository,
   ) {}
 
   async execute(input: Input) {
     const restaurant = await this.restaurants.findPublishedBySlug(input.slug);
     if (!restaurant) throw new RestaurantNotFoundError();
+    const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
+    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt)) throw new RestaurantClosedError();
     const table = await this.tables.findByIdAndRestaurantId(input.tableId, restaurant.id);
     if (!table) throw new PublicReservationNotFoundError();
     const accessToken = createPublicReservationToken();
@@ -40,6 +46,6 @@ export class CreatePublicReservationUseCase {
       observation: input.notes,
       publicAccessTokenHash: hashPublicReservationToken(accessToken),
     });
-    return { accessToken, ...publicReservationView(reservation, restaurant, table) };
+    return { accessToken, ...publicReservationView(reservation, restaurant, table, hours) };
   }
 }

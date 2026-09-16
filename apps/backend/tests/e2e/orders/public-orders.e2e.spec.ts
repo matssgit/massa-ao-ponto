@@ -5,7 +5,7 @@ import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import {
   addons, customers, deliveries, deliveryHistory, orderHistory, orders, productAddons, productCategories,
-  products, restaurants,
+  products, restaurantOperatingHours, restaurants,
 } from "../../../src/db/schema/index.js";
 import { hashPublicOrderToken } from "../../../src/modules/orders/public-order-tokens.js";
 import { DrizzleOrderHistoryRepository } from "../../../src/modules/orders/repositories/drizzle-order-history-repository.js";
@@ -81,6 +81,21 @@ afterEach(async () => {
 });
 
 describe("Public PICKUP orders", () => {
+  it("keeps unconfigured Restaurants compatible and blocks PICKUP and DELIVERY while closed", async () => {
+    expect((await create()).statusCode).toBe(201);
+    await db.insert(restaurantOperatingHours).values(Array.from({ length: 7 }, (_, dayOfWeek) => ({
+      restaurantId: restaurant.id, dayOfWeek, active: false, opensAt: null, closesAt: null,
+    })));
+    await db.update(restaurants).set({ deliveryEnabled: true }).where(eq(restaurants.id, restaurant.id));
+    for (const body of [payload(), payload({
+      type: "DELIVERY",
+      deliveryAddress: { street: "Rua A", number: "1", neighborhood: "Centro", city: "São Paulo", state: "SP", zipCode: "01001000" },
+    })]) {
+      const response = await create(body);
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({ code: "RESTAURANT_CLOSED", message: "Restaurant is closed for the requested time." });
+    }
+  });
   it("calculates server-owned totals, stores only the token hash and returns a minimal reusable lookup", async () => {
     const phone = nextPhone();
     const [existing] = await db.insert(customers).values({

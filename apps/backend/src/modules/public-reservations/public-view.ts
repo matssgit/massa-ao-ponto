@@ -1,8 +1,10 @@
 import type { Reservation } from "../reservations/repositories/reservations-repository.js";
 import type { Restaurant } from "../restaurants/repositories/restaurants-repository.js";
 import type { Table } from "../tables/repositories/tables-repository.js";
+import { operatingHoursView } from "../restaurants/operating-hours.js";
+import type { OperatingHour } from "../restaurants/repositories/operating-hours-repository.js";
 
-export function publicRestaurantView(restaurant: Restaurant) {
+export function publicRestaurantView(restaurant: Restaurant, operatingHours: OperatingHour[]) {
   return {
     name: restaurant.name,
     slug: restaurant.slug,
@@ -11,12 +13,13 @@ export function publicRestaurantView(restaurant: Restaurant) {
     timezone: restaurant.timezone,
     deliveryEnabled: restaurant.deliveryEnabled,
     deliveryFeeCents: restaurant.deliveryFeeCents,
+    operatingHours: operatingHoursView(operatingHours),
   };
 }
 
-export function publicReservationView(reservation: Reservation, restaurant: Restaurant, table: Table) {
+export function publicReservationView(reservation: Reservation, restaurant: Restaurant, table: Table, operatingHours: OperatingHour[]) {
   return {
-    restaurant: publicRestaurantView(restaurant),
+    restaurant: publicRestaurantView(restaurant, operatingHours),
     reservation: {
       status: reservation.status,
       partySize: reservation.people,

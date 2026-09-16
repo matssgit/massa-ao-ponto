@@ -6,6 +6,7 @@ import { cartLines, changeAddon, changeProduct, estimatedTotal, type PublicCart 
 import { publicDeliveryAddressFormSchema, publicOrderCustomerFormSchema } from "./schemas";
 import { PublicReservationService } from "./service";
 import { ErrorNotice, PublicFrame, PublicMissing, usePublicQuery } from "./shared";
+import { isRestaurantOpenAt } from "../../lib/operating-hours";
 
 type CustomerForm = { name: string; phone: string; email: string; observation: string };
 const emptyForm: CustomerForm = { name: "", phone: "", email: "", observation: "" };
@@ -37,6 +38,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
   const estimate = useMemo(() => catalog ? estimatedTotal(catalog, cart) : 0, [catalog, cart]);
   const deliveryFee = mode === "DELIVERY" ? restaurant?.deliveryFeeCents ?? 0 : 0;
   const estimatedGrandTotal = estimate + deliveryFee;
+  const restaurantOpen = restaurant ? isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone) : true;
 
   function productQuantity(productId: string, delta: number) {
     setCart((current) => {
@@ -70,6 +72,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
 
   async function submit() {
     if (!restaurant || !catalog || submitting.current || lines.length === 0) return;
+    if (!isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone)) { setSubmitError(new Error("O restaurante está fechado agora. Tente novamente durante o horário de funcionamento.")); return; }
     submitting.current = true; setBusy(true); setSubmitError(undefined); setUncertain(false);
     try {
       const common = {
@@ -106,7 +109,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
   const missing = query.error instanceof ApiError && query.error.status === 404;
   return <PublicFrame slug={slug} page="order"><Link className="public-back" to={`/r/${encodeURIComponent(slug)}`}>← Voltar ao restaurante</Link>
     {query.loading ? <p role="status">Preparando seu pedido…</p> : missing ? <PublicMissing /> : query.error ? <ErrorNotice error={query.error} retry={query.reload} /> : restaurant && catalog && <>
-      {step === "menu" && <section aria-labelledby="order-menu-title"><header className="public-page-title"><p className="public-eyebrow">Pedido online</p><h1 id="order-menu-title">Monte seu pedido</h1><p className="public-intro">Escolha os itens e como deseja receber seu pedido de {restaurant.name}.</p></header>
+      {step === "menu" && <section aria-labelledby="order-menu-title"><header className="public-page-title"><p className="public-eyebrow">Pedido online</p><h1 id="order-menu-title">Monte seu pedido</h1><p className="public-intro">Escolha os itens e como deseja receber seu pedido de {restaurant.name}.</p></header>{!restaurantOpen && <div className="public-error" role="status"><p>O restaurante está fechado agora. Você pode montar o carrinho, mas a confirmação fica disponível somente no horário de funcionamento.</p></div>}
         <fieldset className="public-card public-order-mode"><legend>Como você quer receber?</legend>
           <label><input type="radio" name="order-mode" checked={mode === "PICKUP"} onChange={() => setMode("PICKUP")} />Retirada no local <small>Sem taxa de entrega</small></label>
           {restaurant.deliveryEnabled && <label><input type="radio" name="order-mode" checked={mode === "DELIVERY"} onChange={() => setMode("DELIVERY")} />Entrega <small>Taxa fixa: {formatCatalogMoney(restaurant.deliveryFeeCents)}</small></label>}
@@ -130,7 +133,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
         </div></fieldset>}
         <div className="public-confirm-actions"><button type="button" className="public-secondary" onClick={() => setStep("menu")}>Voltar ao cardápio</button><button className="public-primary" type="submit">Revisar pedido</button></div>
       </form></section>}
-      {step === "review" && <section className="public-detail"><h1 ref={stepHeading} tabIndex={-1}>Revise seu pedido</h1><p className="public-status">{mode === "DELIVERY" ? "Entrega" : "Retirada no local"}</p><section className="public-card"><h2>Itens</h2><ul className="public-order-review-items">{lines.map((line) => <li key={line.product.id}><strong>{line.quantity}× {line.product.name}</strong>{line.addons.length > 0 && <ul>{line.addons.map(({ addon, quantity }) => <li key={addon.id}>{quantity}× {addon.name}</li>)}</ul>}</li>)}</ul><dl className="public-order-estimate"><div><dt>Subtotal</dt><dd>{formatCatalogMoney(estimate)}</dd></div><div><dt>Taxa de entrega</dt><dd>{formatCatalogMoney(deliveryFee)}</dd></div><div><dt>Total estimado</dt><dd><strong>{formatCatalogMoney(estimatedGrandTotal)}</strong></dd></div></dl><small>O total confirmado na próxima tela é calculado pelo servidor.</small></section><section className="public-card"><h2>{mode === "DELIVERY" ? "Entrega e contato" : "Retirada e contato"}</h2>{mode === "DELIVERY" ? <p>{address.street}, {address.number}{address.complement && <> · {address.complement}</>}<br />{address.neighborhood} · {address.city}/{address.state}<br />CEP {address.zipCode}</p> : <p>{restaurant.name}<br />{restaurant.address}</p>}<p>{form.name}<br />{form.phone}{form.email && <><br />{form.email}</>}</p>{form.observation && <p className="public-notes">{form.observation}</p>}</section>{uncertain && <div className="public-error" role="alert" tabIndex={-1}><p>Não foi possível confirmar a resposta. O pedido pode ter sido criado. Para evitar duplicidade, não envie novamente agora; confira sua conexão e entre em contato com o restaurante.</p></div>}{submitError && !uncertain && <ErrorNotice error={submitError} />}<div className="public-confirm-actions"><button className="public-secondary" disabled={busy} onClick={() => setStep("customer")}>Editar dados</button><button className="public-primary" disabled={busy || uncertain} onClick={() => void submit()}>{busy ? "Enviando pedido…" : "Confirmar pedido"}</button></div></section>}
+      {step === "review" && <section className="public-detail"><h1 ref={stepHeading} tabIndex={-1}>Revise seu pedido</h1><p className="public-status">{mode === "DELIVERY" ? "Entrega" : "Retirada no local"}</p><section className="public-card"><h2>Itens</h2><ul className="public-order-review-items">{lines.map((line) => <li key={line.product.id}><strong>{line.quantity}× {line.product.name}</strong>{line.addons.length > 0 && <ul>{line.addons.map(({ addon, quantity }) => <li key={addon.id}>{quantity}× {addon.name}</li>)}</ul>}</li>)}</ul><dl className="public-order-estimate"><div><dt>Subtotal</dt><dd>{formatCatalogMoney(estimate)}</dd></div><div><dt>Taxa de entrega</dt><dd>{formatCatalogMoney(deliveryFee)}</dd></div><div><dt>Total estimado</dt><dd><strong>{formatCatalogMoney(estimatedGrandTotal)}</strong></dd></div></dl><small>O total confirmado na próxima tela é calculado pelo servidor.</small></section><section className="public-card"><h2>{mode === "DELIVERY" ? "Entrega e contato" : "Retirada e contato"}</h2>{mode === "DELIVERY" ? <p>{address.street}, {address.number}{address.complement && <> · {address.complement}</>}<br />{address.neighborhood} · {address.city}/{address.state}<br />CEP {address.zipCode}</p> : <p>{restaurant.name}<br />{restaurant.address}</p>}<p>{form.name}<br />{form.phone}{form.email && <><br />{form.email}</>}</p>{form.observation && <p className="public-notes">{form.observation}</p>}</section>{uncertain && <div className="public-error" role="alert" tabIndex={-1}><p>Não foi possível confirmar a resposta. O pedido pode ter sido criado. Para evitar duplicidade, não envie novamente agora; confira sua conexão e entre em contato com o restaurante.</p></div>}{submitError && !uncertain && <ErrorNotice error={submitError} />}<div className="public-confirm-actions"><button className="public-secondary" disabled={busy} onClick={() => setStep("customer")}>Editar dados</button><button className="public-primary" disabled={busy || uncertain || !restaurantOpen} onClick={() => void submit()}>{busy ? "Enviando pedido…" : "Confirmar pedido"}</button></div></section>}
     </>}
   </PublicFrame>;
 }
