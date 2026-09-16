@@ -1,9 +1,11 @@
-import { boolean, check, integer, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, check, integer, pgEnum, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 import { relations, sql } from "drizzle-orm";
 import { reservations } from "./reservations.js";
 import { tables } from "./tables.js";
 import { restaurantOperatingHours } from "./restaurant-operating-hours.js";
+
+export const operationalOverrideEnum = pgEnum("operational_override", ["DEFAULT", "OPEN", "CLOSED"]);
 
 export const restaurants = pgTable("restaurants", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -17,6 +19,12 @@ export const restaurants = pgTable("restaurants", {
   publicEnabled: boolean("public_enabled").default(false).notNull(),
   deliveryEnabled: boolean("delivery_enabled").default(false).notNull(),
   deliveryFeeCents: integer("delivery_fee_cents").default(0).notNull(),
+  whatsappNotificationsEnabled: boolean("whatsapp_notifications_enabled")
+    .default(false)
+    .notNull(),
+  operationalOverride: operationalOverrideEnum("operational_override")
+    .default("DEFAULT")
+    .notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

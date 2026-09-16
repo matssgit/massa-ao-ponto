@@ -14,8 +14,11 @@ type Entry = OrdersList["data"][number];
 function entry(status: OrderStatus, index: number, type: OrderType = "PICKUP"): Entry {
   const detail = orderDetail();
   const id = `${String(index).padStart(8, "0")}-3333-4333-8333-${String(index).padStart(12, "0")}`;
+  const modeFields = type === "DELIVERY"
+    ? { deliveryStreet: "Rua das Pizzas", deliveryNumber: "10", deliveryComplement: "Fundos", deliveryNeighborhood: "Centro", deliveryCity: "São Paulo", deliveryState: "SP", deliveryZipCode: "01000000" }
+    : type === "DINE_IN" ? { tableId: deliveryId } : {};
   return {
-    order: { ...detail.order, id, status, type, customerName: `Cliente ${index}`, createdAt: "2026-09-11T10:00:00.000Z" },
+    order: { ...detail.order, ...modeFields, id, status, type, customerName: `Cliente ${index}`, createdAt: "2026-09-11T10:00:00.000Z" },
     items: [{ ...detail.items[0], id, orderId: id, addons: index === 2 ? [{ id: deliveryId, addonId: deliveryId, addonName: "Borda", unitPrice: 500, quantity: 1, subtotal: 500, createdAt: detail.items[0].createdAt }] : [] }],
   };
 }
@@ -36,6 +39,7 @@ function fixture(options: {
     const url = new URL(String(input));
     if (url.pathname === "/auth/session") return Response.json({ user: { id: restaurantA, email: "cook@example.com" }, csrfToken: "kitchen-csrf", memberships });
     if (url.pathname === "/restaurants") return Response.json([{ id: restaurantA, name: "Centro" }, { id: restaurantB, name: "Norte" }]);
+    if (url.pathname.endsWith("/tables")) return Response.json([{ id: deliveryId, restaurantId: restaurantA, number: "12", capacity: 4, type: "table", active: true, createdAt: "2026-09-11T10:00:00.000Z", updatedAt: "2026-09-11T10:00:00.000Z" }]);
     if (url.pathname.endsWith("/orders") && (init?.method ?? "GET") === "GET") {
       const custom = options.list?.(url, init);
       if (custom) return custom;
@@ -59,9 +63,40 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("Kitchen Queue", () => {
   it.each(["OWNER", "STAFF"] as const)("%s accesses the operational route and navigation", async (role) => {
-    fixture({ role });
+    fixture({ role, entries: [entry("PENDING", 1)] });
     expect(await screen.findByRole("heading", { name: "Cozinha" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Cozinha/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Imprimir comanda #00000001" })).toBeTruthy();
+  });
+
+  it("previews a focused safe ticket and calls the browser print dialog", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
+    const pickup = entry("PENDING", 1);
+    fixture({ entries: [pickup] });
+    await userEvent.click(await screen.findByRole("button", { name: "Imprimir comanda #00000001" }));
+    const dialog = screen.getByRole("dialog", { name: "Comanda #00000001" });
+    expect(within(dialog).getByText("Centro")).toBeTruthy();
+    expect(within(dialog).getByText("RETIRADA")).toBeTruthy();
+    expect(within(dialog).getByText("Cliente 1")).toBeTruthy();
+    expect(within(dialog).getByText("1× Margherita histórica")).toBeTruthy();
+    expect(within(dialog).getByText("Sem cebola")).toBeTruthy();
+    expect(within(dialog).queryByText(pickup.order.customerPhone)).toBeNull();
+    expect(within(dialog).queryByText(pickup.order.id)).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Imprimir" }));
+    expect(print).toHaveBeenCalledOnce();
+  });
+
+  it("shows delivery address, addons and the real table number for each modality", async () => {
+    fixture({ entries: [entry("CONFIRMED", 2, "DELIVERY"), entry("PREPARING", 3, "DINE_IN")] });
+    await userEvent.click(await screen.findByRole("button", { name: "Imprimir comanda #00000002" }));
+    let dialog = screen.getByRole("dialog", { name: "Comanda #00000002" });
+    expect(within(dialog).getByText("ENTREGA")).toBeTruthy();
+    expect(within(dialog).getByText(/Rua das Pizzas, 10.*Centro.*São Paulo.*SP.*01000000/)).toBeTruthy();
+    expect(within(dialog).getByText("1× Borda")).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Fechar prévia" }));
+    await userEvent.click(screen.getByRole("button", { name: "Imprimir comanda #00000003" }));
+    dialog = screen.getByRole("dialog", { name: "Comanda #00000003" });
+    expect(await within(dialog).findByText("MESA 12")).toBeTruthy();
   });
 
   it("distributes active orders, hides terminal states and renders operational snapshots", async () => {

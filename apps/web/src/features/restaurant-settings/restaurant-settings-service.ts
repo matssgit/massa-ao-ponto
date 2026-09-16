@@ -11,6 +11,8 @@ export const restaurantSchema = z.object({
   timezone: z.string(),
   deliveryEnabled: z.boolean(),
   deliveryFeeCents: z.number().int().nonnegative(),
+  whatsappNotificationsEnabled: z.boolean(),
+  operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]),
   createdAt: timestamp,
   updatedAt: timestamp,
 });
@@ -22,6 +24,8 @@ export const restaurantSettingsInputSchema = z.object({
   timezone: z.string().trim().min(1, "Informe o timezone.").max(100, "O timezone deve ter no máximo 100 caracteres."),
   deliveryEnabled: z.boolean(),
   deliveryFeeCents: z.number().int().nonnegative(),
+  whatsappNotificationsEnabled: z.boolean(),
+  operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]),
 });
 
 export type RestaurantDetails = z.infer<typeof restaurantSchema>;

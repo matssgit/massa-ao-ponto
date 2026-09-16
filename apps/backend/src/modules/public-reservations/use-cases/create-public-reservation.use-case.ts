@@ -32,7 +32,7 @@ export class CreatePublicReservationUseCase {
     const restaurant = await this.restaurants.findPublishedBySlug(input.slug);
     if (!restaurant) throw new RestaurantNotFoundError();
     const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
-    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt)) throw new RestaurantClosedError();
+    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt, restaurant.operationalOverride)) throw new RestaurantClosedError();
     const table = await this.tables.findByIdAndRestaurantId(input.tableId, restaurant.id);
     if (!table) throw new PublicReservationNotFoundError();
     const accessToken = createPublicReservationToken();

@@ -1,4 +1,5 @@
 import type { OperatingHour, OperatingHourInput } from "./repositories/operating-hours-repository.js";
+import type { OperationalOverride } from "./repositories/restaurants-repository.js";
 
 export const weekDays = [0, 1, 2, 3, 4, 5, 6] as const;
 const weekdayIndex: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -32,14 +33,18 @@ export function operatingHoursView(hours: OperatingHour[]) {
   };
 }
 
-export function isRestaurantOpenAt(hours: OperatingHour[], timezone: string, instant: Date) {
+export function isRestaurantOpenAt(hours: OperatingHour[], timezone: string, instant: Date, override: OperationalOverride = "DEFAULT") {
+  if (override === "OPEN") return true;
+  if (override === "CLOSED") return false;
   if (hours.length === 0) return true;
   const local = localParts(instant, timezone);
   const day = hours.find((hour) => hour.dayOfWeek === local.dayOfWeek);
   return Boolean(day?.active && day.opensAt && day.closesAt && local.minutes >= timeMinutes(day.opensAt) && local.minutes < timeMinutes(day.closesAt));
 }
 
-export function isReservationWithinOperatingHours(hours: OperatingHour[], timezone: string, startsAt: Date, endsAt: Date) {
+export function isReservationWithinOperatingHours(hours: OperatingHour[], timezone: string, startsAt: Date, endsAt: Date, override: OperationalOverride = "DEFAULT") {
+  if (override === "OPEN") return true;
+  if (override === "CLOSED") return false;
   if (hours.length === 0) return true;
   const start = localParts(startsAt, timezone);
   const end = localParts(endsAt, timezone);

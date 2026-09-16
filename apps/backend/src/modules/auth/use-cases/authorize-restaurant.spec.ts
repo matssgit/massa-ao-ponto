@@ -12,7 +12,7 @@ describe("Authorize Restaurant", () => {
     repository = new InMemoryAuthRepository();
     repository.restaurants.push({
       id: "restaurant", name: "R", address: "", phone: "", timezone: "UTC",
-      slug: null, publicEnabled: false, deliveryEnabled: false, deliveryFeeCents: 0,
+      slug: null, publicEnabled: false, deliveryEnabled: false, deliveryFeeCents: 0, whatsappNotificationsEnabled: false, operationalOverride: "DEFAULT",
       createdAt: now, updatedAt: now,
     });
     repository.memberships.push({

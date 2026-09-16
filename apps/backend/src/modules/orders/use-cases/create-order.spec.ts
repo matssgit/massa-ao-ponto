@@ -81,6 +81,8 @@ describe("CreateOrderUseCase", () => {
       publicEnabled: false,
       deliveryEnabled: false,
       deliveryFeeCents: 0,
+      whatsappNotificationsEnabled: false,
+      operationalOverride: "DEFAULT",
       createdAt: new Date(),
       updatedAt: new Date(),
     });

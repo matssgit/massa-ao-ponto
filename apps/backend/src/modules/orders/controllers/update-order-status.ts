@@ -6,6 +6,7 @@ import {
 
 import { DrizzleOrderTransactionManager } from "../repositories/drizzle-order-transaction-manager.js";
 import { UpdateOrderStatusUseCase } from "../use-cases/update-order-status.use-case.js";
+import { makeWhatsAppNotificationService } from "../../notifications/notification-factory.js";
 
 export async function updateOrderStatusController(
   request: FastifyRequest,
@@ -20,6 +21,10 @@ export async function updateOrderStatusController(
   const useCase = new UpdateOrderStatusUseCase(transactionManager);
 
   await useCase.execute({ restaurantId, orderId, status });
+
+  if (status === "CONFIRMED" || status === "READY") {
+    await makeWhatsAppNotificationService(request.log).notifyOrderStatus(orderId, status);
+  }
 
   return reply.status(204).send();
 }

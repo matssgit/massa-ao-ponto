@@ -1,0 +1,2 @@
+CREATE TYPE "public"."operational_override" AS ENUM('DEFAULT', 'OPEN', 'CLOSED');--> statement-breakpoint
+ALTER TABLE "restaurants" ADD COLUMN "operational_override" "operational_override" DEFAULT 'DEFAULT' NOT NULL;

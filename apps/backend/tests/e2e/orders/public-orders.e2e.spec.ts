@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
 import {
-  addons, customers, deliveries, deliveryHistory, orderHistory, orders, productAddons, productCategories,
+  addons, customers, deliveries, deliveryHistory, notificationDeliveries, orderHistory, orders, productAddons, productCategories,
   products, restaurantOperatingHours, restaurants,
 } from "../../../src/db/schema/index.js";
 import { hashPublicOrderToken } from "../../../src/modules/orders/public-order-tokens.js";
@@ -81,7 +81,7 @@ afterEach(async () => {
 });
 
 describe("Public PICKUP orders", () => {
-  it("keeps unconfigured Restaurants compatible and blocks PICKUP and DELIVERY while closed", async () => {
+  it("applies DEFAULT, CLOSED and OPEN to public PICKUP and DELIVERY", async () => {
     expect((await create()).statusCode).toBe(201);
     await db.insert(restaurantOperatingHours).values(Array.from({ length: 7 }, (_, dayOfWeek) => ({
       restaurantId: restaurant.id, dayOfWeek, active: false, opensAt: null, closesAt: null,
@@ -95,8 +95,17 @@ describe("Public PICKUP orders", () => {
       expect(response.statusCode).toBe(409);
       expect(response.json()).toEqual({ code: "RESTAURANT_CLOSED", message: "Restaurant is closed for the requested time." });
     }
+    await db.update(restaurants).set({ operationalOverride: "CLOSED" }).where(eq(restaurants.id, restaurant.id));
+    expect((await create()).json()).toEqual({ code: "RESTAURANT_CLOSED", message: "Restaurant is closed for the requested time." });
+    await db.update(restaurants).set({ operationalOverride: "OPEN" }).where(eq(restaurants.id, restaurant.id));
+    expect((await create()).statusCode).toBe(201);
+    expect((await create(payload({
+      type: "DELIVERY",
+      deliveryAddress: { street: "Rua A", number: "1", neighborhood: "Centro", city: "São Paulo", state: "SP", zipCode: "01001000" },
+    }))).statusCode).toBe(201);
   });
   it("calculates server-owned totals, stores only the token hash and returns a minimal reusable lookup", async () => {
+    await db.update(restaurants).set({ whatsappNotificationsEnabled: true }).where(eq(restaurants.id, restaurant.id));
     const phone = nextPhone();
     const [existing] = await db.insert(customers).values({
       name: "Existing private name", phone, email: "private@example.test",
@@ -119,6 +128,9 @@ describe("Public PICKUP orders", () => {
     expect(stored.publicAccessTokenHash).toBe(hashPublicOrderToken(body.accessToken));
     expect(JSON.stringify(stored)).not.toContain(body.accessToken);
     expect(response.body).not.toMatch(/customer|restaurantId|orderId|productId|addonId|Hash/);
+    expect(await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.resourceId, stored.id))).toEqual([
+      expect.objectContaining({ type: "ORDER_CREATED", status: "SENT" }),
+    ]);
     const [unchanged] = await db.select().from(customers).where(eq(customers.id, existing.id));
     expect(unchanged).toEqual(existing);
     for (let index = 0; index < 2; index++) {

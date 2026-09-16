@@ -1328,3 +1328,18 @@ Limites inteiros por IP e por rota; lookup e cancelamento têm contadores própr
 ### Pedidos públicos PICKUP — 40G
 
 `POST /public/restaurants/:slug/orders` cria somente pedidos PICKUP em Restaurant publicado. Preços, totais, pagamento e taxa são definidos pelo servidor; o payload público não aceita IDs de Customer, endereço ou campos financeiros. O token opaco retornado na criação é a única credencial para `GET /public/orders/:token` e `POST /public/orders/:token/cancel`. O banco armazena somente o hash, e cancelamento segue as regras do domínio para pedidos não pagos em PENDING/CONFIRMED.
+
+### Notificações WhatsApp — 42F
+
+O provider atual é somente de desenvolvimento e não envia mensagens para um fornecedor externo. OWNER pode habilitar notificações no Settings do Restaurant. A persistência registra apenas evento, recurso, status e diagnóstico sanitizado; telefone, conteúdo e tokens públicos não são gravados no histórico de notificações nem emitidos em logs.
+
+`PUBLIC_WEB_URL` é opcional e deve ser uma URL base HTTP(S), sem credenciais, query ou hash. Quando configurada, permite incluir links seguros de consulta em confirmações criadas pelos fluxos públicos; quando ausente, as mensagens são geradas sem link.
+
+O lembrete de reservas é um job explícito, destinado a um scheduler externo e idempotente por Reservation:
+
+```bash
+cd apps/backend
+pnpm notifications:run-reminders
+```
+
+O comando considera reservas SCHEDULED/CONFIRMED entre duas e quatro horas à frente. Não há daemon, Redis, fila distribuída, retry automático ou integração com fornecedor real nesta etapa.

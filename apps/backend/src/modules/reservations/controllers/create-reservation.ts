@@ -6,6 +6,7 @@ import {
 
 import { CreateReservationUseCase } from "../use-cases/create-reservation.use-case.js";
 import { DrizzleReservationTransactionManager } from "../repositories/drizzle-reservation-transaction-manager.js";
+import { makeWhatsAppNotificationService } from "../../notifications/notification-factory.js";
 
 export async function createReservationController(
   request: FastifyRequest,
@@ -26,6 +27,8 @@ export async function createReservationController(
     endsAt: body.endsAt,
     observation: body.observation,
   });
+
+  await makeWhatsAppNotificationService(request.log).notifyReservationCreated(reservation.id);
 
   return reply.status(201).send(reservation);
 }

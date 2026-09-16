@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "auth:provision-owner": "tsx src/modules/auth/cli/provision-owner.ts",
+    "notifications:run-reminders": "tsx src/modules/notifications/cli/run-reminders.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "test": "vitest run",

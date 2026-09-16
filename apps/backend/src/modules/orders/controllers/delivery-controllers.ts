@@ -5,6 +5,7 @@ import { CreateDeliveryUseCase } from "../use-cases/create-delivery.use-case.js"
 import { DrizzleDeliveryTransactionManager } from "../repositories/drizzle-delivery-transaction-manager.js";
 import { deliveryParamsSchema } from "../schemas/order.schema.js";
 import { StartDeliveryUseCase } from "../use-cases/start-delivery.use-case.js";
+import { makeWhatsAppNotificationService } from "../../notifications/notification-factory.js";
 
 export async function createDeliveryController(
   request: FastifyRequest,
@@ -25,6 +26,7 @@ export async function startDeliveryController(
   const manager = new DrizzleDeliveryTransactionManager();
   const useCase = new StartDeliveryUseCase(manager);
   await useCase.execute({ restaurantId, orderId });
+  await makeWhatsAppNotificationService(request.log).notifyOrderStatus(orderId, "OUT_FOR_DELIVERY");
   return reply.status(204).send();
 }
 

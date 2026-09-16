@@ -148,6 +148,7 @@ describe("Restaurants (E2E)", () => {
         address: "Rua B",
         phone: "222",
         timezone: "America/Sao_Paulo",
+        whatsappNotificationsEnabled: true,
       },
     });
 
@@ -158,7 +159,29 @@ describe("Restaurants (E2E)", () => {
       address: "Rua B",
       phone: "222",
       timezone: "America/Sao_Paulo",
+      whatsappNotificationsEnabled: true,
     });
+  });
+
+  it("allows OWNER and denies STAFF when changing the operational override", async () => {
+    const restaurant = await auth.createRestaurant({ name: "Notifications", address: "Rua A", phone: "111", timezone: "UTC" });
+    const ownerResponse = await app.inject({
+      headers: auth.headers,
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}`,
+      payload: { operationalOverride: "CLOSED" },
+    });
+    expect(ownerResponse.statusCode).toBe(200);
+    expect(ownerResponse.json().operationalOverride).toBe("CLOSED");
+
+    await auth.grant(restaurant.id, "STAFF");
+    const staffResponse = await app.inject({
+      headers: auth.headers,
+      method: "PATCH",
+      url: `/restaurants/${restaurant.id}`,
+      payload: { operationalOverride: "OPEN" },
+    });
+    expect(staffResponse.statusCode).toBe(403);
   });
 
   it("deve aplicar atualização parcial do Restaurant", async () => {

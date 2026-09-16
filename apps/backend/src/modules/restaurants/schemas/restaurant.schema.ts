@@ -16,6 +16,8 @@ export const updateRestaurantBodySchema = createRestaurantSchema.partial().exten
   publicEnabled: z.boolean().optional(),
   deliveryEnabled: z.boolean().optional(),
   deliveryFeeCents: z.number().int().min(0).optional(),
+  whatsappNotificationsEnabled: z.boolean().optional(),
+  operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]).optional(),
 });
 
 export type CreateRestaurantBody = z.infer<typeof createRestaurantSchema>;

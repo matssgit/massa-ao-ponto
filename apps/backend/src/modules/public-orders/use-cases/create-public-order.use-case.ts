@@ -25,7 +25,7 @@ export class CreatePublicOrderUseCase {
     const restaurant = await this.restaurants.findPublishedBySlug(slug);
     if (!restaurant) throw new RestaurantNotFoundError();
     const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
-    if (!isRestaurantOpenAt(hours, restaurant.timezone, this.now())) throw new RestaurantClosedError();
+    if (!isRestaurantOpenAt(hours, restaurant.timezone, this.now(), restaurant.operationalOverride)) throw new RestaurantClosedError();
     if (input.type === "DELIVERY" && !restaurant.deliveryEnabled) {
       throw new PublicDeliveryDisabledError();
     }

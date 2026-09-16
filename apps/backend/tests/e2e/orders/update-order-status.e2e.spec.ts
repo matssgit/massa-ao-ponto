@@ -7,6 +7,7 @@ import {
   orderHistory,
   orderItems,
   orders,
+  notificationDeliveries,
   productCategories,
   products,
   restaurants,
@@ -47,7 +48,7 @@ describe("Update Order Status (E2E)", () => {
   ) {
     const [restaurant] = await db
       .insert(restaurants)
-      .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
+      .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC", whatsappNotificationsEnabled: true })
       .returning();
     await auth.grant(restaurant.id);
     const [customer] = await db
@@ -108,6 +109,22 @@ describe("Update Order Status (E2E)", () => {
       expect(history[0].action).toBe("STATUS_CHANGED");
       expect(history[0].previousStatus).toBe("PENDING");
       expect(history[0].newStatus).toBe("CONFIRMED");
+      expect(await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.resourceId, order.id))).toEqual([
+        expect.objectContaining({ type: "ORDER_CONFIRMED", status: "SENT" }),
+      ]);
+    });
+
+    it("envia READY uma vez para pedido PICKUP", async () => {
+      const order = await createOrder("PICKUP");
+      for (const status of ["CONFIRMED", "PREPARING", "READY"] as const) {
+        expect((await app.inject({ headers: auth.headers, method: "PATCH", url: `/restaurants/${order.restaurantId}/orders/${order.id}/status`, payload: { status } })).statusCode).toBe(204);
+      }
+      const notifications = await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.resourceId, order.id));
+      expect(notifications).toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: "ORDER_CONFIRMED", status: "SENT" }),
+        expect.objectContaining({ type: "ORDER_READY", status: "SENT" }),
+      ]));
+      expect(notifications.filter((item) => item.type === "ORDER_READY")).toHaveLength(1);
     });
 
     it("deve usar a rota genérica para cozinha e os endpoints especializados para logística DELIVERY", async () => {

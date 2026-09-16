@@ -19,7 +19,7 @@ export class GetPublicAvailabilityUseCase {
     const restaurant = await this.restaurants.findPublishedBySlug(input.slug);
     if (!restaurant) throw new RestaurantNotFoundError();
     const hours = await this.operatingHours.findByRestaurantId(restaurant.id);
-    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt)) throw new RestaurantClosedError();
+    if (!isReservationWithinOperatingHours(hours, restaurant.timezone, input.startsAt, input.endsAt, restaurant.operationalOverride)) throw new RestaurantClosedError();
     const available = await new GetAvailabilityUseCase(
       this.restaurants,
       this.tables,

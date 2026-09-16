@@ -43,7 +43,7 @@ function ReservationForm({ service, slug, restaurant }: { service: PublicReserva
     setAvailabilityError(undefined); setTableId(""); setTables(undefined); setReview(false);
     try {
       const next = reservationPeriod(people, start, end, restaurant.timezone);
-      if (!isReservationWithinOperatingHours(restaurant.operatingHours, restaurant.timezone, next.startsAt, next.endsAt)) throw new Error("O restaurante está fechado nesse período. Escolha um horário dentro do funcionamento informado.");
+      if (!isReservationWithinOperatingHours(restaurant.operatingHours, restaurant.timezone, next.startsAt, next.endsAt, restaurant.operationalOverride)) throw new Error(restaurant.operationalOverride === "CLOSED" ? "O restaurante está temporariamente fechado." : "O restaurante está fechado nesse período. Escolha um horário dentro do funcionamento informado.");
       setPeriod(next); setChecking(true);
       const result = await service.availability(slug, next, controller.signal);
       if (!controller.signal.aborted) setTables(result);

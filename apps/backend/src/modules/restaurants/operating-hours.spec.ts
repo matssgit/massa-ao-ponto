@@ -12,6 +12,17 @@ describe("Restaurant operating hours", () => {
     expect(isReservationWithinOperatingHours([], "America/Sao_Paulo", new Date("2026-09-15T12:00:00Z"), new Date("2026-09-15T13:00:00Z"))).toBe(true);
   });
 
+  it("applies OPEN and CLOSED before the configured week", () => {
+    const instant = new Date("2026-09-15T15:00:00Z");
+    const intervalEnd = new Date("2026-09-15T16:00:00Z");
+    const closedWeek = [day(2, "02:00", "04:00")];
+    expect(isRestaurantOpenAt(closedWeek, "America/Sao_Paulo", instant, "DEFAULT")).toBe(false);
+    expect(isRestaurantOpenAt(closedWeek, "America/Sao_Paulo", instant, "OPEN")).toBe(true);
+    expect(isRestaurantOpenAt([], "America/Sao_Paulo", instant, "CLOSED")).toBe(false);
+    expect(isReservationWithinOperatingHours(closedWeek, "America/Sao_Paulo", instant, intervalEnd, "OPEN")).toBe(true);
+    expect(isReservationWithinOperatingHours([], "America/Sao_Paulo", instant, intervalEnd, "CLOSED")).toBe(false);
+  });
+
   it("evaluates the current instant in the Restaurant timezone", () => {
     const instant = new Date("2026-09-15T15:00:00Z");
     expect(isRestaurantOpenAt([day(2)], "America/Sao_Paulo", instant)).toBe(true);

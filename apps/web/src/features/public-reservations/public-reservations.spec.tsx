@@ -8,7 +8,7 @@ import { ApiClient } from "../../lib/api-client";
 
 const token = "a".repeat(43);
 const operatingHours = { configured: false, days: Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, active: false as const, opensAt: null, closesAt: null })) };
-const restaurant = { name: "Casa do Forno", slug: "casa-do-forno", address: "Rua das Oliveiras, 42", phone: "11987654321", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, operatingHours };
+const restaurant = { name: "Casa do Forno", slug: "casa-do-forno", address: "Rua das Oliveiras, 42", phone: "11987654321", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, operationalOverride: "DEFAULT" as const, openNow: true, operatingHours };
 const table = { id: "11111111-1111-4111-8111-111111111111", number: "7", capacity: 4, type: "table" };
 const details = { restaurant, table: { number: "7", capacity: 4, type: "table" }, reservation: { status: "SCHEDULED", partySize: 2, startsAt: "2030-09-10T22:00:00.000Z", endsAt: "2030-09-11T00:00:00.000Z", notes: null } };
 const catalog = { categories: [{ id: "22222222-2222-4222-8222-222222222222", name: "Pizzas", displayOrder: 1, products: [{ id: "33333333-3333-4333-8333-333333333333", categoryId: "22222222-2222-4222-8222-222222222222", name: "Margherita", description: "Molho, queijo e manjericão", price: 4590, displayOrder: 1, addons: [{ id: "44444444-4444-4444-8444-444444444444", name: "Borda recheada", description: "Catupiry", price: 800 }] }] }] };
@@ -65,6 +65,17 @@ describe("Public reservation UI", () => {
     fixture(undefined, () => error(404, "RESTAURANT_NOT_FOUND"));
     expect(await screen.findByRole("heading", { name: "Não encontramos este restaurante." })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Reservar mesa/ })).toBeNull();
+  });
+  it("shows a manual closure on the landing", async () => {
+    const closed = { ...restaurant, operationalOverride: "CLOSED" as const, openNow: false };
+    fixture(undefined, url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json(closed) : undefined);
+    expect(await screen.findByText("Temporariamente fechado")).toBeTruthy();
+  });
+  it("allows availability outside weekly hours while manually OPEN", async () => {
+    const transport = fixture("/r/casa-do-forno/reservar", url => url.pathname === "/public/restaurants/casa-do-forno" ? Response.json({ ...restaurant, operationalOverride: "OPEN", openNow: true, operatingHours: { ...operatingHours, configured: true } }) : undefined);
+    await availability();
+    expect(await screen.findByRole("radio", { name: /Mesa 7/ })).toBeTruthy();
+    expect(transport.mock.calls.filter(([input]) => new URL(String(input)).pathname.endsWith("/availability"))).toHaveLength(1);
   });
   it("shows Restaurant network error and allows retry", async () => {
     let fail = true; fixture(undefined, () => fail ? error(503, "UNAVAILABLE") : undefined);

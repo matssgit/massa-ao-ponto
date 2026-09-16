@@ -10,7 +10,7 @@ import type { RestaurantDetails } from "./restaurant-settings-service";
 const restaurantA = "11111111-1111-4111-8111-111111111111";
 const restaurantB = "22222222-2222-4222-8222-222222222222";
 const timestamp = "2026-09-04T12:00:00.000Z";
-const details: RestaurantDetails = { id: restaurantA, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, createdAt: timestamp, updatedAt: timestamp };
+const details: RestaurantDetails = { id: restaurantA, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, whatsappNotificationsEnabled: false, operationalOverride: "DEFAULT", createdAt: timestamp, updatedAt: timestamp };
 type Handler = (url: URL, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 function fixture(options: { memberships?: Membership[]; handler?: Handler } = {}) {
@@ -76,6 +76,25 @@ describe("Restaurant Settings UI", () => {
     await screen.findByText("Configurações atualizadas.");
     const patch = detailRequests().find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({ deliveryEnabled: true, deliveryFeeCents: 1250 });
+  });
+
+  it("allows OWNER to enable WhatsApp notifications", async () => {
+    const { detailRequests } = fixture(); await screen.findByLabelText("Enviar atualizações operacionais por WhatsApp");
+    await userEvent.click(screen.getByLabelText("Enviar atualizações operacionais por WhatsApp"));
+    await userEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    await screen.findByText("Configurações atualizadas.");
+    const patch = detailRequests().find(([, init]) => init?.method === "PATCH");
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({ whatsappNotificationsEnabled: true });
+  });
+
+  it("allows OWNER to close the Restaurant temporarily", async () => {
+    const { detailRequests } = fixture(); await screen.findByLabelText("Funcionamento atual");
+    await userEvent.selectOptions(screen.getByLabelText("Funcionamento atual"), "CLOSED");
+    expect(screen.getByRole("status").textContent).toContain("Fechado manualmente");
+    await userEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    await screen.findByText("Configurações atualizadas.");
+    const patch = detailRequests().find(([, init]) => init?.method === "PATCH");
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({ operationalOverride: "CLOSED" });
   });
 
   it("detects an unchanged form and sends no PATCH", async () => {

@@ -10,6 +10,7 @@ import { DrizzleOrderTransactionManager } from "../repositories/drizzle-order-tr
 import { DrizzleProductAddonsRepository } from "../../products/repositories/drizzle-product-addons-repository.js";
 import { DrizzleProductsRepository } from "../../products/repositories/drizzle-products-repository.js";
 import { DrizzleRestaurantsRepository } from "../../restaurants/repositories/drizzle-restaurants-repository.js";
+import { makeWhatsAppNotificationService } from "../../notifications/notification-factory.js";
 
 export async function createOrderController(
   request: FastifyRequest,
@@ -36,6 +37,8 @@ export async function createOrderController(
     restaurantId,
     ...body,
   });
+
+  await makeWhatsAppNotificationService(request.log).notifyOrderCreated(order.id);
 
   return reply.status(201).send(order);
 }

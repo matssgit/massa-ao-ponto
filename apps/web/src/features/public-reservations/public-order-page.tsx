@@ -38,7 +38,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
   const estimate = useMemo(() => catalog ? estimatedTotal(catalog, cart) : 0, [catalog, cart]);
   const deliveryFee = mode === "DELIVERY" ? restaurant?.deliveryFeeCents ?? 0 : 0;
   const estimatedGrandTotal = estimate + deliveryFee;
-  const restaurantOpen = restaurant ? isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone) : true;
+  const restaurantOpen = restaurant ? isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride) : true;
 
   function productQuantity(productId: string, delta: number) {
     setCart((current) => {
@@ -72,7 +72,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
 
   async function submit() {
     if (!restaurant || !catalog || submitting.current || lines.length === 0) return;
-    if (!isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone)) { setSubmitError(new Error("O restaurante está fechado agora. Tente novamente durante o horário de funcionamento.")); return; }
+    if (!isRestaurantOpenAt(restaurant.operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride)) { setSubmitError(new Error(restaurant.operationalOverride === "CLOSED" ? "O restaurante está temporariamente fechado." : "O restaurante está fechado agora. Tente novamente durante o horário de funcionamento.")); return; }
     submitting.current = true; setBusy(true); setSubmitError(undefined); setUncertain(false);
     try {
       const common = {
@@ -109,7 +109,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
   const missing = query.error instanceof ApiError && query.error.status === 404;
   return <PublicFrame slug={slug} page="order"><Link className="public-back" to={`/r/${encodeURIComponent(slug)}`}>← Voltar ao restaurante</Link>
     {query.loading ? <p role="status">Preparando seu pedido…</p> : missing ? <PublicMissing /> : query.error ? <ErrorNotice error={query.error} retry={query.reload} /> : restaurant && catalog && <>
-      {step === "menu" && <section aria-labelledby="order-menu-title"><header className="public-page-title"><p className="public-eyebrow">Pedido online</p><h1 id="order-menu-title">Monte seu pedido</h1><p className="public-intro">Escolha os itens e como deseja receber seu pedido de {restaurant.name}.</p></header>{!restaurantOpen && <div className="public-error" role="status"><p>O restaurante está fechado agora. Você pode montar o carrinho, mas a confirmação fica disponível somente no horário de funcionamento.</p></div>}
+      {step === "menu" && <section aria-labelledby="order-menu-title"><header className="public-page-title"><p className="public-eyebrow">Pedido online</p><h1 id="order-menu-title">Monte seu pedido</h1><p className="public-intro">Escolha os itens e como deseja receber seu pedido de {restaurant.name}.</p></header>{!restaurantOpen && <div className="public-error" role="status"><p>{restaurant.operationalOverride === "CLOSED" ? "O restaurante está temporariamente fechado. Você pode montar o carrinho, mas não confirmar o pedido agora." : "O restaurante está fechado agora. Você pode montar o carrinho, mas a confirmação fica disponível somente no horário de funcionamento."}</p></div>}
         <fieldset className="public-card public-order-mode"><legend>Como você quer receber?</legend>
           <label><input type="radio" name="order-mode" checked={mode === "PICKUP"} onChange={() => setMode("PICKUP")} />Retirada no local <small>Sem taxa de entrega</small></label>
           {restaurant.deliveryEnabled && <label><input type="radio" name="order-mode" checked={mode === "DELIVERY"} onChange={() => setMode("DELIVERY")} />Entrega <small>Taxa fixa: {formatCatalogMoney(restaurant.deliveryFeeCents)}</small></label>}

@@ -8,6 +8,7 @@ export const operatingDaySchema = z.discriminatedUnion("active", [
 export const operatingHoursSchema = z.object({ configured: z.boolean(), days: z.array(operatingDaySchema).length(7) }).strict();
 export type OperatingHours = z.infer<typeof operatingHoursSchema>;
 export type OperatingDay = z.infer<typeof operatingDaySchema>;
+export type OperationalOverride = "DEFAULT" | "OPEN" | "CLOSED";
 
 export const weekdayLabels = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"] as const;
 const weekdayIndex: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -26,14 +27,18 @@ function minutes(value: string) {
   return hour * 60 + minute;
 }
 
-export function isRestaurantOpenAt(hours: OperatingHours, timezone: string, instant = new Date()) {
+export function isRestaurantOpenAt(hours: OperatingHours, timezone: string, instant = new Date(), override: OperationalOverride = "DEFAULT") {
+  if (override === "OPEN") return true;
+  if (override === "CLOSED") return false;
   if (!hours.configured) return true;
   const local = localParts(instant, timezone);
   const day = hours.days.find(entry => entry.dayOfWeek === local.dayOfWeek);
   return Boolean(day?.active && local.minutes >= minutes(day.opensAt) && local.minutes < minutes(day.closesAt));
 }
 
-export function isReservationWithinOperatingHours(hours: OperatingHours, timezone: string, startsAt: string, endsAt: string) {
+export function isReservationWithinOperatingHours(hours: OperatingHours, timezone: string, startsAt: string, endsAt: string, override: OperationalOverride = "DEFAULT") {
+  if (override === "OPEN") return true;
+  if (override === "CLOSED") return false;
   if (!hours.configured) return true;
   const start = localParts(new Date(startsAt), timezone);
   const end = localParts(new Date(endsAt), timezone);

@@ -1,7 +1,7 @@
 import type { Reservation } from "../reservations/repositories/reservations-repository.js";
 import type { Restaurant } from "../restaurants/repositories/restaurants-repository.js";
 import type { Table } from "../tables/repositories/tables-repository.js";
-import { operatingHoursView } from "../restaurants/operating-hours.js";
+import { isRestaurantOpenAt, operatingHoursView } from "../restaurants/operating-hours.js";
 import type { OperatingHour } from "../restaurants/repositories/operating-hours-repository.js";
 
 export function publicRestaurantView(restaurant: Restaurant, operatingHours: OperatingHour[]) {
@@ -13,6 +13,8 @@ export function publicRestaurantView(restaurant: Restaurant, operatingHours: Ope
     timezone: restaurant.timezone,
     deliveryEnabled: restaurant.deliveryEnabled,
     deliveryFeeCents: restaurant.deliveryFeeCents,
+    operationalOverride: restaurant.operationalOverride,
+    openNow: isRestaurantOpenAt(operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride),
     operatingHours: operatingHoursView(operatingHours),
   };
 }

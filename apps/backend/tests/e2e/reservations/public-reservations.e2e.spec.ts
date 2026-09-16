@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../../src/server.js";
 import { db } from "../../../src/db/index.js";
-import { customers, restaurantOperatingHours, restaurants, tables, reservations, reservationHistory } from "../../../src/db/schema/index.js";
+import { customers, notificationDeliveries, restaurantOperatingHours, restaurants, tables, reservations, reservationHistory } from "../../../src/db/schema/index.js";
 import { createPublicReservationToken, hashPublicReservationToken } from "../../../src/modules/reservations/public-reservation-tokens.js";
 import { DrizzleReservationHistoryRepository } from "../../../src/modules/reservations/repositories/drizzle-reservation-history-repository.js";
 import { useTestAuth, nextAuthClientAddress } from "../../helpers/auth.js";
@@ -83,7 +83,7 @@ describe("Public reservation foundation", () => {
   it("returns only public Restaurant fields and hides unpublished and unknown restaurants", async () => {
     const response = await app.inject({ url: `/public/restaurants/${restaurant.slug}` });
     expect(response.statusCode).toBe(200);
-    expect(Object.keys(response.json()).sort()).toEqual(["address", "deliveryEnabled", "deliveryFeeCents", "name", "operatingHours", "phone", "slug", "timezone"]);
+    expect(Object.keys(response.json()).sort()).toEqual(["address", "deliveryEnabled", "deliveryFeeCents", "name", "openNow", "operatingHours", "operationalOverride", "phone", "slug", "timezone"]);
     expect(response.json().operatingHours).toMatchObject({ configured: false, days: expect.any(Array) });
     expect(response.headers["cache-control"]).toBe("no-store");
     await patch({ publicEnabled: false });
@@ -107,7 +107,7 @@ describe("Public reservation foundation", () => {
     expect((await app.inject({ url: adjacent, remoteAddress })).json()).toHaveLength(1);
   });
 
-  it("keeps unconfigured Restaurants compatible and blocks availability and create outside operating hours", async () => {
+  it("applies DEFAULT, CLOSED and OPEN to availability and public Reservation creation", async () => {
     expect((await app.inject({ url: availability(), remoteAddress })).statusCode).toBe(200);
     await db.insert(restaurantOperatingHours).values(Array.from({ length: 7 }, (_, dayOfWeek) => ({
       restaurantId: restaurant.id, dayOfWeek, active: false, opensAt: null, closesAt: null,
@@ -118,8 +118,14 @@ describe("Public reservation foundation", () => {
     expect(creation.statusCode).toBe(409);
     expect(unavailable.json()).toEqual({ code: "RESTAURANT_CLOSED", message: "Restaurant is closed for the requested time." });
     expect(creation.json()).toEqual(unavailable.json());
+    await db.update(restaurants).set({ operationalOverride: "CLOSED" }).where(eq(restaurants.id, restaurant.id));
+    expect((await app.inject({ url: availability(), remoteAddress })).json()).toEqual(unavailable.json());
+    await db.update(restaurants).set({ operationalOverride: "OPEN" }).where(eq(restaurants.id, restaurant.id));
+    expect((await app.inject({ url: availability(), remoteAddress })).statusCode).toBe(200);
+    expect((await create()).statusCode).toBe(201);
   });
   it("persists only a high entropy hash, omits customer/IDs, and supports reusable lookup and cancel", async () => {
+    await db.update(restaurants).set({ whatsappNotificationsEnabled: true }).where(eq(restaurants.id, restaurant.id));
     const response = await create();
     expect(response.statusCode).toBe(201);
     const body = response.json<{ accessToken: string }>();
@@ -130,6 +136,9 @@ describe("Public reservation foundation", () => {
     expect(Object.keys(response.json()).sort()).toEqual(["accessToken", "reservation", "restaurant", "table"]);
     expect(response.body).not.toContain("customer");
     expect(response.body).not.toContain(stored.id);
+    expect(await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.resourceId, stored.id))).toEqual([
+      expect.objectContaining({ type: "RESERVATION_CREATED", status: "SENT" }),
+    ]);
     for (let i = 0; i < 2; i++) {
       const lookup = await app.inject({ url: `/public/reservations/${body.accessToken}`, remoteAddress });
       expect(lookup.statusCode).toBe(200);

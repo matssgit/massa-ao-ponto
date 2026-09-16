@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import { useAuth } from "../auth/auth-state";
 import { useRestaurant } from "../auth/restaurant-state";
 import { typeLabels } from "../orders/order-labels";
 import type { OrderStatus } from "../orders/orders-service";
+import { TablesService } from "../tables/tables-service";
 import { KitchenService, kitchenStatuses, type KitchenOrder, type KitchenStatus } from "./kitchen-service";
+import { KitchenTicketPreview } from "./kitchen-ticket-preview";
 import { useKitchenQueue } from "./use-kitchen-queue";
 import "./kitchen.css";
 
@@ -20,7 +22,7 @@ export function elapsedTime(createdAt: string, now = Date.now()) {
   return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}min`;
 }
 
-function KitchenCard({ entry, busy, onAdvance }: { entry: KitchenOrder; busy: boolean; onAdvance: (entry: KitchenOrder, status: OrderStatus) => void }) {
+function KitchenCard({ entry, busy, onAdvance, onPrint }: { entry: KitchenOrder; busy: boolean; onAdvance: (entry: KitchenOrder, status: OrderStatus) => void; onPrint: (entry: KitchenOrder) => void }) {
   const { order, items } = entry;
   const action = actions[order.status as KitchenStatus];
   const old = Date.now() - new Date(order.createdAt).getTime() >= 30 * 60_000;
@@ -30,18 +32,30 @@ function KitchenCard({ entry, busy, onAdvance }: { entry: KitchenOrder; busy: bo
     {order.observation && <p className="kitchen-note"><strong>Observação:</strong> {order.observation}</p>}
     <footer><span className={`kitchen-payment kitchen-payment-${order.paymentStatus.toLowerCase()}`}>{order.paymentStatus === "PAID" ? "Pago" : "Pagamento pendente"}</span>
       {action && <button className="primary" disabled={busy} onClick={() => onAdvance(entry, action.status)}>{busy ? "Atualizando…" : action.label}</button>}
+      <button className="secondary" onClick={() => onPrint(entry)}>Imprimir comanda #{order.id.slice(0, 8)}</button>
     </footer>
   </article>;
 }
 
-function KitchenBoard({ restaurantId }: { restaurantId: string }) {
+function KitchenBoard({ restaurantId, restaurantName }: { restaurantId: string; restaurantName: string }) {
   const { service: auth } = useAuth();
   const service = useMemo(() => new KitchenService(auth.client), [auth.client]);
+  const tablesService = useMemo(() => new TablesService(auth.client), [auth.client]);
   const load = useCallback((signal: AbortSignal) => service.list(restaurantId, signal), [service, restaurantId]);
   const { state, refresh } = useKitchenQueue(restaurantId, load);
   const [busyOrderId, setBusyOrderId] = useState<string>();
   const [mutationError, setMutationError] = useState<string>();
+  const [printing, setPrinting] = useState<KitchenOrder>();
+  const [tableNumbers, setTableNumbers] = useState<Record<string, string>>({});
   const mutating = useRef(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    setTableNumbers({});
+    void tablesService.list(restaurantId, controller.signal)
+      .then((tables) => setTableNumbers(Object.fromEntries(tables.map((table) => [table.id, table.number]))))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [restaurantId, tablesService]);
   async function advance(entry: KitchenOrder, status: OrderStatus) {
     if (mutating.current) return;
     mutating.current = true; setBusyOrderId(entry.order.id); setMutationError(undefined);
@@ -57,12 +71,15 @@ function KitchenBoard({ restaurantId }: { restaurantId: string }) {
     {state.status === "error" && <div className="kitchen-feedback"><p role="alert">{state.message}</p><button className="secondary" onClick={refresh}>Tentar novamente</button></div>}
     {state.status === "success" && <>{state.refreshError && <p className="error" role="alert">{state.refreshError}</p>}<p className="kitchen-summary" aria-live="polite">{data.length === 0 ? "Nenhuma comanda ativa." : `${data.length} ${data.length === 1 ? "comanda ativa" : "comandas ativas"}.`}</p><div className="kitchen-board">{kitchenStatuses.map(status => {
       const entries = data.filter(({ order }) => order.status === status);
-      return <section className="kitchen-column" key={status} aria-labelledby={`kitchen-${status}`}><h2 id={`kitchen-${status}`}>{columnLabels[status]} <span>{entries.length}</span></h2>{entries.length === 0 ? <p className="kitchen-column-empty">Nenhum pedido.</p> : entries.map(entry => <KitchenCard key={entry.order.id} entry={entry} busy={busyOrderId === entry.order.id} onAdvance={(item, next) => void advance(item, next)} />)}</section>;
+      return <section className="kitchen-column" key={status} aria-labelledby={`kitchen-${status}`}><h2 id={`kitchen-${status}`}>{columnLabels[status]} <span>{entries.length}</span></h2>{entries.length === 0 ? <p className="kitchen-column-empty">Nenhum pedido.</p> : entries.map(entry => <KitchenCard key={entry.order.id} entry={entry} busy={busyOrderId === entry.order.id} onAdvance={(item, next) => void advance(item, next)} onPrint={setPrinting} />)}</section>;
     })}</div></>}
+    {printing && <KitchenTicketPreview entry={printing} restaurantName={restaurantName} tableNumber={printing.order.tableId ? tableNumbers[printing.order.tableId] : undefined} onClose={() => setPrinting(undefined)} />}
   </section>;
 }
 
 export function KitchenPage() {
-  const { restaurantId } = useRestaurant();
-  return restaurantId ? <KitchenBoard key={restaurantId} restaurantId={restaurantId} /> : null;
+  const { restaurantId, restaurants } = useRestaurant();
+  if (!restaurantId) return null;
+  const restaurantName = restaurants.find((restaurant) => restaurant.id === restaurantId)?.name ?? "Restaurante";
+  return <KitchenBoard key={restaurantId} restaurantId={restaurantId} restaurantName={restaurantName} />;
 }

@@ -6,6 +6,7 @@ import {
   deliveryHistory,
   orderHistory,
   orderItems,
+  notificationDeliveries,
   orders,
   productCategories,
   products,
@@ -41,7 +42,7 @@ describe("Delivery Flow (E2E)", () => {
   async function createOrder(type: "DELIVERY" | "PICKUP", status: string) {
     const [restaurant] = await db
       .insert(restaurants)
-      .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC" })
+      .values({ name: "Rest", address: "Rua", phone: "1", timezone: "UTC", whatsappNotificationsEnabled: true })
       .returning();
     await auth.grant(restaurant.id);
     const [customer] = await db
@@ -371,6 +372,9 @@ describe("Delivery Flow (E2E)", () => {
           }),
         ]),
       );
+      expect(await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.resourceId, order.id))).toEqual([
+        expect.objectContaining({ type: "ORDER_OUT_FOR_DELIVERY", status: "SENT" }),
+      ]);
     });
 
     it("deve retornar 404 em complete cross-tenant sem alterar estados ou histories", async () => {

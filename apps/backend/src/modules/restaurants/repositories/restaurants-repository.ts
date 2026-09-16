@@ -1,3 +1,5 @@
+export type OperationalOverride = "DEFAULT" | "OPEN" | "CLOSED";
+
 export interface Restaurant {
   id: string;
   name: string;
@@ -8,6 +10,8 @@ export interface Restaurant {
   publicEnabled: boolean;
   deliveryEnabled: boolean;
   deliveryFeeCents: number;
+  whatsappNotificationsEnabled: boolean;
+  operationalOverride: OperationalOverride;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +32,8 @@ export interface UpdateRestaurantInput {
   publicEnabled?: boolean;
   deliveryEnabled?: boolean;
   deliveryFeeCents?: number;
+  whatsappNotificationsEnabled?: boolean;
+  operationalOverride?: OperationalOverride;
 }
 
 export interface RestaurantsRepository {
