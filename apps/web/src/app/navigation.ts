@@ -1,4 +1,5 @@
 export const navigation = [
+  { path: "/notificacoes", label: "Notificações", detail: "Envios e reenvio manual de falhas.", ownerOnly: true },
   {
     path: "/",
     label: "Visão geral",

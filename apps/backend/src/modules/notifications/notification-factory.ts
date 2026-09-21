@@ -5,10 +5,14 @@ import { WhatsAppNotificationService } from "./whatsapp-notification-service.js"
 
 const notificationConfig = readNotificationConfig();
 
+export function makeWhatsAppProvider(logger?: NotificationLogger) {
+  return new DevelopmentWhatsAppProvider(logger);
+}
+
 export function makeWhatsAppNotificationService(logger?: NotificationLogger) {
   return new WhatsAppNotificationService(
     new DrizzleNotificationRepository(),
-    new DevelopmentWhatsAppProvider(logger),
+    makeWhatsAppProvider(logger),
     { publicWebUrl: notificationConfig.publicWebUrl, logger },
   );
 }

@@ -64,6 +64,7 @@ import {
   MemberNotFoundError,
 } from "../modules/auth/errors/membership-errors.js";
 import { logUnexpectedRequestError } from "./observability.js";
+import { NotificationNotFoundError, NotificationRetryConflictError } from "../modules/notifications/notification-admin-errors.js";
 
 export const errorHandler = (
   error: FastifyError,
@@ -94,6 +95,7 @@ export const errorHandler = (
   if (error instanceof AuthRateLimitError || error instanceof PublicRateLimitError) return sendDomainError(429);
 
   if (
+    error instanceof NotificationNotFoundError ||
     error instanceof RestaurantNotFoundError ||
     error instanceof PublicReservationNotFoundError ||
     error instanceof PublicOrderNotFoundError ||
@@ -129,6 +131,7 @@ export const errorHandler = (
   }
 
   if (
+    error instanceof NotificationRetryConflictError ||
     error instanceof TableNumberAlreadyExistsError ||
     error instanceof RestaurantSlugConflictError ||
     error instanceof RestaurantClosedError ||

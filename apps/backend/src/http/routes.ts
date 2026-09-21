@@ -63,7 +63,11 @@ import { updateTableController } from "../modules/tables/controllers/update-tabl
 import { getOperatingHoursController, updateOperatingHoursController } from "../modules/restaurants/controllers/operating-hours.js";
 import { createSpecialHourController, deleteSpecialHourController, listSpecialHoursController, updateSpecialHourController } from "../modules/restaurants/controllers/special-hours.js";
 
+import { listNotificationsController, retryNotificationController } from "../modules/notifications/notification-admin-controllers.js";
+
 export async function restaurantsRoutes(app: FastifyInstance) {
+  app.get("/restaurants/:restaurantId/notifications", { config: { access: "owner" } }, listNotificationsController);
+  app.post("/restaurants/:restaurantId/notifications/:notificationId/retry", { config: { access: "owner" } }, retryNotificationController);
   // === RESTAURANTS ===
   app.post(
     "/restaurants",

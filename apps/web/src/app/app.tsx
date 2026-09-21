@@ -22,6 +22,7 @@ import { RestaurantSettingsPage } from "../features/restaurant-settings/restaura
 import { InvitationAcceptancePage } from "../features/team/invitation-acceptance-page";
 import { TeamPage } from "../features/team/team-page";
 import { KitchenPage } from "../features/kitchen/kitchen-page";
+import { NotificationsPage } from "../features/notifications/notifications-page";
 
 function ProtectedRoutes() {
   const { authenticated, user } = useAuth();
@@ -81,12 +82,13 @@ function AuthRoutes() {
             />
           ))}
         <Route element={<OwnerOnly />}>
+          <Route path="/notificacoes" element={<NotificationsPage />} />
           <Route path="/cardapio" element={<CatalogPage />} />
           <Route path="/mesas" element={<TablesPage />} />
           <Route path="/configuracoes" element={<RestaurantSettingsPage />} />
           <Route path="/equipe" element={<TeamPage />} />
           {navigation
-            .filter((item) => item.ownerOnly && !["/cardapio", "/mesas", "/configuracoes", "/equipe"].includes(item.path))
+            .filter((item) => item.ownerOnly && !["/cardapio", "/mesas", "/configuracoes", "/equipe", "/notificacoes"].includes(item.path))
             .map((item) => (
               <Route
                 key={item.path}

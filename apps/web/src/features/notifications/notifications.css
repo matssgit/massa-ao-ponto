@@ -1,0 +1,13 @@
+.notifications-page { display: grid; gap: 1.25rem; }
+.notifications-page h1 { margin: .35rem 0; }
+.notification-filters { display: flex; flex-wrap: wrap; gap: 1rem; }
+.notification-filters label { display: grid; gap: .4rem; min-width: 180px; }
+.notification-list { display: grid; gap: 1rem; list-style: none; padding: 0; margin: 0; }
+.notification-list > li { border: 1px solid var(--line); border-radius: 8px; padding: 1.25rem; background: var(--surface); }
+.notification-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; }
+.notification-heading h2 { margin: 0; font-size: 1.1rem; }
+.notification-list dl { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.notification-list dt { font-size: .8rem; color: var(--muted); }
+.notification-list dd { margin: .35rem 0; }
+.notification-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 1rem; }
+@media (max-width: 620px) { .notification-filters label { width: 100%; } .notification-pagination { justify-content: center; } }

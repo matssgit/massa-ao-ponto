@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lt, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
 
 import { db } from "../../db/index.js";
 import {
@@ -8,10 +8,41 @@ import {
   reservations,
   restaurants,
 } from "../../db/schema/index.js";
-import type { NotificationRepository } from "./notification-repository.js";
+import type { NotificationAdminRepository, NotificationFilters } from "./notification-admin-repository.js";
 import type { NotificationType } from "./notification-types.js";
 
-export class DrizzleNotificationRepository implements NotificationRepository {
+export class DrizzleNotificationRepository implements NotificationAdminRepository {
+  async list(input: NotificationFilters) {
+    const where = and(
+      eq(notificationDeliveries.restaurantId, input.restaurantId),
+      input.status ? eq(notificationDeliveries.status, input.status) : undefined,
+      input.type ? eq(notificationDeliveries.type, input.type) : undefined,
+    );
+    const [items, totals] = await Promise.all([
+      db.select().from(notificationDeliveries).where(where)
+        .orderBy(desc(notificationDeliveries.createdAt), desc(notificationDeliveries.id))
+        .limit(input.limit).offset((input.page - 1) * input.limit),
+      db.select({ total: count() }).from(notificationDeliveries).where(where),
+    ]);
+    return { items, total: totals[0].total };
+  }
+  async findByIdAndRestaurantId(id: string, restaurantId: string) {
+    const [record] = await db.select().from(notificationDeliveries).where(and(
+      eq(notificationDeliveries.id, id), eq(notificationDeliveries.restaurantId, restaurantId),
+    ));
+    return record ?? null;
+  }
+  async claimFailed(id: string, restaurantId: string) {
+    const [record] = await db.update(notificationDeliveries).set({
+      status: "PENDING", attempts: sql`${notificationDeliveries.attempts} + 1`,
+      errorCode: null, sentAt: null, updatedAt: new Date(),
+    }).where(and(
+      eq(notificationDeliveries.id, id), eq(notificationDeliveries.restaurantId, restaurantId),
+      eq(notificationDeliveries.status, "FAILED"),
+    )).returning();
+    return record ?? null;
+  }
+
   async claim(input: { restaurantId: string; resourceId: string; type: NotificationType }) {
     const [delivery] = await db
       .insert(notificationDeliveries)
