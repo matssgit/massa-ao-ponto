@@ -55,6 +55,8 @@ describe("ListCustomersUseCase", () => {
       type: "PICKUP",
       status: "PENDING",
       paymentStatus: "PENDING",
+      paymentMethod: null,
+      changeForCents: null,
       subtotal: 1000,
       deliveryFee: 0,
       total: 1000,

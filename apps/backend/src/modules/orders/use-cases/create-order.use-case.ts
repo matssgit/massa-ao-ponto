@@ -15,6 +15,7 @@ import {
 } from "../../customers/use-cases/resolve-customer.use-case.js";
 import { DuplicateProductInOrderError } from "../errors/duplicate-product-in-order-error.js";
 import { InvalidDeliveryFeeError } from "../errors/invalid-delivery-fee-error.js";
+import { InvalidCashChangeError } from "../errors/invalid-cash-change-error.js";
 import { InvalidItemQuantityError } from "../errors/invalid-item-quantity-error.js";
 import { InvalidOrderTypeError } from "../errors/invalid-order-type-error.js";
 import { MissingDeliveryAddressError } from "../errors/missing-delivery-address-error.js";
@@ -57,6 +58,8 @@ interface CreateOrderBaseRequest {
     zipCode: string;
   };
   observation?: string;
+  paymentMethod?: "CASH" | "PIX" | "CARD";
+  changeForCents?: number;
   publicAccessTokenHash?: string;
   initializeDelivery?: boolean;
 }
@@ -169,6 +172,13 @@ export class CreateOrderUseCase {
     }
 
     const total = subtotal + request.deliveryFee;
+    const paymentMethod = request.paymentMethod ?? "CASH";
+    if (
+      request.changeForCents !== undefined &&
+      (paymentMethod !== "CASH" || request.changeForCents < total)
+    ) {
+      throw new InvalidCashChangeError();
+    }
 
     return await this.transactionManager.transaction(
       async ({
@@ -222,6 +232,8 @@ export class CreateOrderUseCase {
           type: request.type,
           status: "PENDING",
           paymentStatus: "PENDING",
+          paymentMethod,
+          changeForCents: request.changeForCents ?? null,
           subtotal,
           deliveryFee: request.deliveryFee,
           total,

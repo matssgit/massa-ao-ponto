@@ -17,6 +17,7 @@ import { InMemoryProductsRepository } from "../../products/repositories/in-memor
 import { InMemoryRestaurantsRepository } from "../../restaurants/repositories/in-memory-restaurants-repository.js";
 import { InMemoryTablesRepository } from "../../tables/repositories/in-memory-tables-repository.js";
 import { InvalidDeliveryFeeError } from "../errors/invalid-delivery-fee-error.js";
+import { InvalidCashChangeError } from "../errors/invalid-cash-change-error.js";
 import { MissingDeliveryAddressError } from "../errors/missing-delivery-address-error.js";
 import { ProductAddonNotFoundError } from "../../products/errors/product-addon-not-found-error.js";
 import { ProductInactiveError } from "../errors/product-inactive-error.js";
@@ -67,6 +68,39 @@ describe("CreateOrderUseCase", () => {
       productAddonsRepository,
       transactionManager,
     );
+  });
+
+  describe("payment method", () => {
+    it("persiste o método e o troco opcional para dinheiro", async () => {
+      const { restaurantId, p1 } = await createDeps();
+
+      const order = await useCase.execute({
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP",
+        paymentMethod: "CASH",
+        changeForCents: 5000,
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 0,
+      });
+
+      expect(order).toMatchObject({ paymentMethod: "CASH", changeForCents: 5000, paymentStatus: "PENDING" });
+    });
+
+    it("rejeita troco abaixo do total ou associado a método não monetário", async () => {
+      const { restaurantId, p1 } = await createDeps();
+      const base = {
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP" as const,
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 0,
+      };
+
+      await expect(useCase.execute({ ...base, paymentMethod: "CASH", changeForCents: 3000 })).rejects.toBeInstanceOf(InvalidCashChangeError);
+      await expect(useCase.execute({ ...base, paymentMethod: "PIX", changeForCents: 5000 })).rejects.toBeInstanceOf(InvalidCashChangeError);
+      expect(ordersRepository.items).toHaveLength(0);
+    });
   });
 
   async function createDeps() {

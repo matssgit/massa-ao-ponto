@@ -10,6 +10,7 @@ import { DeliveryAlreadyExistsError } from "../modules/orders/errors/delivery-al
 import { DeliveryNotFoundError } from "../modules/orders/errors/delivery-not-found-error.js";
 import { DuplicateProductInOrderError } from "../modules/orders/errors/duplicate-product-in-order-error.js";
 import { InvalidDeliveryFeeError } from "../modules/orders/errors/invalid-delivery-fee-error.js";
+import { InvalidCashChangeError } from "../modules/orders/errors/invalid-cash-change-error.js";
 import { InvalidCustomerPhoneError } from "../modules/customers/errors/invalid-customer-phone-error.js";
 import { InvalidDeliveryOrderTypeError } from "../modules/orders/errors/invalid-delivery-order-type-error.js";
 import { InvalidDeliveryStatusTransitionError } from "../modules/orders/errors/invalid-delivery-status-transition-error.js";
@@ -121,6 +122,7 @@ export const errorHandler = (
     error instanceof InvalidTimeRangeError ||
     error instanceof InvalidTimeRangeFilterError ||
     error instanceof InvalidItemQuantityError ||
+    error instanceof InvalidCashChangeError ||
     error instanceof InvalidDeliveryFeeError ||
     error instanceof MissingDeliveryAddressError ||
     error instanceof InvalidOrderTypeError ||

@@ -3,11 +3,13 @@ import { ApiClient, ApiError } from "../../lib/api-client";
 
 export const orderStatusSchema = z.enum(["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"]);
 export const orderTypeSchema = z.enum(["DELIVERY", "PICKUP", "DINE_IN"]);
+export const paymentMethodSchema = z.enum(["CASH", "PIX", "CARD"]);
 const cents = z.number().int().nonnegative();
 const timestamp = z.iso.datetime({ offset: true });
 export const orderSchema = z.object({
   id: z.uuid(), restaurantId: z.uuid(), customerId: z.uuid(), tableId: z.uuid().nullish(),
   type: orderTypeSchema, status: orderStatusSchema, paymentStatus: z.enum(["PENDING", "PAID"]),
+  paymentMethod: paymentMethodSchema.nullable(), changeForCents: cents.nullable(),
   subtotal: cents, deliveryFee: cents, total: cents,
   customerName: z.string(), customerPhone: z.string(),
   deliveryStreet: z.string().nullable(), deliveryNumber: z.string().nullable(),
@@ -49,6 +51,7 @@ export const ordersListSchema = z.object({
 export type Order = z.infer<typeof orderSchema>;
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 export type OrderType = z.infer<typeof orderTypeSchema>;
+export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type OrderDetail = z.infer<typeof orderDetailsSchema>;
 export type OrdersList = z.infer<typeof ordersListSchema>;
 export type HistoryEntry = z.infer<typeof historySchema>;
@@ -71,12 +74,18 @@ const createOrderCommon = {
   customer: createCustomerSchema,
   items: z.array(createOrderItemSchema).min(1, "Adicione pelo menos um produto."),
   observation: z.string().trim().optional(),
+  paymentMethod: paymentMethodSchema,
+  changeForCents: cents.optional(),
 };
 export const createOrderInputSchema = z.discriminatedUnion("type", [
   z.object({ ...createOrderCommon, type: z.literal("PICKUP"), deliveryFee: z.literal(0) }),
   z.object({ ...createOrderCommon, type: z.literal("DINE_IN"), tableId: z.uuid("Selecione uma mesa."), deliveryFee: z.literal(0) }),
   z.object({ ...createOrderCommon, type: z.literal("DELIVERY"), deliveryFee: cents, deliveryAddress: deliveryAddressSchema }),
-]);
+]).superRefine((input, context) => {
+  if (input.changeForCents !== undefined && input.paymentMethod !== "CASH") {
+    context.addIssue({ code: "custom", path: ["changeForCents"], message: "Troco só pode ser informado para pagamento em dinheiro." });
+  }
+});
 export type CreateOrderInput = z.infer<typeof createOrderInputSchema>;
 export interface OrdersFiltersValue {
   status?: OrderStatus;

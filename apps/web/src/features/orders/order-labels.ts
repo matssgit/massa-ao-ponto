@@ -1,4 +1,4 @@
-import type { OrderStatus, OrderType } from "./orders-service";
+import type { OrderStatus, OrderType, PaymentMethod } from "./orders-service";
 
 export const statusLabels: Record<OrderStatus, string> = {
   PENDING: "Pendente", CONFIRMED: "Confirmado", PREPARING: "Em preparo",
@@ -6,6 +6,9 @@ export const statusLabels: Record<OrderStatus, string> = {
 };
 export const typeLabels: Record<OrderType, string> = {
   DELIVERY: "Entrega", PICKUP: "Retirada", DINE_IN: "No salão",
+};
+export const paymentMethodLabels: Record<PaymentMethod, string> = {
+  CASH: "Dinheiro", PIX: "Pix", CARD: "Cartão",
 };
 export const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 export const dateTime = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));

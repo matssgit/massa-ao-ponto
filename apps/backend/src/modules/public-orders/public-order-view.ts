@@ -16,6 +16,8 @@ export function publicOrderView(order: Order, orderItems: OrderItem[], delivery:
       deliveryFee: order.deliveryFee,
       total: order.total,
       paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      changeForCents: order.changeForCents,
       createdAt: order.createdAt,
       deliveryAddress: order.type === "DELIVERY" ? {
         street: order.deliveryStreet,

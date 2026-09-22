@@ -7,6 +7,8 @@ import { publicDeliveryAddressFormSchema, publicOrderCustomerFormSchema } from "
 import { PublicReservationService } from "./service";
 import { ErrorNotice, PublicFrame, PublicMissing, usePublicQuery } from "./shared";
 import { isRestaurantOpenAt } from "../../lib/operating-hours";
+import { paymentMethodLabels } from "../orders/order-labels";
+import type { PaymentMethod } from "../orders/orders-service";
 
 type CustomerForm = { name: string; phone: string; email: string; observation: string };
 const emptyForm: CustomerForm = { name: "", phone: "", email: "", observation: "" };
@@ -22,6 +24,8 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
   const [form, setForm] = useState<CustomerForm>(emptyForm);
   const [mode, setMode] = useState<"PICKUP" | "DELIVERY">("PICKUP");
   const [address, setAddress] = useState<AddressForm>(emptyAddress);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PIX");
+  const [changeFor, setChangeFor] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<Error>();
   const [uncertain, setUncertain] = useState(false);
@@ -83,6 +87,8 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
           ...(line.addons.length ? { addons: line.addons.map(({ addon, quantity }) => ({ addonId: addon.id, quantity })) } : {}),
         })),
         ...(form.observation ? { observation: form.observation } : {}),
+        paymentMethod,
+        ...(paymentMethod === "CASH" && changeFor.trim() ? { changeForCents: Math.round(Number(changeFor.replace(",", ".")) * 100) } : {}),
       };
       const result = await service.createOrder(slug, mode === "DELIVERY" ? {
         ...common,
@@ -128,11 +134,13 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
         </div>
         <label htmlFor="order-observation">Observação (opcional)<textarea id="order-observation" value={form.observation} aria-invalid={!!errors.observation} aria-describedby={errors.observation ? "order-error-observation" : undefined} onChange={event => setForm(current => ({ ...current, observation: event.target.value }))} /></label>
         {errors.observation && <span id="order-error-observation" className="public-field-error">{errors.observation}</span>}
+        <fieldset className="public-order-mode"><legend>Pagamento</legend>{Object.entries(paymentMethodLabels).map(([value, label]) => <label key={value}><input type="radio" name="payment-method" checked={paymentMethod === value} onChange={() => { setPaymentMethod(value as PaymentMethod); setChangeFor(""); }} />{label}</label>)}{paymentMethod === "CASH" && <label htmlFor="order-change">Troco para quanto? (opcional)<input id="order-change" inputMode="decimal" placeholder="0,00" value={changeFor} onChange={(event) => setChangeFor(event.target.value)} /></label>}</fieldset>
         {mode === "DELIVERY" && <fieldset className="public-delivery-address"><legend>Endereço de entrega</legend><div className="public-fields">
           {([["street", "Rua"], ["number", "Número"], ["complement", "Complemento (opcional)"], ["neighborhood", "Bairro"], ["city", "Cidade"], ["state", "UF"], ["zipCode", "CEP"]] as const).map(([key, label]) => <div key={key}><label htmlFor={`delivery-${key}`}>{label}<input id={`delivery-${key}`} value={address[key]} aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `delivery-error-${key}` : undefined} onChange={event => setAddress(current => ({ ...current, [key]: event.target.value }))} /></label>{errors[key] && <span id={`delivery-error-${key}`} className="public-field-error">{errors[key]}</span>}</div>)}
         </div></fieldset>}
         <div className="public-confirm-actions"><button type="button" className="public-secondary" onClick={() => setStep("menu")}>Voltar ao cardápio</button><button className="public-primary" type="submit">Revisar pedido</button></div>
       </form></section>}
+      {step === "review" && <section className="public-card"><h2>Pagamento</h2><p>{paymentMethodLabels[paymentMethod]}{paymentMethod === "CASH" && changeFor.trim() ? ` · Troco para ${formatCatalogMoney(Math.round(Number(changeFor.replace(",", ".")) * 100))}` : ""}</p></section>}
       {step === "review" && <section className="public-detail"><h1 ref={stepHeading} tabIndex={-1}>Revise seu pedido</h1><p className="public-status">{mode === "DELIVERY" ? "Entrega" : "Retirada no local"}</p><section className="public-card"><h2>Itens</h2><ul className="public-order-review-items">{lines.map((line) => <li key={line.product.id}><strong>{line.quantity}× {line.product.name}</strong>{line.addons.length > 0 && <ul>{line.addons.map(({ addon, quantity }) => <li key={addon.id}>{quantity}× {addon.name}</li>)}</ul>}</li>)}</ul><dl className="public-order-estimate"><div><dt>Subtotal</dt><dd>{formatCatalogMoney(estimate)}</dd></div><div><dt>Taxa de entrega</dt><dd>{formatCatalogMoney(deliveryFee)}</dd></div><div><dt>Total estimado</dt><dd><strong>{formatCatalogMoney(estimatedGrandTotal)}</strong></dd></div></dl><small>O total confirmado na próxima tela é calculado pelo servidor.</small></section><section className="public-card"><h2>{mode === "DELIVERY" ? "Entrega e contato" : "Retirada e contato"}</h2>{mode === "DELIVERY" ? <p>{address.street}, {address.number}{address.complement && <> · {address.complement}</>}<br />{address.neighborhood} · {address.city}/{address.state}<br />CEP {address.zipCode}</p> : <p>{restaurant.name}<br />{restaurant.address}</p>}<p>{form.name}<br />{form.phone}{form.email && <><br />{form.email}</>}</p>{form.observation && <p className="public-notes">{form.observation}</p>}</section>{uncertain && <div className="public-error" role="alert" tabIndex={-1}><p>Não foi possível confirmar a resposta. O pedido pode ter sido criado. Para evitar duplicidade, não envie novamente agora; confira sua conexão e entre em contato com o restaurante.</p></div>}{submitError && !uncertain && <ErrorNotice error={submitError} />}<div className="public-confirm-actions"><button className="public-secondary" disabled={busy} onClick={() => setStep("customer")}>Editar dados</button><button className="public-primary" disabled={busy || uncertain || !restaurantOpen} onClick={() => void submit()}>{busy ? "Enviando pedido…" : "Confirmar pedido"}</button></div></section>}
     </>}
   </PublicFrame>;

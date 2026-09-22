@@ -28,6 +28,8 @@ export class InMemoryOrdersRepository implements OrdersRepository {
     const { publicAccessTokenHash, ...orderData } = data;
     const order: Order = {
       ...orderData,
+      paymentMethod: orderData.paymentMethod ?? null,
+      changeForCents: orderData.changeForCents ?? null,
       id: randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date(),

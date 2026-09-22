@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import { useAuth } from "../auth/auth-state";
 import { useRestaurant } from "../auth/restaurant-state";
-import { typeLabels } from "../orders/order-labels";
+import { paymentMethodLabels, typeLabels } from "../orders/order-labels";
 import type { OrderStatus } from "../orders/orders-service";
 import { TablesService } from "../tables/tables-service";
 import { KitchenService, kitchenStatuses, type KitchenOrder, type KitchenStatus } from "./kitchen-service";
@@ -30,7 +30,7 @@ function KitchenCard({ entry, busy, onAdvance, onPrint }: { entry: KitchenOrder;
     <header><div><strong>#{order.id.slice(0, 8)}</strong><span>{typeLabels[order.type]} · {order.customerName}</span></div><time dateTime={order.createdAt}>{elapsedTime(order.createdAt)}</time></header>
     <ul className="kitchen-items">{items.map(item => <li key={item.id}><strong><b>{item.quantity}×</b> {item.productName}</strong>{item.addons.length > 0 && <ul>{item.addons.map(addon => <li key={addon.id}>{addon.quantity}× {addon.addonName}</li>)}</ul>}</li>)}</ul>
     {order.observation && <p className="kitchen-note"><strong>Observação:</strong> {order.observation}</p>}
-    <footer><span className={`kitchen-payment kitchen-payment-${order.paymentStatus.toLowerCase()}`}>{order.paymentStatus === "PAID" ? "Pago" : "Pagamento pendente"}</span>
+    <footer><span className={`kitchen-payment kitchen-payment-${order.paymentStatus.toLowerCase()}`}>{order.paymentStatus === "PAID" ? "Pago" : "Pagamento pendente"}{order.paymentMethod ? ` · ${paymentMethodLabels[order.paymentMethod]}` : ""}</span>
       {action && <button className="primary" disabled={busy} onClick={() => onAdvance(entry, action.status)}>{busy ? "Atualizando…" : action.label}</button>}
       <button className="secondary" onClick={() => onPrint(entry)}>Imprimir comanda #{order.id.slice(0, 8)}</button>
     </footer>

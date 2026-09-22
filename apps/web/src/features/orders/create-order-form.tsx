@@ -7,7 +7,8 @@ import { formatCatalogMoney } from "../catalog/catalog-money";
 import { CatalogService, type Addon, type Product } from "../catalog/catalog-service";
 import { RestaurantSettingsService, type RestaurantDetails } from "../restaurant-settings/restaurant-settings-service";
 import { TablesService, type RestaurantTable } from "../tables/tables-service";
-import { createOrderInputSchema, type CreateOrderInput, type Order, type OrderType, type OrdersService } from "./orders-service";
+import { createOrderInputSchema, type CreateOrderInput, type Order, type OrderType, type OrdersService, type PaymentMethod } from "./orders-service";
+import { paymentMethodLabels } from "./order-labels";
 import "../admin-creation/admin-creation.css";
 
 type Line = { product: Product; quantity: number; addons: { addon: Addon; quantity: number }[] };
@@ -40,6 +41,8 @@ export function CreateOrderForm({ client, service, restaurantId, onCancel, onCre
   const [type, setType] = useState<OrderType>("PICKUP");
   const [customer, setCustomer] = useState(emptyCustomer);
   const [observation, setObservation] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PIX");
+  const [changeFor, setChangeFor] = useState("");
   const [tableId, setTableId] = useState("");
   const [address, setAddress] = useState(emptyAddress);
   const [lines, setLines] = useState<Line[]>([]);
@@ -103,6 +106,8 @@ export function CreateOrderForm({ client, service, restaurantId, onCancel, onCre
       customer: { name: customer.name, phone: customer.phone, ...(customer.email.trim() ? { email: customer.email } : {}) },
       items: lines.map((line) => ({ productId: line.product.id, quantity: line.quantity, ...(line.addons.length ? { addons: line.addons.map((entry) => ({ addonId: entry.addon.id, quantity: entry.quantity })) } : {}) })),
       ...(observation.trim() ? { observation } : {}),
+      paymentMethod,
+      ...(paymentMethod === "CASH" && changeFor.trim() ? { changeForCents: Math.round(Number(changeFor.replace(",", ".")) * 100) } : {}),
     };
     if (type === "DELIVERY") return createOrderInputSchema.parse({ ...common, type, deliveryFee: fee, deliveryAddress: address });
     if (type === "DINE_IN") return createOrderInputSchema.parse({ ...common, type, deliveryFee: 0, tableId });
@@ -133,6 +138,7 @@ export function CreateOrderForm({ client, service, restaurantId, onCancel, onCre
         {type === "DINE_IN" && <label>Mesa<select required value={tableId} onChange={(event) => setTableId(event.target.value)}><option value="">Selecione</option>{resources.tables.map((table) => <option key={table.id} value={table.id}>{table.type === "room" ? "Sala" : "Mesa"} {table.number} · {table.capacity} lugares</option>)}</select></label>}
       </fieldset>
       <CustomerFields idPrefix="order-customer" value={customer} onChange={setCustomer} />
+      <fieldset className="admin-create-fields"><legend>Pagamento</legend><label>Método<select value={paymentMethod} onChange={(event) => { setPaymentMethod(event.target.value as PaymentMethod); setChangeFor(""); }}>{Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{paymentMethod === "CASH" && <label>Troco para quanto? (opcional)<input inputMode="decimal" placeholder="0,00" value={changeFor} onChange={(event) => setChangeFor(event.target.value)} /></label>}</fieldset>
       {type === "DELIVERY" && <fieldset className="admin-create-fields"><legend>Endereço de entrega</legend>{Object.entries({ street: "Rua", number: "Número", complement: "Complemento (opcional)", neighborhood: "Bairro", city: "Cidade", state: "Estado", zipCode: "CEP" }).map(([key, label]) => <label key={key}>{label}<input required={key !== "complement"} value={address[key as keyof typeof address]} onChange={(event) => setAddress((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</fieldset>}
       <fieldset className="admin-create-fields admin-create-items"><legend>Itens</legend><label>Produto<select value={productId} onChange={(event) => setProductId(event.target.value)}><option value="">Selecione</option>{resources.products.map((product) => <option key={product.id} value={product.id}>{product.name} · {formatCatalogMoney(product.price)}</option>)}</select></label><label>Quantidade<input type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>
         {addonsLoading && <p role="status">Carregando adicionais…</p>}{productId && !addonsLoading && addons.map((addon) => <label key={addon.id}>{addon.name} (+ {formatCatalogMoney(addon.price)})<input aria-label={`Quantidade de ${addon.name}`} type="number" min="0" step="1" value={addonQuantities[addon.id] ?? "0"} onChange={(event) => setAddonQuantities((current) => ({ ...current, [addon.id]: event.target.value }))} /></label>)}
@@ -142,7 +148,7 @@ export function CreateOrderForm({ client, service, restaurantId, onCancel, onCre
       <label className="admin-create-wide">Observação<textarea value={observation} onChange={(event) => setObservation(event.target.value)} /></label>
       <dl className="admin-create-totals"><div><dt>Subtotal estimado</dt><dd>{formatCatalogMoney(estimate)}</dd></div><div><dt>Taxa estimada</dt><dd>{formatCatalogMoney(fee)}</dd></div><div><dt>Total estimado</dt><dd>{formatCatalogMoney(estimate + fee)}</dd></div></dl><p className="muted">Estimativa baseada no catálogo atual. O backend define snapshots e valores finais.</p>
       {error && <p className="error" role="alert">{error}</p>}<button className="primary" type="submit">Revisar pedido</button>
-    </form> : <div className="admin-create-review"><p><strong>{draft.type === "PICKUP" ? "Retirada" : draft.type === "DELIVERY" ? "Entrega" : "Mesa"}</strong> para {draft.customer.name}</p><ul>{lines.map((line) => <li key={line.product.id}>{line.quantity}× {line.product.name}{line.addons.map((entry) => <small key={entry.addon.id}>{entry.quantity}× {entry.addon.name}</small>)}</li>)}</ul>{draft.type === "DINE_IN" && <p>Mesa {resources.tables.find((table) => table.id === draft.tableId)?.number}</p>}{draft.type === "DELIVERY" && <p>{draft.deliveryAddress.street}, {draft.deliveryAddress.number} · {draft.deliveryAddress.neighborhood}</p>}<p>Total estimado: <strong>{formatCatalogMoney(estimate + fee)}</strong></p><p className="muted">O valor final será calculado pelo servidor. O pedido será criado com pagamento pendente.</p>
+    </form> : <div className="admin-create-review"><p><strong>{draft.type === "PICKUP" ? "Retirada" : draft.type === "DELIVERY" ? "Entrega" : "Mesa"}</strong> para {draft.customer.name}</p><ul>{lines.map((line) => <li key={line.product.id}>{line.quantity}× {line.product.name}{line.addons.map((entry) => <small key={entry.addon.id}>{entry.quantity}× {entry.addon.name}</small>)}</li>)}</ul>{draft.type === "DINE_IN" && <p>Mesa {resources.tables.find((table) => table.id === draft.tableId)?.number}</p>}{draft.type === "DELIVERY" && <p>{draft.deliveryAddress.street}, {draft.deliveryAddress.number} · {draft.deliveryAddress.neighborhood}</p>}<p>Pagamento: <strong>{paymentMethodLabels[draft.paymentMethod]}</strong>{draft.changeForCents !== undefined && <> · Troco para {formatCatalogMoney(draft.changeForCents)}</>}</p><p>Total estimado: <strong>{formatCatalogMoney(estimate + fee)}</strong></p><p className="muted">O valor final será calculado pelo servidor. O pedido será criado com pagamento pendente.</p>
       {error && <p className="error" role="alert">{error}</p>}{isUncertain ? <div className="admin-create-uncertain"><p>Não foi possível confirmar o resultado. Atualize a listagem antes de tentar novamente para evitar duplicidade.</p><button className="secondary" onClick={onUncertain}>Voltar e atualizar listagem</button></div> : <div className="admin-create-actions"><button className="secondary" disabled={busy} onClick={() => setDraft(undefined)}>Voltar e editar</button><button className="primary" disabled={busy} onClick={() => void submit()}>{busy ? "Criando pedido…" : "Confirmar pedido"}</button></div>}
     </div>}
   </section>;

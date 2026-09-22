@@ -11,7 +11,7 @@ const operatingHours = { configured: false, days: Array.from({ length: 7 }, (_, 
 const restaurant = { name: "Casa do Forno", slug: "casa-do-forno", address: "Rua das Oliveiras, 42", phone: "11987654321", timezone: "America/Sao_Paulo", deliveryEnabled: true, deliveryFeeCents: 1200, operationalOverride: "DEFAULT" as const, openNow: true, operatingHours };
 const catalog = { categories: [{ id: "22222222-2222-4222-8222-222222222222", name: "Pizzas", displayOrder: 1, products: [{ id: "33333333-3333-4333-8333-333333333333", categoryId: "22222222-2222-4222-8222-222222222222", name: "Margherita", description: "Molho, queijo e manjericão", price: 4000, displayOrder: 1, addons: [{ id: "44444444-4444-4444-8444-444444444444", name: "Borda recheada", description: "Catupiry", price: 700 }] }] }] };
 const details = {
-  order: { status: "PENDING", type: "PICKUP", subtotal: 8700, deliveryFee: 0, total: 8700, paymentStatus: "PENDING", createdAt: "2030-09-10T22:00:00.000Z", deliveryAddress: null },
+  order: { status: "PENDING", type: "PICKUP", subtotal: 8700, deliveryFee: 0, total: 8700, paymentStatus: "PENDING", paymentMethod: "PIX", changeForCents: null, createdAt: "2030-09-10T22:00:00.000Z", deliveryAddress: null },
   delivery: null,
   items: [{ productName: "Margherita", unitPrice: 4000, quantity: 2, subtotal: 8000, addons: [{ addonName: "Borda recheada", unitPrice: 700, quantity: 1, subtotal: 700 }] }],
 };
@@ -106,7 +106,7 @@ describe("Public pickup order UI", () => {
     fireEvent.click(confirm); fireEvent.click(confirm);
     expect(transport.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
     const body = JSON.parse(String(transport.mock.calls.find(([, init]) => init?.method === "POST")?.[1]?.body)) as Record<string, unknown>;
-    expect(body).toEqual({ type: "PICKUP", customer: { name: "Maria Silva", phone: "11987654321" }, items: [{ productId: catalog.categories[0].products[0].id, quantity: 1, addons: [{ addonId: catalog.categories[0].products[0].addons[0].id, quantity: 1 }] }], observation: "Sem cortar" });
+    expect(body).toEqual({ type: "PICKUP", paymentMethod: "PIX", customer: { name: "Maria Silva", phone: "11987654321" }, items: [{ productId: catalog.categories[0].products[0].id, quantity: 1, addons: [{ addonId: catalog.categories[0].products[0].addons[0].id, quantity: 1 }] }], observation: "Sem cortar" });
     expect(JSON.stringify(body)).not.toMatch(/price|subtotal|total|customerId/i);
     resolve?.(Response.json({ ...details, accessToken: token }));
     await waitFor(() => expect(screen.getByTestId("location").textContent).toBe(`/pedido/${token}`));

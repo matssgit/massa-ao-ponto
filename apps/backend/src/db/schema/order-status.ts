@@ -20,3 +20,9 @@ export const orderPaymentStatusEnum = pgEnum("order_payment_status", [
   "PENDING",
   "PAID",
 ]);
+
+export const orderPaymentMethodEnum = pgEnum("order_payment_method", [
+  "CASH",
+  "PIX",
+  "CARD",
+]);

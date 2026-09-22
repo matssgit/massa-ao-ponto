@@ -10,6 +10,7 @@ export type OrderStatus =
 export type OrderType = "DELIVERY" | "PICKUP" | "DINE_IN";
 
 export type OrderPaymentStatus = "PENDING" | "PAID";
+export type OrderPaymentMethod = "CASH" | "PIX" | "CARD";
 
 export interface CreateOrderData {
   restaurantId: string;
@@ -18,6 +19,8 @@ export interface CreateOrderData {
   type: OrderType;
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
+  paymentMethod?: OrderPaymentMethod | null;
+  changeForCents?: number | null;
   subtotal: number;
   deliveryFee: number;
   total: number;
@@ -34,13 +37,15 @@ export interface CreateOrderData {
   publicAccessTokenHash?: string | null;
 }
 
-export interface Order extends Omit<CreateOrderData, "publicAccessTokenHash"> {
+export interface Order extends Omit<CreateOrderData, "publicAccessTokenHash" | "paymentMethod" | "changeForCents"> {
   id: string;
   createdAt: Date;
   updatedAt: Date;
   customerId: string;
   tableId?: string | null;
   type: OrderType;
+  paymentMethod: OrderPaymentMethod | null;
+  changeForCents: number | null;
 }
 
 export interface ListOrdersFilters {

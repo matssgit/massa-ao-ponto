@@ -31,6 +31,8 @@ const publicDeliveryAddressSchema = z.object({
 
 const publicOrderBaseSchema = z.object({
   customer: publicCustomerSchema,
+  paymentMethod: z.enum(["CASH", "PIX", "CARD"]),
+  changeForCents: z.number().int().nonnegative().optional(),
   items: z.array(publicOrderItemSchema).min(1).max(20),
   observation: z.string().max(500).optional(),
 });

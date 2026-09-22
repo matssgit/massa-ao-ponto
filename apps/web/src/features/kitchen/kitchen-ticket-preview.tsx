@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { dateTime, statusLabels } from "../orders/order-labels";
+import { dateTime, money, paymentMethodLabels, statusLabels } from "../orders/order-labels";
 import type { KitchenOrder } from "./kitchen-service";
 
 interface KitchenTicketPreviewProps {
@@ -51,6 +51,7 @@ export function KitchenTicketPreview({ entry, restaurantName, tableNumber, onClo
           <div><dt>Cliente</dt><dd>{order.customerName}</dd></div>
           {order.type === "DELIVERY" && <div><dt>Endereço</dt><dd>{deliveryAddress(order)}</dd></div>}
           <div><dt>Status</dt><dd>{statusLabels[order.status]}</dd></div>
+          <div><dt>Pagamento</dt><dd>{order.paymentMethod ? paymentMethodLabels[order.paymentMethod] : "Não informado"}{order.changeForCents !== null ? ` · troco para ${money(order.changeForCents)}` : ""}</dd></div>
         </dl>
         <section className="kitchen-print-items" aria-labelledby="kitchen-print-items-title">
           <h3 id="kitchen-print-items-title">Itens</h3>

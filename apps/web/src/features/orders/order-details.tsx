@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import { OrderActions } from "./order-actions";
 import { OrderHistory } from "./order-history";
-import { dateTime, money, statusLabels, typeLabels } from "./order-labels";
+import { dateTime, money, paymentMethodLabels, statusLabels, typeLabels } from "./order-labels";
 import { OrdersService, type OrderAction } from "./orders-service";
 import { useOrdersQuery } from "./use-orders-query";
 
@@ -65,6 +65,8 @@ export function OrderDetails({ service, restaurantId, orderId, owner, onBack, on
             <div><dt>Tipo</dt><dd>{typeLabels[state.data.order.type]}</dd></div>
             <div><dt>Status</dt><dd>{statusLabels[state.data.order.status]}</dd></div>
             <div><dt>Pagamento</dt><dd>{state.data.order.paymentStatus === "PAID" ? "Pago" : "A pagar"}</dd></div>
+            <div><dt>Método</dt><dd>{state.data.order.paymentMethod ? paymentMethodLabels[state.data.order.paymentMethod] : "Não informado"}</dd></div>
+            {state.data.order.changeForCents !== null && <div><dt>Troco para</dt><dd>{money(state.data.order.changeForCents)}</dd></div>}
             <div><dt>Criado em</dt><dd>{dateTime(state.data.order.createdAt)}</dd></div>
             {state.data.order.tableId && <div><dt>ID da mesa</dt><dd className="orders-id">{state.data.order.tableId}</dd></div>}
             <div><dt>Subtotal</dt><dd>{money(state.data.order.subtotal)}</dd></div>

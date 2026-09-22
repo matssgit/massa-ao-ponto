@@ -10,7 +10,8 @@ export function orderDetail(): OrderDetail {
   return {
     order: {
       id: orderId, restaurantId: restaurantA, customerId: restaurantB, tableId: null,
-      type: "PICKUP", status: "PENDING", paymentStatus: "PENDING", subtotal: 5500, deliveryFee: 0, total: 5500,
+      type: "PICKUP", status: "PENDING", paymentStatus: "PENDING", paymentMethod: "PIX", changeForCents: null,
+      subtotal: 5500, deliveryFee: 0, total: 5500,
       customerName: "Ana Silva", customerPhone: "11912345678",
       deliveryStreet: null, deliveryNumber: null, deliveryComplement: null, deliveryNeighborhood: null,
       deliveryCity: null, deliveryState: null, deliveryZipCode: null, observation: "Sem cebola",

@@ -41,6 +41,8 @@ export class CreatePublicOrderUseCase {
       type: input.type,
       customer: input.customer,
       items: input.items,
+      paymentMethod: input.paymentMethod,
+      changeForCents: input.changeForCents,
       deliveryFee: input.type === "DELIVERY" ? restaurant.deliveryFeeCents : 0,
       ...(input.type === "DELIVERY" ? {
         deliveryAddress: input.deliveryAddress,

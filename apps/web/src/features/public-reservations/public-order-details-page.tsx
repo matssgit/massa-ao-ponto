@@ -4,6 +4,7 @@ import { ApiError } from "../../lib/api-client";
 import type { PublicOrderDetails } from "./schemas";
 import { PublicReservationService } from "./service";
 import { ErrorNotice, orderStatusLabels, PublicFrame, PublicMissing, usePublicQuery } from "./shared";
+import { paymentMethodLabels } from "../orders/order-labels";
 
 const paymentLabels = { PENDING: "Pendente", PAID: "Pago" };
 const pickupStages = [
@@ -145,6 +146,8 @@ export function PublicOrderDetailsPage({ service, token }: { service: PublicRese
             {data.order.deliveryAddress && <div><dt>Endereço de entrega</dt><dd>{data.order.deliveryAddress.street}, {data.order.deliveryAddress.number}{data.order.deliveryAddress.complement && <> · {data.order.deliveryAddress.complement}</>}<br />{data.order.deliveryAddress.neighborhood} · {data.order.deliveryAddress.city}/{data.order.deliveryAddress.state}<br />CEP {data.order.deliveryAddress.zipCode}</dd></div>}
             {data.delivery && <div><dt>Status da entrega</dt><dd>{data.delivery.status === "PENDING" ? "Aguardando saída" : data.delivery.status === "OUT_FOR_DELIVERY" ? "Saiu para entrega" : "Entregue"}</dd></div>}
             <div><dt>Pagamento</dt><dd><strong>{paymentLabels[data.order.paymentStatus]}</strong></dd></div>
+            <div><dt>Método</dt><dd>{data.order.paymentMethod ? paymentMethodLabels[data.order.paymentMethod] : "Não informado"}</dd></div>
+            {data.order.changeForCents !== null && <div><dt>Troco para</dt><dd>{formatCatalogMoney(data.order.changeForCents)}</dd></div>}
             <div><dt>Pedido criado em</dt><dd>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(data.order.createdAt))}</dd></div>
           </dl>
         </section>

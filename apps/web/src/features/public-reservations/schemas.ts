@@ -43,6 +43,8 @@ export const publicOrderDetailsSchema = z.object({
     deliveryFee: z.number().int().nonnegative(),
     total: z.number().int().nonnegative(),
     paymentStatus: z.enum(["PENDING", "PAID"]),
+    paymentMethod: z.enum(["CASH", "PIX", "CARD"]).nullable(),
+    changeForCents: z.number().int().nonnegative().nullable(),
     createdAt: z.iso.datetime({ offset: true }),
     deliveryAddress: z.object({
       street: z.string(), number: z.string(), complement: z.string().nullable(),
@@ -84,6 +86,8 @@ type CreatePublicOrderBase = {
   customer: { name: string; phone: string; email?: string };
   items: { productId: string; quantity: number; addons?: { addonId: string; quantity: number }[] }[];
   observation?: string;
+  paymentMethod: "CASH" | "PIX" | "CARD";
+  changeForCents?: number;
 };
 export type CreatePublicOrderInput = CreatePublicOrderBase & (
   | { type: "PICKUP" }

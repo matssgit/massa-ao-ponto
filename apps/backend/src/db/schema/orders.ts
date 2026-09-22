@@ -1,4 +1,5 @@
 import {
+  check,
   index,
   integer,
   pgTable,
@@ -7,7 +8,9 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import {
+  orderPaymentMethodEnum,
   orderPaymentStatusEnum,
   orderStatusEnum,
   orderTypeEnum,
@@ -36,6 +39,8 @@ export const orders = pgTable(
     paymentStatus: orderPaymentStatusEnum("payment_status")
       .notNull()
       .default("PENDING"),
+    paymentMethod: orderPaymentMethodEnum("payment_method"),
+    changeForCents: integer("change_for_cents"),
 
     subtotal: integer("subtotal").notNull(),
     deliveryFee: integer("delivery_fee").notNull().default(0),
@@ -65,6 +70,10 @@ export const orders = pgTable(
       publicAccessTokenHashUnique: uniqueIndex(
         "orders_public_access_token_hash_unique",
       ).on(table.publicAccessTokenHash),
+      paymentChangeCheck: check(
+        "orders_payment_change_check",
+        sql`${table.changeForCents} is null or (${table.paymentMethod} = 'CASH' and ${table.changeForCents} >= ${table.total})`,
+      ),
     };
   },
 );

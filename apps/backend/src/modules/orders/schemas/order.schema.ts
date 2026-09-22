@@ -7,6 +7,8 @@ export const createOrderParamsSchema = z.object({
 
 const createOrderBodyBaseSchema = z.object({
   type: z.enum(["DELIVERY", "PICKUP", "DINE_IN"]),
+  paymentMethod: z.enum(["CASH", "PIX", "CARD"]),
+  changeForCents: z.number().int().nonnegative().optional(),
   tableId: z.string().uuid("ID da mesa inválido.").optional(),
   items: z
     .array(
