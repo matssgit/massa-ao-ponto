@@ -1,0 +1,3 @@
+ALTER TABLE "restaurants" ADD COLUMN "pix_key" varchar(255);--> statement-breakpoint
+ALTER TABLE "restaurants" ADD COLUMN "pix_recipient_name" varchar(120);--> statement-breakpoint
+ALTER TABLE "restaurants" ADD CONSTRAINT "restaurants_pix_configuration_complete_check" CHECK (("restaurants"."pix_key" is null and "restaurants"."pix_recipient_name" is null) or ("restaurants"."pix_key" is not null and "restaurants"."pix_recipient_name" is not null));

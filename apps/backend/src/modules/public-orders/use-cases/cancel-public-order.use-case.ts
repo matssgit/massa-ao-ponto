@@ -6,6 +6,7 @@ import type { OrderTransactionManager } from "../../orders/repositories/order-tr
 import { CancelOrderUseCase } from "../../orders/use-cases/cancel-order.use-case.js";
 import { publicOrderView } from "../public-order-view.js";
 import type { DeliveriesRepository } from "../../orders/repositories/deliveries-repository.js";
+import type { RestaurantsRepository } from "../../restaurants/repositories/restaurants-repository.js";
 
 export class CancelPublicOrderUseCase {
   constructor(
@@ -13,6 +14,7 @@ export class CancelPublicOrderUseCase {
     private readonly orderItems: OrderItemsRepository,
     private readonly transactions: OrderTransactionManager,
     private readonly deliveries: DeliveriesRepository,
+    private readonly restaurants?: RestaurantsRepository,
   ) {}
 
   async execute(token: string) {
@@ -28,6 +30,12 @@ export class CancelPublicOrderUseCase {
     if (!cancelled) throw new PublicOrderNotFoundError();
     const items = await this.orderItems.findManyByOrderIds([cancelled.id]);
     const delivery = cancelled.type === "DELIVERY" ? await this.deliveries.findByOrderId(cancelled.id) : null;
-    return publicOrderView(cancelled, items, delivery);
+    const restaurant = cancelled.paymentMethod === "PIX"
+      ? await this.restaurants?.findById(cancelled.restaurantId)
+      : null;
+    const pixPayment = restaurant?.pixKey && restaurant.pixRecipientName
+      ? { key: restaurant.pixKey, recipientName: restaurant.pixRecipientName }
+      : null;
+    return publicOrderView(cancelled, items, delivery, pixPayment);
   }
 }

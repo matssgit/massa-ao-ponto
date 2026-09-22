@@ -19,14 +19,16 @@ export function RestaurantSettingsForm({ restaurant, busy, onSubmit }: { restaur
   const [deliveryFee, setDeliveryFee] = useState(centsToInput(restaurant.deliveryFeeCents));
   const [whatsappNotificationsEnabled, setWhatsappNotificationsEnabled] = useState(restaurant.whatsappNotificationsEnabled);
   const [operationalOverride, setOperationalOverride] = useState(restaurant.operationalOverride);
+  const [pixKey, setPixKey] = useState(restaurant.pixKey ?? "");
+  const [pixRecipientName, setPixRecipientName] = useState(restaurant.pixRecipientName ?? "");
   const [error, setError] = useState<string | null>(null);
-  const unchanged = name === restaurant.name && address === restaurant.address && phone === restaurant.phone && timezone === restaurant.timezone && deliveryEnabled === restaurant.deliveryEnabled && deliveryFee === centsToInput(restaurant.deliveryFeeCents) && whatsappNotificationsEnabled === restaurant.whatsappNotificationsEnabled && operationalOverride === restaurant.operationalOverride;
+  const unchanged = name === restaurant.name && address === restaurant.address && phone === restaurant.phone && timezone === restaurant.timezone && deliveryEnabled === restaurant.deliveryEnabled && deliveryFee === centsToInput(restaurant.deliveryFeeCents) && whatsappNotificationsEnabled === restaurant.whatsappNotificationsEnabled && operationalOverride === restaurant.operationalOverride && pixKey === (restaurant.pixKey ?? "") && pixRecipientName === (restaurant.pixRecipientName ?? "");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      const value = restaurantSettingsInputSchema.parse({ name, address, phone, timezone, deliveryEnabled, deliveryFeeCents: inputToCents(deliveryFee), whatsappNotificationsEnabled, operationalOverride });
-      const normalizedUnchanged = value.name === restaurant.name && value.address === restaurant.address && value.phone === restaurant.phone && value.timezone === restaurant.timezone && value.deliveryEnabled === restaurant.deliveryEnabled && value.deliveryFeeCents === restaurant.deliveryFeeCents && value.whatsappNotificationsEnabled === restaurant.whatsappNotificationsEnabled && value.operationalOverride === restaurant.operationalOverride;
+      const value = restaurantSettingsInputSchema.parse({ name, address, phone, timezone, deliveryEnabled, deliveryFeeCents: inputToCents(deliveryFee), whatsappNotificationsEnabled, operationalOverride, pixKey, pixRecipientName });
+      const normalizedUnchanged = value.name === restaurant.name && value.address === restaurant.address && value.phone === restaurant.phone && value.timezone === restaurant.timezone && value.deliveryEnabled === restaurant.deliveryEnabled && value.deliveryFeeCents === restaurant.deliveryFeeCents && value.whatsappNotificationsEnabled === restaurant.whatsappNotificationsEnabled && value.operationalOverride === restaurant.operationalOverride && value.pixKey === restaurant.pixKey && value.pixRecipientName === restaurant.pixRecipientName;
       if (normalizedUnchanged) { setError(null); return; }
       setError(null); await onSubmit(value);
     } catch (cause) { setError(issue(cause)); }
@@ -52,6 +54,11 @@ export function RestaurantSettingsForm({ restaurant, busy, onSubmit }: { restaur
     <fieldset disabled={busy}><legend>Notificações</legend>
       <label className="settings-checkbox"><input type="checkbox" checked={whatsappNotificationsEnabled} onChange={(event) => setWhatsappNotificationsEnabled(event.target.checked)} />Enviar atualizações operacionais por WhatsApp</label>
       <p className="settings-help">Usa o telefone canônico informado pelo cliente. O provider atual é somente de desenvolvimento.</p>
+    </fieldset>
+    <fieldset disabled={busy}><legend>Pix</legend>
+      <label>Chave Pix<input maxLength={255} value={pixKey} onChange={(event) => setPixKey(event.target.value)} /></label>
+      <label>Nome do favorecido<input maxLength={120} value={pixRecipientName} onChange={(event) => setPixRecipientName(event.target.value)} /></label>
+      <p className="settings-help">Preencha os dois campos para oferecer Pix nos pedidos. Deixe ambos vazios para desativar.</p>
     </fieldset>
     <fieldset disabled={busy}><legend>Entrega</legend>
       <label className="settings-checkbox"><input type="checkbox" checked={deliveryEnabled} onChange={(event) => setDeliveryEnabled(event.target.checked)} />Aceitar pedidos para entrega</label>

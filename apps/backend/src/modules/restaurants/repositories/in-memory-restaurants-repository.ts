@@ -22,6 +22,8 @@ export class InMemoryRestaurantsRepository implements RestaurantsRepository {
       deliveryEnabled: false,
       deliveryFeeCents: 0,
       whatsappNotificationsEnabled: false,
+      pixKey: null,
+      pixRecipientName: null,
       operationalOverride: "DEFAULT",
       createdAt: new Date(),
       updatedAt: new Date(),

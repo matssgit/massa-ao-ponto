@@ -55,6 +55,9 @@ export class CreatePublicOrderUseCase {
     const delivery = input.type === "DELIVERY"
       ? await this.deliveries.findByOrderId(order.id)
       : null;
-    return { accessToken, ...publicOrderView(order, items, delivery) };
+    const pixPayment = restaurant.pixKey && restaurant.pixRecipientName
+      ? { key: restaurant.pixKey, recipientName: restaurant.pixRecipientName }
+      : null;
+    return { accessToken, ...publicOrderView(order, items, delivery, pixPayment) };
   }
 }

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { InMemoryRestaurantsRepository } from "../repositories/in-memory-restaurants-repository.js";
 import { RestaurantNotFoundError } from "../errors/restaurant-not-found-error.js";
 import { UpdateRestaurantUseCase } from "./update-restaurant.use-case.js";
+import { InvalidRestaurantPixConfigError } from "../errors/invalid-restaurant-pix-config-error.js";
 
 describe("UpdateRestaurantUseCase", () => {
   let restaurantsRepository: InMemoryRestaurantsRepository;
@@ -60,6 +61,16 @@ describe("UpdateRestaurantUseCase", () => {
       address: "Rua A",
       phone: "111",
       timezone: "UTC",
+    });
+  });
+
+  it("configura Pix somente com chave e favorecido completos", async () => {
+    const restaurant = await restaurantsRepository.create({ name: "Original", address: "Rua A", phone: "111", timezone: "UTC" });
+
+    await expect(useCase.execute({ restaurantId: restaurant.id, pixKey: "pix@example.com" })).rejects.toBeInstanceOf(InvalidRestaurantPixConfigError);
+    await expect(useCase.execute({ restaurantId: restaurant.id, pixKey: "pix@example.com", pixRecipientName: "Massa ao Ponto" })).resolves.toMatchObject({
+      pixKey: "pix@example.com",
+      pixRecipientName: "Massa ao Ponto",
     });
   });
 

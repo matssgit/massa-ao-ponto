@@ -2,7 +2,8 @@ import { z } from "zod";
 import { operatingHoursSchema, specialHourSchema } from "../../lib/operating-hours";
 
 export const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-export const restaurantSchema = z.object({ name: z.string(), slug: z.string().nullable(), address: z.string(), phone: z.string().nullable(), timezone: z.string(), deliveryEnabled: z.boolean(), deliveryFeeCents: z.number().int().nonnegative(), operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]), openNow: z.boolean(), operatingHours: operatingHoursSchema, specialHours: z.array(specialHourSchema).default([]) }).strict();
+const pixPaymentSchema = z.object({ key: z.string(), recipientName: z.string() }).strict();
+export const restaurantSchema = z.object({ name: z.string(), slug: z.string().nullable(), address: z.string(), phone: z.string().nullable(), timezone: z.string(), deliveryEnabled: z.boolean(), deliveryFeeCents: z.number().int().nonnegative(), operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]), openNow: z.boolean(), operatingHours: operatingHoursSchema, specialHours: z.array(specialHourSchema).default([]), pixPayment: pixPaymentSchema.nullable().default(null) }).strict();
 const tableSchema = z.object({ number: z.string(), capacity: z.number().int().positive(), type: z.enum(["table", "room"]) }).strict();
 export const availabilitySchema = z.array(tableSchema.extend({ id: z.uuid() }).strict());
 export const detailsSchema = z.object({
@@ -52,6 +53,7 @@ export const publicOrderDetailsSchema = z.object({
     }).strict().nullable(),
   }).strict(),
   delivery: z.object({ status: z.enum(["PENDING", "OUT_FOR_DELIVERY", "DELIVERED"]) }).strict().nullable(),
+  pixPayment: pixPaymentSchema.nullable().default(null),
   items: z.array(publicOrderItemSnapshotSchema),
 }).strict();
 export const createdPublicOrderSchema = publicOrderDetailsSchema.extend({ accessToken: tokenSchema }).strict();

@@ -24,7 +24,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
   const [form, setForm] = useState<CustomerForm>(emptyForm);
   const [mode, setMode] = useState<"PICKUP" | "DELIVERY">("PICKUP");
   const [address, setAddress] = useState<AddressForm>(emptyAddress);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PIX");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [changeFor, setChangeFor] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<Error>();
@@ -134,7 +134,7 @@ export function PublicOrderPage({ service, slug }: { service: PublicReservationS
         </div>
         <label htmlFor="order-observation">Observação (opcional)<textarea id="order-observation" value={form.observation} aria-invalid={!!errors.observation} aria-describedby={errors.observation ? "order-error-observation" : undefined} onChange={event => setForm(current => ({ ...current, observation: event.target.value }))} /></label>
         {errors.observation && <span id="order-error-observation" className="public-field-error">{errors.observation}</span>}
-        <fieldset className="public-order-mode"><legend>Pagamento</legend>{Object.entries(paymentMethodLabels).map(([value, label]) => <label key={value}><input type="radio" name="payment-method" checked={paymentMethod === value} onChange={() => { setPaymentMethod(value as PaymentMethod); setChangeFor(""); }} />{label}</label>)}{paymentMethod === "CASH" && <label htmlFor="order-change">Troco para quanto? (opcional)<input id="order-change" inputMode="decimal" placeholder="0,00" value={changeFor} onChange={(event) => setChangeFor(event.target.value)} /></label>}</fieldset>
+        <fieldset className="public-order-mode"><legend>Pagamento</legend>{(["CASH", ...(restaurant.pixPayment ? ["PIX"] : []), "CARD"] as PaymentMethod[]).map((value) => <label key={value}><input type="radio" name="payment-method" checked={paymentMethod === value} onChange={() => { setPaymentMethod(value); setChangeFor(""); }} />{paymentMethodLabels[value]}</label>)}{paymentMethod === "CASH" && <label htmlFor="order-change">Troco para quanto? (opcional)<input id="order-change" inputMode="decimal" placeholder="0,00" value={changeFor} onChange={(event) => setChangeFor(event.target.value)} /></label>}</fieldset>
         {mode === "DELIVERY" && <fieldset className="public-delivery-address"><legend>Endereço de entrega</legend><div className="public-fields">
           {([["street", "Rua"], ["number", "Número"], ["complement", "Complemento (opcional)"], ["neighborhood", "Bairro"], ["city", "Cidade"], ["state", "UF"], ["zipCode", "CEP"]] as const).map(([key, label]) => <div key={key}><label htmlFor={`delivery-${key}`}>{label}<input id={`delivery-${key}`} value={address[key]} aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `delivery-error-${key}` : undefined} onChange={event => setAddress(current => ({ ...current, [key]: event.target.value }))} /></label>{errors[key] && <span id={`delivery-error-${key}`} className="public-field-error">{errors[key]}</span>}</div>)}
         </div></fieldset>}

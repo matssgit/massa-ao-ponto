@@ -4,12 +4,14 @@ import type { OrderItemsRepository } from "../../orders/repositories/order-items
 import type { OrdersRepository } from "../../orders/repositories/orders-repository.js";
 import { publicOrderView } from "../public-order-view.js";
 import type { DeliveriesRepository } from "../../orders/repositories/deliveries-repository.js";
+import type { RestaurantsRepository } from "../../restaurants/repositories/restaurants-repository.js";
 
 export class GetPublicOrderUseCase {
   constructor(
     private readonly orders: OrdersRepository,
     private readonly orderItems: OrderItemsRepository,
     private readonly deliveries: DeliveriesRepository,
+    private readonly restaurants?: RestaurantsRepository,
   ) {}
 
   async execute(token: string) {
@@ -18,6 +20,12 @@ export class GetPublicOrderUseCase {
     if (!order) throw new PublicOrderNotFoundError();
     const items = await this.orderItems.findManyByOrderIds([order.id]);
     const delivery = order.type === "DELIVERY" ? await this.deliveries.findByOrderId(order.id) : null;
-    return publicOrderView(order, items, delivery);
+    const restaurant = order.paymentMethod === "PIX"
+      ? await this.restaurants?.findById(order.restaurantId)
+      : null;
+    const pixPayment = restaurant?.pixKey && restaurant.pixRecipientName
+      ? { key: restaurant.pixKey, recipientName: restaurant.pixRecipientName }
+      : null;
+    return publicOrderView(order, items, delivery, pixPayment);
   }
 }

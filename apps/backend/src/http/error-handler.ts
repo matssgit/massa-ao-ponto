@@ -39,6 +39,8 @@ import { ReservationConflictError } from "../modules/reservations/errors/reserva
 import { ReservationNotFoundError } from "../modules/reservations/errors/reservation-not-found-error.js";
 import { RestaurantNotFoundError } from "../modules/restaurants/errors/restaurant-not-found-error.js";
 import { InvalidRestaurantPublicConfigError } from "../modules/restaurants/errors/invalid-restaurant-public-config-error.js";
+import { InvalidRestaurantPixConfigError } from "../modules/restaurants/errors/invalid-restaurant-pix-config-error.js";
+import { PixPaymentUnavailableError } from "../modules/orders/errors/pix-payment-unavailable-error.js";
 import { RestaurantSlugConflictError } from "../modules/restaurants/errors/restaurant-slug-conflict-error.js";
 import { RestaurantClosedError } from "../modules/restaurants/errors/restaurant-closed-error.js";
 import { SpecialHourConflictError, SpecialHourNotFoundError } from "../modules/restaurants/errors/special-hours-errors.js";
@@ -128,6 +130,8 @@ export const errorHandler = (
     error instanceof InvalidOrderTypeError ||
     error instanceof InvalidPeriodFilterError ||
     error instanceof InvalidCustomerPhoneError
+    || error instanceof InvalidRestaurantPixConfigError
+    || error instanceof PixPaymentUnavailableError
   ) {
     return sendDomainError(400);
   }

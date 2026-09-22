@@ -4,6 +4,7 @@ import {
 } from "../repositories/restaurants-repository.js";
 
 import { InvalidRestaurantPublicConfigError } from "../errors/invalid-restaurant-public-config-error.js";
+import { InvalidRestaurantPixConfigError } from "../errors/invalid-restaurant-pix-config-error.js";
 import { RestaurantNotFoundError } from "../errors/restaurant-not-found-error.js";
 import { RestaurantSlugConflictError } from "../errors/restaurant-slug-conflict-error.js";
 import { normalizeRestaurantSlug } from "../restaurant-slug.js";
@@ -29,6 +30,14 @@ export class UpdateRestaurantUseCase {
     const nextSlug = normalizedSlug === undefined ? restaurant.slug : normalizedSlug;
     const nextPublicEnabled = data.publicEnabled ?? restaurant.publicEnabled;
     if (nextPublicEnabled && !nextSlug) throw new InvalidRestaurantPublicConfigError();
+
+    const nextPixKey = data.pixKey === undefined ? restaurant.pixKey ?? null : data.pixKey;
+    const nextPixRecipientName = data.pixRecipientName === undefined
+      ? restaurant.pixRecipientName ?? null
+      : data.pixRecipientName;
+    if (Boolean(nextPixKey) !== Boolean(nextPixRecipientName)) {
+      throw new InvalidRestaurantPixConfigError();
+    }
 
     if (nextSlug) {
       const existing = await this.restaurantsRepository.findBySlug(nextSlug);

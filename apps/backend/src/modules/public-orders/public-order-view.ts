@@ -2,7 +2,17 @@ import type { OrderItem } from "../orders/repositories/order-items-repository.js
 import type { Order } from "../orders/repositories/orders-repository.js";
 import type { Delivery } from "../orders/repositories/deliveries-repository.js";
 
-export function publicOrderView(order: Order, orderItems: OrderItem[], delivery: Delivery | null = null) {
+interface PublicPixPayment {
+  key: string;
+  recipientName: string;
+}
+
+export function publicOrderView(
+  order: Order,
+  orderItems: OrderItem[],
+  delivery: Delivery | null = null,
+  pixPayment: PublicPixPayment | null = null,
+) {
   const items = [...orderItems].sort((left, right) => {
     const dateDiff = left.createdAt.getTime() - right.createdAt.getTime();
     return dateDiff || left.id.localeCompare(right.id);
@@ -30,6 +40,7 @@ export function publicOrderView(order: Order, orderItems: OrderItem[], delivery:
       } : null,
     },
     delivery: delivery ? { status: delivery.status } : null,
+    pixPayment: order.paymentMethod === "PIX" ? pixPayment : null,
     items: items.map((item) => ({
       productName: item.productName,
       unitPrice: item.unitPrice,

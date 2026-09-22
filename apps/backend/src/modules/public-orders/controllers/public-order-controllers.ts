@@ -48,6 +48,7 @@ export async function getPublicOrderController(request: FastifyRequest, reply: F
     new DrizzleOrdersRepository(),
     new DrizzleOrderItemsRepository(),
     new DrizzleDeliveriesRepository(),
+    new DrizzleRestaurantsRepository(),
   ).execute(token);
   return reply.status(200).send(result);
 }
@@ -59,6 +60,7 @@ export async function cancelPublicOrderController(request: FastifyRequest, reply
     new DrizzleOrderItemsRepository(),
     new DrizzleOrderTransactionManager(),
     new DrizzleDeliveriesRepository(),
+    new DrizzleRestaurantsRepository(),
   ).execute(token);
   return reply.status(200).send(result);
 }

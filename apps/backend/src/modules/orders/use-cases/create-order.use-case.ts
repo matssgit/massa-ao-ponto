@@ -25,6 +25,7 @@ import { ProductAddonsRepository } from "../../products/repositories/product-add
 import { ProductInactiveError } from "../errors/product-inactive-error.js";
 import { ProductNotFoundError } from "../errors/product-not-found-error.js";
 import { ProductRestaurantMismatchError } from "../errors/product-restaurant-mismatch-error.js";
+import { PixPaymentUnavailableError } from "../errors/pix-payment-unavailable-error.js";
 import { ProductsRepository } from "../../products/repositories/products-repository.js";
 import { RestaurantNotFoundError } from "../../restaurants/errors/restaurant-not-found-error.js";
 import { RestaurantsRepository } from "../../restaurants/repositories/restaurants-repository.js";
@@ -94,6 +95,12 @@ export class CreateOrderUseCase {
       request.restaurantId,
     );
     if (!restaurant) throw new RestaurantNotFoundError();
+    if (
+      request.paymentMethod === "PIX" &&
+      (!restaurant.pixKey || !restaurant.pixRecipientName)
+    ) {
+      throw new PixPaymentUnavailableError();
+    }
 
     const productIds = request.items.map((i) => i.productId);
     const uniqueProductIds = new Set(productIds);

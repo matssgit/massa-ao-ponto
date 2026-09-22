@@ -33,6 +33,8 @@ function OwnerRestaurantSettings({ restaurantId }: { restaurantId: string }) {
     if (value.deliveryFeeCents !== state.data.deliveryFeeCents) changes.deliveryFeeCents = value.deliveryFeeCents;
     if (value.whatsappNotificationsEnabled !== state.data.whatsappNotificationsEnabled) changes.whatsappNotificationsEnabled = value.whatsappNotificationsEnabled;
     if (value.operationalOverride !== state.data.operationalOverride) changes.operationalOverride = value.operationalOverride;
+    if (value.pixKey !== state.data.pixKey) changes.pixKey = value.pixKey;
+    if (value.pixRecipientName !== state.data.pixRecipientName) changes.pixRecipientName = value.pixRecipientName;
     if (Object.keys(changes).length === 0) return false;
     pending.current = true; setBusy(true); setNotice(null);
     try {

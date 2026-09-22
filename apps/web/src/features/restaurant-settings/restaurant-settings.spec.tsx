@@ -10,7 +10,7 @@ import type { RestaurantDetails } from "./restaurant-settings-service";
 const restaurantA = "11111111-1111-4111-8111-111111111111";
 const restaurantB = "22222222-2222-4222-8222-222222222222";
 const timestamp = "2026-09-04T12:00:00.000Z";
-const details: RestaurantDetails = { id: restaurantA, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, whatsappNotificationsEnabled: false, operationalOverride: "DEFAULT", createdAt: timestamp, updatedAt: timestamp };
+const details: RestaurantDetails = { id: restaurantA, name: "Massa Centro", address: "Rua A, 10", phone: "11999999999", timezone: "America/Sao_Paulo", deliveryEnabled: false, deliveryFeeCents: 0, whatsappNotificationsEnabled: false, operationalOverride: "DEFAULT", pixKey: null, pixRecipientName: null, createdAt: timestamp, updatedAt: timestamp };
 type Handler = (url: URL, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 function fixture(options: { memberships?: Membership[]; handler?: Handler } = {}) {
@@ -87,6 +87,16 @@ describe("Restaurant Settings UI", () => {
     expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({ whatsappNotificationsEnabled: true });
   });
 
+  it("allows OWNER to configure Pix", async () => {
+    const { detailRequests } = fixture(); await screen.findByLabelText("Chave Pix");
+    await userEvent.type(screen.getByLabelText("Chave Pix"), "pix@example.com");
+    await userEvent.type(screen.getByLabelText("Nome do favorecido"), "Massa ao Ponto");
+    await userEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    await screen.findByText("Configurações atualizadas.");
+    const patch = detailRequests().find(([, init]) => init?.method === "PATCH");
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({ pixKey: "pix@example.com", pixRecipientName: "Massa ao Ponto" });
+  });
+
   it("allows OWNER to close the Restaurant temporarily", async () => {
     const { detailRequests } = fixture(); await screen.findByLabelText("Funcionamento atual");
     await userEvent.selectOptions(screen.getByLabelText("Funcionamento atual"), "CLOSED");
@@ -130,7 +140,7 @@ describe("Restaurant Settings UI", () => {
   it("validates blank fields without dispatching PATCH", async () => {
     const { detailRequests } = fixture(); await screen.findByLabelText("Nome do restaurante");
     await userEvent.clear(screen.getByLabelText("Nome do restaurante")); fireEvent.submit(screen.getByRole("form", { name: "Configurações do restaurante" }));
-    await screen.findByRole("alert"); expect(detailRequests().filter(([, init]) => init?.method === "PATCH")).toHaveLength(0);
+    await screen.findByText("Informe o nome do restaurante."); expect(detailRequests().filter(([, init]) => init?.method === "PATCH")).toHaveLength(0);
   });
 
   it("resets the form and ignores stale detail responses after Restaurant changes", async () => {

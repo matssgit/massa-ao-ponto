@@ -13,9 +13,14 @@ export const restaurantSchema = z.object({
   deliveryFeeCents: z.number().int().nonnegative(),
   whatsappNotificationsEnabled: z.boolean(),
   operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]),
+  pixKey: z.string().nullable().default(null),
+  pixRecipientName: z.string().nullable().default(null),
   createdAt: timestamp,
   updatedAt: timestamp,
 });
+
+const nullableTrimmed = (max: number, message: string) =>
+  z.string().trim().max(max, message).transform((value) => value === "" ? null : value).nullable();
 
 export const restaurantSettingsInputSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do restaurante.").max(255, "O nome deve ter no máximo 255 caracteres."),
@@ -26,6 +31,12 @@ export const restaurantSettingsInputSchema = z.object({
   deliveryFeeCents: z.number().int().nonnegative(),
   whatsappNotificationsEnabled: z.boolean(),
   operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]),
+  pixKey: nullableTrimmed(255, "A chave Pix deve ter no máximo 255 caracteres.").default(null),
+  pixRecipientName: nullableTrimmed(120, "O nome do favorecido deve ter no máximo 120 caracteres.").default(null),
+}).superRefine((value, context) => {
+  if ((value.pixKey === null) !== (value.pixRecipientName === null)) {
+    context.addIssue({ code: "custom", path: ["pixKey"], message: "Informe a chave Pix e o nome do favorecido juntos." });
+  }
 });
 
 export type RestaurantDetails = z.infer<typeof restaurantSchema>;

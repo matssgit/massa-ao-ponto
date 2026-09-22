@@ -23,6 +23,7 @@ import { ProductAddonNotFoundError } from "../../products/errors/product-addon-n
 import { ProductInactiveError } from "../errors/product-inactive-error.js";
 import { ProductNotFoundError } from "../errors/product-not-found-error.js";
 import { ProductRestaurantMismatchError } from "../errors/product-restaurant-mismatch-error.js";
+import { PixPaymentUnavailableError } from "../errors/pix-payment-unavailable-error.js";
 import { randomUUID } from "node:crypto";
 
 describe("CreateOrderUseCase", () => {
@@ -98,8 +99,25 @@ describe("CreateOrderUseCase", () => {
       };
 
       await expect(useCase.execute({ ...base, paymentMethod: "CASH", changeForCents: 3000 })).rejects.toBeInstanceOf(InvalidCashChangeError);
-      await expect(useCase.execute({ ...base, paymentMethod: "PIX", changeForCents: 5000 })).rejects.toBeInstanceOf(InvalidCashChangeError);
+      await expect(useCase.execute({ ...base, paymentMethod: "CARD", changeForCents: 5000 })).rejects.toBeInstanceOf(InvalidCashChangeError);
       expect(ordersRepository.items).toHaveLength(0);
+    });
+
+    it("exige configuração Pix e mantém o pagamento pendente quando disponível", async () => {
+      const { restaurantId, p1 } = await createDeps();
+      const input = {
+        restaurantId,
+        customer: { name: "Cliente", phone: "11988887777" },
+        type: "PICKUP" as const,
+        paymentMethod: "PIX" as const,
+        items: [{ productId: p1.id, quantity: 1 }],
+        deliveryFee: 0,
+      };
+
+      await expect(useCase.execute(input)).rejects.toBeInstanceOf(PixPaymentUnavailableError);
+      await restaurantsRepository.update(restaurantId, { pixKey: "pix@example.com", pixRecipientName: "Massa ao Ponto" });
+
+      await expect(useCase.execute(input)).resolves.toMatchObject({ paymentMethod: "PIX", paymentStatus: "PENDING" });
     });
   });
 

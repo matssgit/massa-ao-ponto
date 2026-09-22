@@ -16,6 +16,9 @@ export function publicRestaurantView(restaurant: Restaurant, operatingHours: Ope
     timezone: restaurant.timezone,
     deliveryEnabled: restaurant.deliveryEnabled,
     deliveryFeeCents: restaurant.deliveryFeeCents,
+    pixPayment: restaurant.pixKey && restaurant.pixRecipientName
+      ? { key: restaurant.pixKey, recipientName: restaurant.pixRecipientName }
+      : null,
     operationalOverride: restaurant.operationalOverride,
     openNow: isRestaurantOpenAt(operatingHours, restaurant.timezone, new Date(), restaurant.operationalOverride, specialHours),
     operatingHours: operatingHoursView(operatingHours),

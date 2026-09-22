@@ -17,6 +17,8 @@ export const updateRestaurantBodySchema = createRestaurantSchema.partial().exten
   deliveryEnabled: z.boolean().optional(),
   deliveryFeeCents: z.number().int().min(0).optional(),
   whatsappNotificationsEnabled: z.boolean().optional(),
+  pixKey: z.string().trim().min(1).max(255).nullable().optional(),
+  pixRecipientName: z.string().trim().min(1).max(120).nullable().optional(),
   operationalOverride: z.enum(["DEFAULT", "OPEN", "CLOSED"]).optional(),
 });
 

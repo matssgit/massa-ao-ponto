@@ -11,6 +11,8 @@ export interface Restaurant {
   deliveryEnabled: boolean;
   deliveryFeeCents: number;
   whatsappNotificationsEnabled: boolean;
+  pixKey?: string | null;
+  pixRecipientName?: string | null;
   operationalOverride: OperationalOverride;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +35,8 @@ export interface UpdateRestaurantInput {
   deliveryEnabled?: boolean;
   deliveryFeeCents?: number;
   whatsappNotificationsEnabled?: boolean;
+  pixKey?: string | null;
+  pixRecipientName?: string | null;
   operationalOverride?: OperationalOverride;
 }
 

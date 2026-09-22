@@ -56,6 +56,7 @@ export function PublicOrderDetailsPage({ service, token }: { service: PublicRese
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const [success, setSuccess] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
   const submitting = useRef(false);
   const alive = useRef(true);
   const action = useRef<HTMLButtonElement>(null);
@@ -110,6 +111,15 @@ export function PublicOrderDetailsPage({ service, token }: { service: PublicRese
     }
   }
 
+  async function copyPixKey(key: string) {
+    try {
+      await navigator.clipboard.writeText(key);
+      setCopyMessage("Chave Pix copiada.");
+    } catch {
+      setCopyMessage("Não foi possível copiar automaticamente. Selecione a chave para copiar.");
+    }
+  }
+
   const data = displayed ?? query.data;
   const invalid = !data && query.error instanceof ApiError && [400, 404].includes(query.error.status);
   const cancellable = data && data.order.paymentStatus === "PENDING" && ["PENDING", "CONFIRMED"].includes(data.order.status);
@@ -130,6 +140,17 @@ export function PublicOrderDetailsPage({ service, token }: { service: PublicRese
           </div>
         </div>
         {query.error !== undefined && displayed && <ErrorNotice error={query.error} retry={refresh} />}
+        {data.order.paymentMethod === "PIX" && data.order.paymentStatus === "PENDING" && data.pixPayment && <section className="public-card" aria-labelledby="pix-payment-title">
+          <h2 id="pix-payment-title">Pagamento via Pix</h2>
+          <p>Faça o pagamento e aguarde a confirmação do restaurante.</p>
+          <dl className="public-detail-list">
+            <div><dt>Favorecido</dt><dd>{data.pixPayment.recipientName}</dd></div>
+            <div><dt>Chave Pix</dt><dd><code>{data.pixPayment.key}</code></dd></div>
+          </dl>
+          <button className="public-secondary" type="button" onClick={() => void copyPixKey(data.pixPayment!.key)}>Copiar chave Pix</button>
+          <p aria-live="polite">{copyMessage}</p>
+        </section>}
+        {data.order.paymentMethod === "PIX" && data.order.paymentStatus === "PAID" && <p className="public-success" role="status">Pagamento via Pix confirmado.</p>}
         <section className="public-card">
           <h2>Resumo do pedido</h2>
           <ul className="public-order-snapshots">{data.items.map((item, index) =>

@@ -23,6 +23,8 @@ export const restaurants = pgTable("restaurants", {
   whatsappNotificationsEnabled: boolean("whatsapp_notifications_enabled")
     .default(false)
     .notNull(),
+  pixKey: varchar("pix_key", { length: 255 }),
+  pixRecipientName: varchar("pix_recipient_name", { length: 120 }),
   operationalOverride: operationalOverrideEnum("operational_override")
     .default("DEFAULT")
     .notNull(),
@@ -45,6 +47,10 @@ export const restaurants = pgTable("restaurants", {
   deliveryFeeNonnegative: check(
     "restaurants_delivery_fee_nonnegative_check",
     sql`${table.deliveryFeeCents} >= 0`,
+  ),
+  pixConfigurationComplete: check(
+    "restaurants_pix_configuration_complete_check",
+    sql`(${table.pixKey} is null and ${table.pixRecipientName} is null) or (${table.pixKey} is not null and ${table.pixRecipientName} is not null)`,
   ),
 }));
 
