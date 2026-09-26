@@ -11,7 +11,9 @@ if (!element) throw new Error("Elemento root ausente.");
 const root = createRoot(element);
 try {
   const service = new AuthService(
-    new ApiClient(validateApiUrl(import.meta.env.VITE_API_URL)),
+    new ApiClient(validateApiUrl(
+      import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "/api" : undefined),
+    )),
   );
   root.render(
     <StrictMode>

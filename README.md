@@ -95,9 +95,27 @@ Use Node.js 22.13+ da linha 22 ou 24+ (validado com 24.19.0) e o pnpm do workspa
 pnpm install --frozen-lockfile
 ```
 
-Crie `apps/web/.env.local` conforme `apps/web/.env.example`, configurando `VITE_API_URL` com a URL HTTP(S) pública do backend. Em desenvolvimento local, o exemplo aponta para `http://localhost:3333`. `VITE_*` é incorporado ao bundle público: nunca coloque senhas, tokens ou credenciais de banco nessas variáveis. Ausência/URL inválida mostra um erro de configuração e não tenta uma API implícita.
+Com Docker Desktop iniciado (Linux containers), crie `apps/backend/.env` a partir de `apps/backend/.env.example` somente se ele ainda não existir. O exemplo corresponde ao Compose local: `DATABASE_URL=postgresql://admin:adminpassword@localhost:5432/massaaoponto`, `NODE_ENV=development`, `PORT=3333`, `AUTH_ALLOWED_ORIGINS=http://localhost:5173` e `AUTH_COOKIE_SECURE=false`. Essas credenciais são exclusivas do PostgreSQL de desenvolvimento.
 
-No ambiente do backend, configure `AUTH_ALLOWED_ORIGINS` com a origin exata exibida pelo Vite (por exemplo, `http://localhost:5173`) e a política de cookie local descrita abaixo. Em terminais separados, na raiz:
+Na raiz, após instalar as dependências:
+
+```bash
+docker compose up --build --force-recreate -d postgres
+```
+
+O Compose local utiliza a imagem oficial `postgres:16-alpine`; não há imagem de aplicação para construir nesse fluxo. O backend e o frontend executam pelo pnpm. Aguarde `docker compose exec -T postgres pg_isready -U admin -d massaaoponto` indicar que aceita conexões. Em `apps/backend`, aplique todo o histórico oficial (atualmente `0000`–`0020`):
+
+```bash
+pnpm db:migrate
+```
+
+Não use schema push nem altere migrations históricas. O diretório `.data/postgres` persiste o banco entre recriações; uma máquina sem esse diretório começa sem dados.
+
+`apps/web/.env.local` é opcional em desenvolvimento: sem `VITE_API_URL`, o bootstrap usa `/api` e o Vite encaminha para `http://127.0.0.1:3333`, removendo o prefixo. Para configurar explicitamente, use `VITE_API_URL=/api` conforme `.env.example`. O proxy mantém Origin, cookies e headers de autenticação. Se alterar a porta do backend, ajuste também o target em `apps/web/vite.config.ts`.
+
+Em produção, `VITE_API_URL` continua obrigatória: use `/api` com o reverse proxy de produção ou uma URL HTTP(S) válida. Não há fallback para localhost no bundle de produção. Valores explicitamente inválidos continuam mostrando o erro de configuração. `VITE_*` é público e nunca deve conter segredos.
+
+Em terminais separados, na raiz:
 
 ```bash
 pnpm dev:backend
@@ -107,7 +125,7 @@ pnpm dev:backend
 pnpm dev:web
 ```
 
-O Vite usa porta estrita: se ela estiver ocupada, ajuste explicitamente a porta e a allowlist em conjunto. Use o mesmo hostname nos dois lados; não misture `localhost` e `127.0.0.1`. Para autenticar, use uma conta criada pelo procedimento administrativo abaixo. Nenhuma credencial de demonstração é incluída.
+Abra `http://localhost:5173`. O Vite usa porta estrita; se alterar porta/hostname do frontend, ajuste a allowlist do backend em conjunto. Para autenticar em banco novo, execute o [provisionamento administrativo de OWNER](#provisionamento-administrativo-inicial) descrito abaixo com seus próprios dados. Não há credenciais de demonstração.
 
 O client envia `credentials: include`, `X-Auth-Request: 1` nas mutações e CSRF nas mutações autenticadas. Login é seguido por `GET /auth/session`. CSRF e restaurante selecionado ficam somente em memória; cookies continuam sob controle do navegador. OWNER vê Relatórios/Configurações; STAFF mantém a navegação operacional. Isso não substitui a autorização do backend.
 
@@ -304,7 +322,7 @@ CORS responde com `Access-Control-Allow-Credentials: true` e somente a origin ex
 
 ## Provisionamento administrativo inicial
 
-Em terminal local confiável, com acesso administrativo ao PostgreSQL e migrations `0000`–`0010` já aplicadas, forneça as variáveis abaixo **somente no ambiente da execução**. Confirme o banco de destino em `DATABASE_URL` antes de executar; o comando não pede confirmação interativa nem aplica migrations.
+Em terminal local confiável, com acesso administrativo ao PostgreSQL e migrations `0000` até a atual já aplicadas, forneça as variáveis abaixo **somente no ambiente da execução**. Confirme o banco de destino em `DATABASE_URL` antes de executar; o comando não pede confirmação interativa nem aplica migrations.
 
 | Variável | Entrada obrigatória |
 | --- | --- |
@@ -322,6 +340,24 @@ pnpm auth:provision-owner
 ```
 
 `DATABASE_URL` usa a configuração existente do backend (ambiente ou `.env`). As entradas de provisionamento são validadas antes de carregar esse `.env`: não grave senha nem variáveis `PROVISION_*` em arquivos do repositório. Injete o segredo por ferramenta confiável ou prompt mascarado; não digite a senha literalmente em comandos que fiquem no histórico. O comando rejeita argumentos. Remova as variáveis de provisionamento do terminal após a execução; variáveis de ambiente não protegem contra administradores/processos locais privilegiados.
+
+Exemplo PowerShell para banco local sem OWNER (em `apps/backend`), sem senha no histórico:
+
+```powershell
+$env:PROVISION_OWNER_EMAIL = Read-Host 'Email do OWNER'
+$env:PROVISION_RESTAURANT_NAME = Read-Host 'Nome do restaurante'
+$env:PROVISION_RESTAURANT_ADDRESS = Read-Host 'Endereco'
+$env:PROVISION_RESTAURANT_PHONE = Read-Host 'Telefone'
+$env:PROVISION_RESTAURANT_TIMEZONE = Read-Host 'Timezone (ex.: America/Sao_Paulo)'
+$ownerSecret = Read-Host 'Senha (12 a 1024 caracteres)' -AsSecureString
+try {
+  $env:PROVISION_OWNER_PASSWORD = [System.Net.NetworkCredential]::new('', $ownerSecret).Password
+  pnpm auth:provision-owner
+} finally {
+  Remove-Item Env:PROVISION_OWNER_EMAIL, Env:PROVISION_OWNER_PASSWORD, Env:PROVISION_RESTAURANT_NAME, Env:PROVISION_RESTAURANT_ADDRESS, Env:PROVISION_RESTAURANT_PHONE, Env:PROVISION_RESTAURANT_TIMEZONE -ErrorAction SilentlyContinue
+  $ownerSecret.Dispose()
+}
+```
 
 O comando cria um User ativo, um Restaurant novo e uma membership `OWNER` ativa na mesma transação. Reutiliza o Use Case de criação de Restaurant. E-mail já existente, inclusive de User inativo, causa falha sem adoção ou sobrescrita; membership duplicada também falha. O modelo não possui unicidade por nome/endereço de Restaurant: nomes repetidos são permitidos. Qualquer falha durante a transação desfaz os três registros.
 
